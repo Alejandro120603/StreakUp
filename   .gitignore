@@ -81,3 +81,45 @@ dist/
 # Codex output (IA artifacts)
 # =========================
 Codex/output/
+
+# =========================
+# Node.js
+# =========================
+node_modules/
+
+# =========================
+# Next.js
+# =========================
+.next/
+out/
+
+
+# =========================
+# Next.js env files
+# =========================
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# =========================
+# Frontend build
+# =========================
+.next/
+dist/
+coverage/
+
+# =========================
+# npm logs
+# =========================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Capacitor
+# =========================
+android/build/
+android/app/build/
+ios/DerivedData/
