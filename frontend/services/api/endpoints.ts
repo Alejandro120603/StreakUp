@@ -1,7 +1,7 @@
 export const API_ENDPOINTS = {
   auth: {
-    login: "/auth/login",
-    register: "/auth/register"
+    login: "/api/auth/login",
+    register: "/api/auth/register"
   },
   habits: {
     list: "/habits",

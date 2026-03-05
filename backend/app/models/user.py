@@ -1,15 +1,52 @@
 """
-User model placeholder module.
+User model module.
 
 Responsibility:
 - Define persistence structure for user entities.
-
-Should contain:
-- User SQLAlchemy model fields and relationships.
-- Model-level constraints relevant to persistence.
-
-Should NOT contain:
-- Authentication business workflows.
-- Request/response handling.
-- Cross-service orchestration.
+- Password hashing and verification at model level.
 """
+
+from datetime import datetime, timezone
+
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from app.extensions import db
+
+
+class User(db.Model):
+    """User entity with secure password storage."""
+
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default="user")
+    created_at = db.Column(
+        db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    def set_password(self, password: str) -> None:
+        """Hash and store the given plain-text password."""
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password: str) -> bool:
+        """Verify a plain-text password against the stored hash."""
+        return check_password_hash(self.password_hash, password)
+
+    def to_dict(self) -> dict:
+        """Return a JSON-safe representation (never expose password_hash)."""
+        return {
+            "id": self.id,
+            "username": self.username,
+            "email": self.email,
+            "role": self.role,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

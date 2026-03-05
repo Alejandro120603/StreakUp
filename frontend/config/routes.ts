@@ -1,5 +1,7 @@
 export const routes = {
   home: "/",
   mobile: "/",
-  admin: "/admin"
+  admin: "/admin",
+  login: "/login",
+  register: "/register",
 } as const;

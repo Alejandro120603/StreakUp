@@ -1,15 +1,18 @@
 """
-Error handling utilities placeholder module.
+Error handling utilities module.
 
 Responsibility:
-- Define consistent error formatting and exception translation utilities.
-
-Should contain:
-- Shared error response helpers.
-- Mapping from internal exceptions to API-safe structures.
-
-Should NOT contain:
-- Business logic.
-- Route implementation details.
-- Persistence entity definitions.
+- Define consistent error formatting for API responses.
 """
+
+from flask import jsonify
+
+
+def error_response(message: str | list[str], status_code: int = 400):
+    """Return a standardized JSON error response."""
+    if isinstance(message, list):
+        body = {"errors": message}
+    else:
+        body = {"error": message}
+
+    return jsonify(body), status_code
