@@ -36,6 +36,10 @@ def register_user(username: str, email: str, password: str) -> dict:
     db.session.add(user)
     db.session.commit()
 
+    # Seed a default habit for every new user
+    from app.services.habit_service import seed_default_habit
+    seed_default_habit(user.id)
+
     return user.to_dict()
 
 
