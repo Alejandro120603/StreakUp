@@ -44,7 +44,7 @@ export default function HabitsPage() {
   }
 
   return (
-    <div className="pt-8 pb-4">
+    <div className="pt-8 pb-4 max-w-lg mx-auto px-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

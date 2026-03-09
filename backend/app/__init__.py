@@ -30,14 +30,22 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     # Register blueprints
     from app.routes.auth_routes import auth_bp
     from app.routes.habit_routes import habits_bp
+    from app.routes.checkin_routes import checkins_bp
+    from app.routes.stats_routes import stats_bp
+    from app.routes.pomodoro_routes import pomodoro_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(habits_bp, url_prefix="/api/habits")
+    app.register_blueprint(checkins_bp, url_prefix="/api/checkins")
+    app.register_blueprint(stats_bp, url_prefix="/api/stats")
+    app.register_blueprint(pomodoro_bp, url_prefix="/api/pomodoro")
 
     # Create database tables in development
     with app.app_context():
         from app.models.user import User  # noqa: F401
         from app.models.habit import Habit  # noqa: F401
+        from app.models.checkin import CheckIn  # noqa: F401
+        from app.models.pomodoro_session import PomodoroSession  # noqa: F401
 
         from .extensions import db
 

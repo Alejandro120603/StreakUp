@@ -104,7 +104,7 @@ export default function EditHabitPage() {
   }
 
   return (
-    <div className="pt-6 pb-4">
+    <div className="pt-6 pb-4 max-w-lg mx-auto px-4">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <Link
