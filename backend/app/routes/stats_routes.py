@@ -3,12 +3,14 @@ Stats routes module.
 
 Responsibility:
 - HTTP endpoints for user statistics.
+- HTTP endpoint for user statistics summary.
 """
 
 from flask import Blueprint, jsonify
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.services.stats_service import get_summary, get_detailed_stats
+from app.services.stats_service import get_summary
 
 stats_bp = Blueprint("stats", __name__)
 

@@ -11,6 +11,7 @@ from collections import defaultdict
 from sqlalchemy import func
 
 from app.extensions import db
+
 from app.models.checkin import CheckIn
 from app.models.habit import Habit
 
@@ -173,6 +174,17 @@ def _compute_current_streak(user_id: int, today: date_type) -> int:
             streak += 1
             check_date -= timedelta(days=1)
         else:
+    streak = 0
+    check_date = today
+    while True:
+        day_checkins = CheckIn.query.filter_by(
+            user_id=user_id, date=check_date
+        ).count()
+        if day_checkins > 0:
+            streak += 1
+            check_date -= timedelta(days=1)
+        else:
+            # If we're checking today and no checkins yet, check yesterday
             if check_date == today and streak == 0:
                 check_date -= timedelta(days=1)
                 continue
@@ -203,3 +215,10 @@ def _compute_longest_streak(user_id: int) -> int:
             current = 1
     return longest
 
+
+    return {
+        "streak": streak,
+        "today_completed": today_completed,
+        "today_total": today_total,
+        "completion_rate": completion_rate,
+    }

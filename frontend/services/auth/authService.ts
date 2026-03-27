@@ -8,6 +8,9 @@ import type { AuthSession } from "@/types/auth";
 const OFFLINE_LOGIN_ERROR = "No hay conexión. Usa una sesión guardada previamente.";
 const OFFLINE_REGISTER_ERROR = "No hay conexión. El registro requiere internet.";
 
+import { apiRequest, API_ENDPOINTS } from "@/services/api/client";
+import type { AuthSession } from "@/types/auth";
+
 export interface LoginPayload {
   email: string;
   password: string;
@@ -89,6 +92,11 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
     }
     throw error;
   }
+  return apiRequest<LoginResponse>({
+    path: API_ENDPOINTS.auth.login,
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 /**
@@ -105,6 +113,11 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
     }
     throw error;
   }
+  return apiRequest<RegisterResponse>({
+    path: API_ENDPOINTS.auth.register,
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 /**
@@ -120,6 +133,11 @@ export function saveSession(data: LoginResponse): void {
     window.localStorage.setItem("refresh_token", data.refresh_token);
   }
   window.localStorage.setItem("user", JSON.stringify(data.user));
+  localStorage.setItem("access_token", data.access_token);
+  if (data.refresh_token) {
+    localStorage.setItem("refresh_token", data.refresh_token);
+  }
+  localStorage.setItem("user", JSON.stringify(data.user));
 }
 
 /**
@@ -132,6 +150,8 @@ export function getSession(): AuthSession | null {
 
   const token = window.localStorage.getItem("access_token");
   const userJson = window.localStorage.getItem("user");
+  const token = localStorage.getItem("access_token");
+  const userJson = localStorage.getItem("user");
 
   if (!token || !userJson) return null;
 
@@ -140,6 +160,7 @@ export function getSession(): AuthSession | null {
     return {
       accessToken: token,
       refreshToken: window.localStorage.getItem("refresh_token") ?? undefined,
+      refreshToken: localStorage.getItem("refresh_token") ?? undefined,
       user,
     };
   } catch {
@@ -162,4 +183,7 @@ export function clearSession(): void {
 
 export function hasSavedSession(): boolean {
   return getSession() !== null;
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("user");
 }

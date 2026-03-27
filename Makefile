@@ -14,6 +14,9 @@ GRADLE_USER_HOME ?= /tmp/streakup-gradle
 OFFLINE_MODE ?= false
 
 .PHONY: help venv install_requirements run_backend run_frontend run_local dev build_frontend sync_android open_android build_apk update-apk-auto db-init db-open db-clean db-dump db-backup
+DB_PATH := data/app.db
+
+.PHONY: db-init db-open db-clean db-dump db-backup help
 
 help: ## Show available commands
 	@echo "Commands:"; grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/: ##/' | awk 'BEGIN {FS="##"}; {printf "  %-20s %s\n", $$1, $$2}'

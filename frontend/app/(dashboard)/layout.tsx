@@ -21,6 +21,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hasSavedSession()) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
       router.replace("/login");
     } else {
       setAuthed(true);
@@ -69,3 +71,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

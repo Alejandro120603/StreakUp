@@ -12,6 +12,8 @@ import { login, saveSession } from "@/services/auth/authService";
 
 export default function LoginPage() {
   const router = useRouter();
+
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -28,6 +30,31 @@ export default function LoginPage() {
       router.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión.");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+      const res = await fetch(`${apiUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || data.errors?.join(", ") || "Error al iniciar sesión");
+        return;
+      }
+
+      // Store tokens
+      localStorage.setItem("access_token", data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem("refresh_token", data.refresh_token);
+      }
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // Redirect to home
+      window.location.href = "/";
+    } catch {
+      setError("No se pudo conectar con el servidor.");
     } finally {
       setIsLoading(false);
     }
