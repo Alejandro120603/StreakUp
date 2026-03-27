@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
     detail: (id: number) => `/api/habits/${id}`,
     update: (id: number) => `/api/habits/${id}`,
     delete: (id: number) => `/api/habits/${id}`,
+    validate: "/api/habits/validate",
   },
   checkins: {
     toggle: "/api/checkins/toggle",
