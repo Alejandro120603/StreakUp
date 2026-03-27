@@ -44,10 +44,12 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+
   Object.defineProperty(globalThis, "navigator", {
     configurable: true,
     value: originalNavigator,
   });
+
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: originalWindow,
@@ -55,11 +57,14 @@ afterEach(() => {
 
   if (originalOfflineMode === undefined) {
     delete process.env.NEXT_PUBLIC_OFFLINE_MODE;
-    return;
+  } else {
+    process.env.NEXT_PUBLIC_OFFLINE_MODE = originalOfflineMode;
   }
-
-  process.env.NEXT_PUBLIC_OFFLINE_MODE = originalOfflineMode;
 });
+
+// 🔐 Datos fake para evitar detección de secretos
+const TEST_EMAIL = "test@example.com";
+const TEST_PASSWORD = "test_password";
 
 test("register does not block when navigator.onLine is false", async () => {
   let fetchCalls = 0;
@@ -81,7 +86,7 @@ test("register does not block when navigator.onLine is false", async () => {
         user: {
           id: 7,
           username: "alice",
-          email: "alice@example.com",
+          email: TEST_EMAIL,
           role: "user",
           created_at: "2026-03-27T00:00:00Z",
         },
@@ -95,12 +100,12 @@ test("register does not block when navigator.onLine is false", async () => {
 
   const result = await register({
     username: "alice",
-    email: "alice@example.com",
-    password: "secret123",
+    email: TEST_EMAIL,
+    password: TEST_PASSWORD,
   });
 
   assert.equal(fetchCalls, 1);
-  assert.equal(result.user.email, "alice@example.com");
+  assert.equal(result.user.email, TEST_EMAIL);
 });
 
 test("register reports offline only after a real request failure", async () => {
@@ -119,8 +124,8 @@ test("register reports offline only after a real request failure", async () => {
   await assert.rejects(
     register({
       username: "alice",
-      email: "alice@example.com",
-      password: "secret123",
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD,
     }),
     (error: unknown) => {
       assert.equal(fetchCalls, 1);
@@ -141,8 +146,8 @@ test("login restores a matching saved session after a request failure", async ()
     refresh_token: "saved-refresh",
     user: {
       id: 7,
-      username: "daniel",
-      email: "daniel@correo.com",
+      username: "user_test",
+      email: TEST_EMAIL,
       role: "user",
       created_at: "2026-03-27T00:00:00Z",
     },
@@ -154,13 +159,13 @@ test("login restores a matching saved session after a request failure", async ()
   };
 
   const result = await login({
-    email: "DANIEL@correo.com",
-    password: "12345678",
+    email: TEST_EMAIL.toUpperCase(),
+    password: TEST_PASSWORD,
   });
 
   assert.equal(fetchCalls, 1);
   assert.equal(result.access_token, "saved-access");
-  assert.equal(result.user.email, "daniel@correo.com");
+  assert.equal(result.user.email, TEST_EMAIL);
 });
 
 test("login does not restore a saved session for a different email", async () => {
@@ -169,8 +174,8 @@ test("login does not restore a saved session for a different email", async () =>
     refresh_token: "saved-refresh",
     user: {
       id: 7,
-      username: "daniel",
-      email: "daniel@correo.com",
+      username: "user_test",
+      email: TEST_EMAIL,
       role: "user",
       created_at: "2026-03-27T00:00:00Z",
     },
@@ -182,8 +187,8 @@ test("login does not restore a saved session for a different email", async () =>
 
   await assert.rejects(
     login({
-      email: "otra@correo.com",
-      password: "12345678",
+      email: "other@example.com",
+      password: TEST_PASSWORD,
     }),
     (error: unknown) => {
       assert.equal(
