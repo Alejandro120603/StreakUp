@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 import { fetchHabits, deleteHabit } from "@/services/habits/habitService";
 import type { Habit } from "@/types/habits";
+import { SECTION_ICONS } from "@/types/habits";
 
 export default function HabitsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -93,7 +94,7 @@ export default function HabitsPage() {
             >
               {/* Icon */}
               <div className="flex items-center justify-center size-11 rounded-xl bg-[#1A1A2E] text-2xl shrink-0">
-                {habit.icon}
+                {SECTION_ICONS[habit.section] ?? habit.icon}
               </div>
 
               {/* Name & Frequency */}
