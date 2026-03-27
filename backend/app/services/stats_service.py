@@ -6,6 +6,11 @@ Responsibility:
 """
 
 from datetime import date as date_type, timedelta
+from collections import defaultdict
+
+from sqlalchemy import func
+
+from app.extensions import db
 
 from app.models.checkin import CheckIn
 from app.models.habit import Habit
@@ -33,6 +38,142 @@ def get_summary(user_id: int) -> dict:
     completion_rate = round((week_checkins / week_possible * 100)) if week_possible > 0 else 0
 
     # Current streak (consecutive days with at least 1 check-in)
+    streak = _compute_current_streak(user_id, today)
+
+    return {
+        "streak": streak,
+        "today_completed": today_completed,
+        "today_total": today_total,
+        "completion_rate": completion_rate,
+    }
+
+
+def get_detailed_stats(user_id: int) -> dict:
+    """Return detailed statistics for the stats dashboard."""
+    today = date_type.today()
+    daily_habits = Habit.query.filter_by(user_id=user_id, frequency="daily").all()
+    total_habits = len(daily_habits)
+
+    # --- Weekly history (last 7 days, check-ins per day) ---
+    day_names_es = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+    weekly_history = []
+    for i in range(6, -1, -1):
+        d = today - timedelta(days=i)
+        count = CheckIn.query.filter_by(user_id=user_id, date=d).count()
+        weekly_history.append({
+            "date": d.isoformat(),
+            "label": day_names_es[d.weekday()],
+            "completed": count,
+            "total": total_habits,
+        })
+
+    # --- Per-habit stats (last 7 days) ---
+    week_ago = today - timedelta(days=6)
+    per_habit = []
+    for habit in daily_habits:
+        completed_days = CheckIn.query.filter(
+            CheckIn.habit_id == habit.id,
+            CheckIn.user_id == user_id,
+            CheckIn.date >= week_ago,
+            CheckIn.date <= today,
+        ).count()
+        per_habit.append({
+            "id": habit.id,
+            "name": habit.name,
+            "icon": habit.icon,
+            "completed": completed_days,
+            "total": 7,
+            "rate": round(completed_days / 7 * 100) if completed_days > 0 else 0,
+        })
+
+    # --- 30-day streak calendar ---
+    month_ago = today - timedelta(days=29)
+    month_checkins = (
+        db.session.query(CheckIn.date, func.count(CheckIn.id))
+        .filter(
+            CheckIn.user_id == user_id,
+            CheckIn.date >= month_ago,
+            CheckIn.date <= today,
+        )
+        .group_by(CheckIn.date)
+        .all()
+    )
+    checkin_map = {d.isoformat(): c for d, c in month_checkins}
+    calendar = []
+    for i in range(29, -1, -1):
+        d = today - timedelta(days=i)
+        count = checkin_map.get(d.isoformat(), 0)
+        # intensity: 0 = none, 1 = low, 2 = mid, 3 = high
+        if total_habits == 0:
+            intensity = 0
+        elif count == 0:
+            intensity = 0
+        elif count < total_habits * 0.5:
+            intensity = 1
+        elif count < total_habits:
+            intensity = 2
+        else:
+            intensity = 3
+        calendar.append({
+            "date": d.isoformat(),
+            "count": count,
+            "intensity": intensity,
+        })
+
+    # --- Records ---
+    current_streak = _compute_current_streak(user_id, today)
+    longest_streak = _compute_longest_streak(user_id)
+
+    # Best day (most check-ins in a single day)
+    best_day_result = (
+        db.session.query(CheckIn.date, func.count(CheckIn.id).label("cnt"))
+        .filter(CheckIn.user_id == user_id)
+        .group_by(CheckIn.date)
+        .order_by(func.count(CheckIn.id).desc())
+        .first()
+    )
+    best_day = best_day_result.cnt if best_day_result else 0
+
+    # Total check-ins all time
+    total_checkins = CheckIn.query.filter_by(user_id=user_id).count()
+
+    # Weekly completion rate
+    week_checkins = CheckIn.query.filter(
+        CheckIn.user_id == user_id,
+        CheckIn.date >= week_ago,
+        CheckIn.date <= today,
+    ).count()
+    week_possible = total_habits * 7
+    completion_rate = round(week_checkins / week_possible * 100) if week_possible > 0 else 0
+
+    return {
+        "summary": {
+            "streak": current_streak,
+            "completion_rate": completion_rate,
+            "total_completed": total_checkins,
+            "total_habits": total_habits,
+        },
+        "weekly_history": weekly_history,
+        "per_habit": per_habit,
+        "calendar": calendar,
+        "records": {
+            "longest_streak": longest_streak,
+            "best_day": best_day,
+            "current_streak": current_streak,
+        },
+    }
+
+
+def _compute_current_streak(user_id: int, today: date_type) -> int:
+    """Compute consecutive days with at least 1 check-in."""
+    streak = 0
+    check_date = today
+    while True:
+        day_count = CheckIn.query.filter_by(user_id=user_id, date=check_date).count()
+        if day_count > 0:
+            streak += 1
+            check_date -= timedelta(days=1)
+        else:
     streak = 0
     check_date = today
     while True:
@@ -48,6 +189,32 @@ def get_summary(user_id: int) -> dict:
                 check_date -= timedelta(days=1)
                 continue
             break
+    return streak
+
+
+def _compute_longest_streak(user_id: int) -> int:
+    """Compute the longest streak ever for a user."""
+    dates = (
+        db.session.query(CheckIn.date)
+        .filter(CheckIn.user_id == user_id)
+        .distinct()
+        .order_by(CheckIn.date)
+        .all()
+    )
+    if not dates:
+        return 0
+
+    longest = 1
+    current = 1
+    sorted_dates = [d[0] for d in dates]
+    for i in range(1, len(sorted_dates)):
+        if sorted_dates[i] - sorted_dates[i - 1] == timedelta(days=1):
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 1
+    return longest
+
 
     return {
         "streak": streak,
