@@ -29,3 +29,5 @@ class Config:
 
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me-jwt-secret")
     DEBUG = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

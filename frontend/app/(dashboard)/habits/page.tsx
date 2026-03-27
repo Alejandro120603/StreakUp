@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Pencil, Trash2, X, Camera } from "lucide-react";
 import { fetchHabits, deleteHabit } from "@/services/habits/habitService";
 import type { Habit } from "@/types/habits";
+import { SECTION_ICONS } from "@/types/habits";
 
 export default function HabitsPage() {
+  const router = useRouter();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -93,7 +96,7 @@ export default function HabitsPage() {
             >
               {/* Icon */}
               <div className="flex items-center justify-center size-11 rounded-xl bg-[#1A1A2E] text-2xl shrink-0">
-                {habit.icon}
+                {SECTION_ICONS[habit.section] ?? habit.icon}
               </div>
 
               {/* Name & Frequency */}
@@ -127,7 +130,15 @@ export default function HabitsPage() {
               ) : (
                 // Normal actions
                 <>
+                  <button
+                    onClick={() => router.push(`/habits/${habit.id}/validate`)}
+                    className="flex items-center justify-center size-9 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                    title="Validar con imagen"
+                  >
+                    <Camera className="size-4" />
+                  </button>
                   <Link
+                    href={`/habits/edit?id=${habit.id}`}
                     href={`/habits/${habit.id}/edit`}
                     className="flex items-center justify-center size-9 rounded-lg text-muted-foreground hover:text-white hover:bg-[#1A1A2E] transition-colors"
                   >

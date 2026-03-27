@@ -2,11 +2,16 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Mail, Lock, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { login, saveSession } from "@/services/auth/authService";
+
+export default function LoginPage() {
+  const router = useRouter();
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -20,6 +25,11 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      const data = await login({ email, password });
+      saveSession(data);
+      router.replace("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo iniciar sesión.");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
       const res = await fetch(`${apiUrl}/api/auth/login`, {
         method: "POST",

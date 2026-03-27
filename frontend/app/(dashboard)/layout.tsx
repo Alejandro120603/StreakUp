@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, ListChecks, BarChart3, UserCircle } from "lucide-react";
 import type { ReactNode } from "react";
+import { hasSavedSession } from "@/services/auth/authService";
 
 const NAV_ITEMS = [
   { href: "/", icon: Home, label: "Inicio" },
@@ -19,6 +20,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [authed, setAuthed] = useState(false);
 
   useEffect(() => {
+    if (!hasSavedSession()) {
     const token = localStorage.getItem("access_token");
     if (!token) {
       router.replace("/login");

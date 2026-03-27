@@ -10,6 +10,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Habit } from "@/types/habits";
 
+const PREDEFINED_HABITS = [
+  "Beber agua",
+  "Ejercicio",
+  "Meditar",
+  "Día sin quejas",
+  "Trabajo profundo",
+  "Completar tareas clave",
+  "Levantarse en hora establecida",
+  "Evitar distracciones",
+  "Avanzar proyectos personales",
+  "Leer",
+  "Practar idioma",
+  "Tender la cama",
+] as const;
+
 const HABIT_TYPES = [
   { value: "boolean", label: "Sí / No" },
   { value: "time", label: "Tiempo" },
@@ -33,7 +48,7 @@ export default function EditHabitPage() {
   const params = useParams();
   const habitId = Number(params.id);
 
-  const [name, setName] = useState("");
+  const [name, setName] = useState<string>(PREDEFINED_HABITS[0]);
   const [habitType, setHabitType] = useState<"boolean" | "time" | "quantity">("boolean");
   const [frequency, setFrequency] = useState<"daily" | "weekly">("daily");
   const [section, setSection] = useState<"fire" | "plant" | "moon">("fire");
@@ -54,7 +69,10 @@ export default function EditHabitPage() {
           setError("Hábito no encontrado.");
           return;
         }
-        setName(habit.name);
+        const loadedName = PREDEFINED_HABITS.includes(habit.name as typeof PREDEFINED_HABITS[number])
+          ? habit.name
+          : PREDEFINED_HABITS[0];
+        setName(loadedName);
         setHabitType(habit.habit_type);
         setFrequency(habit.frequency);
         setSection(habit.section);
@@ -130,13 +148,18 @@ export default function EditHabitPage() {
         {/* Name */}
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-white">Nombre del hábito</Label>
-          <Input
+          <select
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ej: Leer 30 minutos"
             required
-            className="h-12 bg-[#1A1A2E] border-[#2A2A3E] text-white placeholder:text-muted-foreground rounded-xl focus-visible:ring-[#5D5FEF]/50 focus-visible:border-[#5D5FEF]"
-          />
+            className="w-full h-12 px-4 bg-[#1A1A2E] border border-[#2A2A3E] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5D5FEF]/50 focus:border-[#5D5FEF] transition-colors appearance-none cursor-pointer"
+          >
+            {PREDEFINED_HABITS.map((habit) => (
+              <option key={habit} value={habit} className="bg-[#1A1A2E] text-white">
+                {habit}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Habit Type */}

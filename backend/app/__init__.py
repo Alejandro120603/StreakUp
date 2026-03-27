@@ -33,12 +33,14 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     from app.routes.checkin_routes import checkins_bp
     from app.routes.stats_routes import stats_bp
     from app.routes.pomodoro_routes import pomodoro_bp
+    from app.routes.validation_routes import validation_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(habits_bp, url_prefix="/api/habits")
     app.register_blueprint(checkins_bp, url_prefix="/api/checkins")
     app.register_blueprint(stats_bp, url_prefix="/api/stats")
     app.register_blueprint(pomodoro_bp, url_prefix="/api/pomodoro")
+    app.register_blueprint(validation_bp, url_prefix="/api/habits")
 
     # Create database tables in development
     with app.app_context():
@@ -46,9 +48,12 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         from app.models.habit import Habit  # noqa: F401
         from app.models.checkin import CheckIn  # noqa: F401
         from app.models.pomodoro_session import PomodoroSession  # noqa: F401
+        from app.models.validation_log import ValidationLog  # noqa: F401
+        from app.services.auth_service import ensure_seed_user
 
         from .extensions import db
 
         db.create_all()
+        ensure_seed_user()
 
     return app

@@ -3,6 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Flame, Clock, TrendingUp, Plus, Check } from "lucide-react";
+import { fetchTodayHabits, toggleCheckin } from "@/services/checkins/checkinService";
+import { fetchStatsSummary } from "@/services/stats/statsService";
+import type { TodayHabit } from "@/types/checkins";
+import type { StatsSummary } from "@/types/stats";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -47,12 +51,22 @@ const POMODORO_THEMES = [
 ];
 
 export default function DashboardHomePage() {
+  const [stats, setStats] = useState<StatsSummary>({ streak: 0, today_completed: 0, today_total: 0, completion_rate: 0 });
   const [stats, setStats] = useState<Stats>({ streak: 0, today_completed: 0, today_total: 0, completion_rate: 0 });
   const [todayHabits, setTodayHabits] = useState<TodayHabit[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
+      const [statsData, habitsData] = await Promise.all([
+        fetchStatsSummary(),
+        fetchTodayHabits(),
+      ]);
+      setStats(statsData);
+      setTodayHabits(habitsData);
+    } catch {
+      setStats({ streak: 0, today_completed: 0, today_total: 0, completion_rate: 0 });
+      setTodayHabits([]);
       const [statsRes, habitsRes] = await Promise.all([
         fetch(`${API_URL}/api/stats/summary`, { headers: getAuthHeaders() }),
         fetch(`${API_URL}/api/checkins/today`, { headers: getAuthHeaders() }),
@@ -77,6 +91,10 @@ export default function DashboardHomePage() {
 
   async function toggleHabit(habitId: number) {
     try {
+      await toggleCheckin({ habit_id: habitId });
+      const [statsData, habitsData] = await Promise.all([fetchStatsSummary(), fetchTodayHabits()]);
+      setStats(statsData);
+      setTodayHabits(habitsData);
       const res = await fetch(`${API_URL}/api/checkins/toggle`, {
         method: "POST",
         headers: getAuthHeaders(),

@@ -18,6 +18,10 @@ import {
   Globe,
   ChevronRight,
 } from "lucide-react";
+import { getSession } from "@/services/auth/authService";
+import { fetchProfileStats } from "@/services/stats/statsService";
+import type { AuthUser } from "@/types/auth";
+import type { ProfileStats } from "@/types/stats";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -55,6 +59,7 @@ const ACHIEVEMENTS = [
 ];
 
 export default function ProfilePage() {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<ProfileStats>({
     streak: 0, today_completed: 0, today_total: 0, completion_rate: 0, habits_count: 0,
@@ -63,6 +68,21 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function fetchData() {
+      const session = getSession();
+      if (session) {
+        setUser(session.user);
+      }
+
+      try {
+        setStats(await fetchProfileStats());
+      } catch {
+        setStats({
+          streak: 0,
+          today_completed: 0,
+          today_total: 0,
+          completion_rate: 0,
+          habits_count: 0,
+        });
       // Get user from localStorage
       const userJson = localStorage.getItem("user");
       if (userJson) {

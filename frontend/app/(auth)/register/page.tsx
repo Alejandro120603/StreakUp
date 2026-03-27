@@ -2,11 +2,16 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Mail, Lock, User, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { register } from "@/services/auth/authService";
+
+export default function RegisterPage() {
+  const router = useRouter();
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
@@ -28,6 +33,10 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
+      await register({ username, email, password });
+      router.replace("/login");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo crear la cuenta.");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
       const res = await fetch(`${apiUrl}/api/auth/register`, {
         method: "POST",

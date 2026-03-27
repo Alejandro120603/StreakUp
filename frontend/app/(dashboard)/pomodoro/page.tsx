@@ -7,6 +7,12 @@ import { ArrowLeft, Play, Pause, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  completePomodoroSession,
+  createPomodoroSession,
+  fetchPomodoroSessions,
+} from "@/services/pomodoro/pomodoroService";
+import type { PomodoroSession, PomodoroTheme } from "@/types/pomodoro";
 
 const THEMES = {
   fire: { label: "Fuego", bg: "from-orange-950 to-[#0A0A0A]", accent: "#F97316" },
@@ -15,6 +21,7 @@ const THEMES = {
   hourglass: { label: "Reloj", bg: "from-amber-950 to-[#0A0A0A]", accent: "#D97706" },
 };
 
+type ThemeKey = PomodoroTheme;
 type ThemeKey = keyof typeof THEMES;
 type TimerState = "idle" | "focus" | "break" | "finished";
 
@@ -152,6 +159,12 @@ function PomodoroContent() {
   const [totalSeconds, setTotalSeconds] = useState(25 * 60);
   const [currentCycle, setCurrentCycle] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [recentSessions, setRecentSessions] = useState<PomodoroSession[]>([]);
+  const [sessionError, setSessionError] = useState("");
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const completingSessionRef = useRef(false);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -161,6 +174,18 @@ function PomodoroContent() {
       intervalRef.current = null;
     }
   }, []);
+
+  const loadRecentSessions = useCallback(async () => {
+    try {
+      setRecentSessions(await fetchPomodoroSessions(5));
+    } catch {
+      setRecentSessions([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRecentSessions();
+  }, [loadRecentSessions]);
 
   // Timer tick
   useEffect(() => {
@@ -196,6 +221,23 @@ function PomodoroContent() {
     return () => clearTimer();
   }, [timerState, isPaused, currentCycle, cycles, breakMinutes, studyMinutes, clearTimer]);
 
+  async function startTimer() {
+    setSessionError("");
+
+    try {
+      const session = await createPomodoroSession({
+        theme: themeKey,
+        study_minutes: studyMinutes,
+        break_minutes: breakMinutes,
+        cycles,
+      });
+      setActiveSessionId(session.id);
+      setRecentSessions((prev) => [session, ...prev.filter((existing) => existing.id !== session.id)].slice(0, 5));
+    } catch (error) {
+      setSessionError(error instanceof Error ? error.message : "No se pudo iniciar la sesión.");
+      return;
+    }
+
   function startTimer() {
     const secs = studyMinutes * 60;
     setSecondsLeft(secs);
@@ -203,6 +245,7 @@ function PomodoroContent() {
     setCurrentCycle(1);
     setTimerState("focus");
     setIsPaused(false);
+    completingSessionRef.current = false;
   }
 
   function togglePause() {
@@ -216,6 +259,27 @@ function PomodoroContent() {
     setTotalSeconds(studyMinutes * 60);
     setIsPaused(false);
     setCurrentCycle(1);
+    setActiveSessionId(null);
+    completingSessionRef.current = false;
+  }
+
+  useEffect(() => {
+    if (timerState !== "finished" || activeSessionId === null || completingSessionRef.current) {
+      return;
+    }
+
+    completingSessionRef.current = true;
+
+    void completePomodoroSession(activeSessionId)
+      .then((session) => {
+        setRecentSessions((prev) => [session, ...prev.filter((existing) => existing.id !== session.id)].slice(0, 5));
+        setSessionError("");
+      })
+      .catch((error) => {
+        setSessionError(error instanceof Error ? error.message : "No se pudo completar la sesión.");
+      });
+  }, [activeSessionId, timerState]);
+
   }
 
   const minutes = Math.floor(secondsLeft / 60);
@@ -330,6 +394,11 @@ function PomodoroContent() {
 
         {/* Controls */}
         <div className="w-full space-y-3">
+          {sessionError && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {sessionError}
+            </div>
+          )}
           {timerState === "idle" ? (
             <Button
               onClick={startTimer}
@@ -366,6 +435,48 @@ function PomodoroContent() {
                 Finalizar sesión
               </Button>
             </>
+          )}
+        </div>
+
+        <div className="mt-6 w-full rounded-xl border border-[#2A2A3E] bg-[#111127]/80 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-white">Sesiones recientes</h3>
+            <button
+              type="button"
+              onClick={() => void loadRecentSessions()}
+              className="text-xs text-[#5D5FEF] hover:text-[#7B7DF7] transition-colors"
+            >
+              Recargar
+            </button>
+          </div>
+
+          {recentSessions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aún no hay sesiones guardadas.</p>
+          ) : (
+            <div className="space-y-2">
+              {recentSessions.map((session) => (
+                <div
+                  key={session.id}
+                  className="flex items-center justify-between rounded-xl border border-[#2A2A3E] bg-[#1A1A2E] px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-white">
+                      {THEMES[session.theme]?.label ?? "Pomodoro"} · {session.study_minutes}m
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {session.cycles} ciclo{session.cycles === 1 ? "" : "s"} · descanso {session.break_minutes}m
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs font-semibold ${
+                      session.completed ? "text-green-400" : "text-amber-300"
+                    }`}
+                  >
+                    {session.completed ? "Completa" : "En progreso"}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
