@@ -39,3 +39,11 @@ export const SECTION_ICONS: Record<string, string> = {
   plant: "🌱",
   moon: "🌙",
 };
+
+export interface ValidationResult {
+  valido: boolean;
+  razon: string;
+  confianza: number;
+  xp_ganado?: number;
+  nueva_racha?: number;
+}
