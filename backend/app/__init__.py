@@ -49,9 +49,11 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         from app.models.checkin import CheckIn  # noqa: F401
         from app.models.pomodoro_session import PomodoroSession  # noqa: F401
         from app.models.validation_log import ValidationLog  # noqa: F401
+        from app.services.auth_service import ensure_seed_user
 
         from .extensions import db
 
         db.create_all()
+        ensure_seed_user()
 
     return app

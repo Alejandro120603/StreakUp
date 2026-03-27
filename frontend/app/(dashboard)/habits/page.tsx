@@ -138,6 +138,7 @@ export default function HabitsPage() {
                     <Camera className="size-4" />
                   </button>
                   <Link
+                    href={`/habits/edit?id=${habit.id}`}
                     href={`/habits/${habit.id}/edit`}
                     className="flex items-center justify-center size-9 rounded-lg text-muted-foreground hover:text-white hover:bg-[#1A1A2E] transition-colors"
                   >
