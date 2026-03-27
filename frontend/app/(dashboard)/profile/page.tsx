@@ -18,30 +18,10 @@ import {
   Globe,
   ChevronRight,
 } from "lucide-react";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-function getAuthHeaders(): HeadersInit {
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
-
-interface UserProfile {
-  username: string;
-  email: string;
-  role: string;
-}
-
-interface ProfileStats {
-  streak: number;
-  today_completed: number;
-  today_total: number;
-  completion_rate: number;
-  habits_count: number;
-}
+import { getSession } from "@/services/auth/authService";
+import { fetchProfileStats } from "@/services/stats/statsService";
+import type { AuthUser } from "@/types/auth";
+import type { ProfileStats } from "@/types/stats";
 
 const ACHIEVEMENTS = [
   { name: "Principiante", icon: Zap, color: "bg-blue-600", unlocked: true },
@@ -55,7 +35,7 @@ const ACHIEVEMENTS = [
 ];
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [stats, setStats] = useState<ProfileStats>({
     streak: 0, today_completed: 0, today_total: 0, completion_rate: 0, habits_count: 0,
   });
@@ -63,30 +43,21 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function fetchData() {
-      // Get user from localStorage
-      const userJson = localStorage.getItem("user");
-      if (userJson) {
-        setUser(JSON.parse(userJson));
+      const session = getSession();
+      if (session) {
+        setUser(session.user);
       }
 
       try {
-        const [statsRes, habitsRes] = await Promise.all([
-          fetch(`${API_URL}/api/stats/summary`, { headers: getAuthHeaders() }),
-          fetch(`${API_URL}/api/habits`, { headers: getAuthHeaders() }),
-        ]);
-
-        const statsData = statsRes.ok ? await statsRes.json() : {};
-        const habitsData = habitsRes.ok ? await habitsRes.json() : [];
-
-        setStats({
-          streak: statsData.streak ?? 0,
-          today_completed: statsData.today_completed ?? 0,
-          today_total: statsData.today_total ?? 0,
-          completion_rate: statsData.completion_rate ?? 0,
-          habits_count: habitsData.length ?? 0,
-        });
+        setStats(await fetchProfileStats());
       } catch {
-        // silently fail
+        setStats({
+          streak: 0,
+          today_completed: 0,
+          today_total: 0,
+          completion_rate: 0,
+          habits_count: 0,
+        });
       } finally {
         setLoading(false);
       }

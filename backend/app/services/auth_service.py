@@ -11,6 +11,49 @@ from flask_jwt_extended import create_access_token, create_refresh_token
 from app.extensions import db
 from app.models.user import User
 
+SEED_USER_EMAIL = "daniel@correo.com"
+SEED_USER_PASSWORD = "12345678"
+SEED_USER_ROLE = "user"
+SEED_USERNAMES = ("daniel", "daniel_seed", "daniel_seed_user")
+
+
+def _pick_seed_username() -> str:
+    """Return a deterministic available username for the seed user."""
+    for username in SEED_USERNAMES:
+        existing = User.query.filter_by(username=username).first()
+        if existing is None or existing.email == SEED_USER_EMAIL:
+            return username
+
+    suffix = 1
+    while True:
+        username = f"daniel_seed_{suffix}"
+        if User.query.filter_by(username=username).first() is None:
+            return username
+        suffix += 1
+
+
+def ensure_seed_user() -> None:
+    """Ensure the default development/login user exists with the expected password."""
+    user = User.query.filter_by(email=SEED_USER_EMAIL).first()
+
+    if user is None:
+        user = User(
+            username=_pick_seed_username(),
+            email=SEED_USER_EMAIL,
+            role=SEED_USER_ROLE,
+        )
+        user.set_password(SEED_USER_PASSWORD)
+
+        db.session.add(user)
+        db.session.commit()
+    elif not user.check_password(SEED_USER_PASSWORD):
+        user.set_password(SEED_USER_PASSWORD)
+        db.session.commit()
+
+    from app.services.habit_service import seed_default_habit
+
+    seed_default_habit(user.id)
+
 
 def register_user(username: str, email: str, password: str) -> dict:
     """Register a new user with a hashed password.

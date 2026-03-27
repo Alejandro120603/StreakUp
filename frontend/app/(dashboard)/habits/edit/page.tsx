@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, type FormEvent } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { fetchHabits, updateHabit } from "@/services/habits/habitService";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Habit } from "@/types/habits";
@@ -26,12 +25,12 @@ const SECTIONS = [
   { value: "moon", label: "Luna", icon: "🌙" },
 ] as const;
 
-
-
 export default function EditHabitPage() {
   const router = useRouter();
-  const params = useParams();
-  const habitId = Number(params.id);
+  const searchParams = useSearchParams();
+  const habitIdParam = searchParams.get("id");
+  const habitId = Number(habitIdParam);
+  const hasValidHabitId = Number.isInteger(habitId) && habitId > 0;
 
   const [name, setName] = useState("");
   const [habitType, setHabitType] = useState<"boolean" | "time" | "quantity">("boolean");
@@ -46,6 +45,12 @@ export default function EditHabitPage() {
   const [loadingHabit, setLoadingHabit] = useState(true);
 
   useEffect(() => {
+    if (!hasValidHabitId) {
+      setError("ID de hábito inválido.");
+      setLoadingHabit(false);
+      return;
+    }
+
     async function load() {
       try {
         const habits = await fetchHabits();
@@ -68,11 +73,17 @@ export default function EditHabitPage() {
         setLoadingHabit(false);
       }
     }
+
     load();
-  }, [habitId]);
+  }, [habitId, hasValidHabitId]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!hasValidHabitId) {
+      setError("ID de hábito inválido.");
+      return;
+    }
+
     setError("");
     setIsLoading(true);
 
@@ -105,7 +116,6 @@ export default function EditHabitPage() {
 
   return (
     <div className="pt-6 pb-4 max-w-lg mx-auto px-4">
-      {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <Link
           href="/habits"
@@ -127,7 +137,6 @@ export default function EditHabitPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Name */}
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-white">Nombre del hábito</Label>
           <Input
@@ -139,7 +148,6 @@ export default function EditHabitPage() {
           />
         </div>
 
-        {/* Habit Type */}
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-white">Tipo de hábito</Label>
           <div className="grid grid-cols-3 gap-2">
@@ -160,7 +168,6 @@ export default function EditHabitPage() {
           </div>
         </div>
 
-        {/* Time-specific fields */}
         {habitType === "time" && (
           <div className="space-y-4">
             <div className="space-y-2">
@@ -198,7 +205,6 @@ export default function EditHabitPage() {
           </div>
         )}
 
-        {/* Quantity-specific fields */}
         {habitType === "quantity" && (
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-white">Meta de cantidad</Label>
@@ -221,7 +227,6 @@ export default function EditHabitPage() {
           </div>
         )}
 
-        {/* Frequency */}
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-white">Frecuencia</Label>
           <div className="grid grid-cols-2 gap-2">
@@ -242,39 +247,40 @@ export default function EditHabitPage() {
           </div>
         </div>
 
-
-
-        {/* Section */}
         <div className="space-y-2">
-          <Label className="text-sm font-semibold text-white">Método de progresión</Label>
+          <Label className="text-sm font-semibold text-white">Sección</Label>
           <div className="grid grid-cols-3 gap-2">
             {SECTIONS.map((s) => (
               <button
                 key={s.value}
                 type="button"
                 onClick={() => setSection(s.value)}
-                className={`relative flex flex-col items-center gap-1.5 py-3 rounded-xl border transition-all duration-200 ${
+                className={`h-14 rounded-xl border transition-all duration-200 ${
                   section === s.value
                     ? "border-[#5D5FEF] bg-[#5D5FEF]/10 shadow-[0_0_12px_rgba(93,95,239,0.2)]"
                     : "border-[#2A2A3E] bg-[#1A1A2E] hover:border-[#3A3A5E]"
                 }`}
               >
-                <span className="text-2xl">{s.icon}</span>
-                <span className={`text-xs font-medium ${section === s.value ? "text-[#5D5FEF]" : "text-white"}`}>
-                  {s.label}
-                </span>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-xl">{s.icon}</span>
+                  <span className={`text-xs font-medium ${
+                    section === s.value ? "text-[#5D5FEF]" : "text-white"
+                  }`}>
+                    {s.label}
+                  </span>
+                </div>
               </button>
             ))}
           </div>
         </div>
-        {/* Submit */}
-        <Button
+
+        <button
           type="submit"
-          disabled={isLoading}
-          className="w-full h-12 rounded-xl text-base font-semibold bg-[#5D5FEF] hover:bg-[#4B4DDC] text-white shadow-[0_0_24px_rgba(93,95,239,0.4)] hover:shadow-[0_0_32px_rgba(93,95,239,0.55)] transition-all duration-300"
+          disabled={isLoading || !hasValidHabitId}
+          className="w-full h-12 rounded-xl bg-[#5D5FEF] hover:bg-[#4B4DDC] text-white font-semibold shadow-[0_0_20px_rgba(93,95,239,0.4)] hover:shadow-[0_0_28px_rgba(93,95,239,0.55)] transition-all duration-300 disabled:opacity-50"
         >
           {isLoading ? "Guardando..." : "Guardar cambios"}
-        </Button>
+        </button>
       </form>
     </div>
   );

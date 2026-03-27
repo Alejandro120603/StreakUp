@@ -1,7 +1,9 @@
 export interface AuthUser {
-  id: string;
+  id: number;
+  username: string;
   email: string;
   role: string;
+  created_at?: string;
 }
 
 export interface AuthSession {

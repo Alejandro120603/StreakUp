@@ -128,7 +128,7 @@ export default function HabitsPage() {
                 // Normal actions
                 <>
                   <Link
-                    href={`/habits/${habit.id}/edit`}
+                    href={`/habits/edit?id=${habit.id}`}
                     className="flex items-center justify-center size-9 rounded-lg text-muted-foreground hover:text-white hover:bg-[#1A1A2E] transition-colors"
                   >
                     <Pencil className="size-4" />
@@ -148,4 +148,3 @@ export default function HabitsPage() {
     </div>
   );
 }
-
