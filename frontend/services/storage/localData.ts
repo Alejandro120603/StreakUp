@@ -315,6 +315,9 @@ export function getLocalStats(userId = getCurrentUserId()): StatsSummary {
     today_completed: todayCompleted,
     today_total: todayTotal,
     completion_rate: completionRate,
+    total_xp: 0,
+    level: 1,
+    validations_today: 0,
   };
 }
 

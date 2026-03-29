@@ -17,6 +17,8 @@ export const API_ENDPOINTS = {
   },
   stats: {
     summary: "/api/stats/summary",
+    detailed: "/api/stats/detailed",
+    xp: "/api/stats/xp",
   },
   pomodoro: {
     sessions: "/api/pomodoro/sessions",

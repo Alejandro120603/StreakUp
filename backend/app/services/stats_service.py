@@ -3,17 +3,18 @@ Stats service module.
 
 Responsibility:
 - Compute user statistics: streak, today's progress, completion rate.
+- Provide detailed dashboard data including XP and validation info.
 """
 
 from datetime import date as date_type, timedelta
-from collections import defaultdict
 
 from sqlalchemy import func
 
 from app.extensions import db
-
 from app.models.checkin import CheckIn
 from app.models.habit import Habit
+from app.models.user import User
+from app.models.validation_log import ValidationLog
 
 
 def get_summary(user_id: int) -> dict:
@@ -40,11 +41,24 @@ def get_summary(user_id: int) -> dict:
     # Current streak (consecutive days with at least 1 check-in)
     streak = _compute_current_streak(user_id, today)
 
+    # XP and level from User model
+    user = User.query.get(user_id)
+    total_xp = user.total_xp if user else 0
+    level = user.level if user else 1
+
+    # Validations today
+    validations_today = ValidationLog.query.filter_by(
+        user_id=user_id, date=today, valid=True
+    ).count()
+
     return {
         "streak": streak,
         "today_completed": today_completed,
         "today_total": today_total,
         "completion_rate": completion_rate,
+        "total_xp": total_xp,
+        "level": level,
+        "validations_today": validations_today,
     }
 
 
@@ -103,7 +117,6 @@ def get_detailed_stats(user_id: int) -> dict:
     for i in range(29, -1, -1):
         d = today - timedelta(days=i)
         count = checkin_map.get(d.isoformat(), 0)
-        # intensity: 0 = none, 1 = low, 2 = mid, 3 = high
         if total_habits == 0:
             intensity = 0
         elif count == 0:
@@ -137,6 +150,13 @@ def get_detailed_stats(user_id: int) -> dict:
     # Total check-ins all time
     total_checkins = CheckIn.query.filter_by(user_id=user_id).count()
 
+    # Total active days (distinct dates with check-ins)
+    active_days = (
+        db.session.query(func.count(func.distinct(CheckIn.date)))
+        .filter(CheckIn.user_id == user_id)
+        .scalar()
+    ) or 0
+
     # Weekly completion rate
     week_checkins = CheckIn.query.filter(
         CheckIn.user_id == user_id,
@@ -146,12 +166,27 @@ def get_detailed_stats(user_id: int) -> dict:
     week_possible = total_habits * 7
     completion_rate = round(week_checkins / week_possible * 100) if week_possible > 0 else 0
 
+    # --- Validation stats ---
+    total_validations = ValidationLog.query.filter_by(user_id=user_id, valid=True).count()
+    total_validation_attempts = ValidationLog.query.filter_by(user_id=user_id).count()
+    validation_rate = (
+        round(total_validations / total_validation_attempts * 100)
+        if total_validation_attempts > 0 else 0
+    )
+
+    # XP from user model
+    user = User.query.get(user_id)
+    total_xp = user.total_xp if user else 0
+    level = user.level if user else 1
+
     return {
         "summary": {
             "streak": current_streak,
             "completion_rate": completion_rate,
             "total_completed": total_checkins,
             "total_habits": total_habits,
+            "total_xp": total_xp,
+            "level": level,
         },
         "weekly_history": weekly_history,
         "per_habit": per_habit,
@@ -160,20 +195,18 @@ def get_detailed_stats(user_id: int) -> dict:
             "longest_streak": longest_streak,
             "best_day": best_day,
             "current_streak": current_streak,
+            "active_days": active_days,
+        },
+        "validations": {
+            "total_successful": total_validations,
+            "total_attempts": total_validation_attempts,
+            "success_rate": validation_rate,
         },
     }
 
 
 def _compute_current_streak(user_id: int, today: date_type) -> int:
     """Compute consecutive days with at least 1 check-in."""
-    streak = 0
-    check_date = today
-    while True:
-        day_count = CheckIn.query.filter_by(user_id=user_id, date=check_date).count()
-        if day_count > 0:
-            streak += 1
-            check_date -= timedelta(days=1)
-        else:
     streak = 0
     check_date = today
     while True:
@@ -214,11 +247,3 @@ def _compute_longest_streak(user_id: int) -> int:
         else:
             current = 1
     return longest
-
-
-    return {
-        "streak": streak,
-        "today_completed": today_completed,
-        "today_total": today_total,
-        "completion_rate": completion_rate,
-    }

@@ -4,6 +4,7 @@ Check-in service module.
 Responsibility:
 - Toggle daily check-ins for habits.
 - Query today's habits with completion status.
+- Award/revoke XP on check-in changes.
 """
 
 from datetime import date as date_type
@@ -11,13 +12,16 @@ from datetime import date as date_type
 from app.extensions import db
 from app.models.checkin import CheckIn
 from app.models.habit import Habit
+from app.services.xp_service import award_xp
+
+XP_PER_CHECKIN = 25
 
 
 def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = None) -> dict:
     """Toggle a check-in for a habit on a given date.
 
-    If no check-in exists, create one (completed=True).
-    If one exists, delete it (un-check).
+    If no check-in exists, create one (completed=True) and award XP.
+    If one exists, delete it (un-check) and revoke XP.
     """
     if target_date is None:
         target_date = date_type.today()
@@ -34,6 +38,8 @@ def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = 
     if existing:
         db.session.delete(existing)
         db.session.commit()
+        # Revoke XP
+        award_xp(user_id, -XP_PER_CHECKIN, "checkin_undo")
         return {"checked": False, "habit_id": habit_id, "date": target_date.isoformat()}
     else:
         checkin = CheckIn(
@@ -44,6 +50,8 @@ def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = 
         )
         db.session.add(checkin)
         db.session.commit()
+        # Award XP
+        award_xp(user_id, XP_PER_CHECKIN, "checkin")
         return {"checked": True, "habit_id": habit_id, "date": target_date.isoformat()}
 
 

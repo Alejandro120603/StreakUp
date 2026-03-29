@@ -12,8 +12,6 @@ import { register } from "@/services/auth/authService";
 
 export default function RegisterPage() {
   const router = useRouter();
-
-export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,24 +35,6 @@ export default function RegisterPage() {
       router.replace("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la cuenta.");
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-      const res = await fetch(`${apiUrl}/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || data.errors?.join(", ") || "Error al crear la cuenta");
-        return;
-      }
-
-      // Redirect to login after successful registration
-      window.location.href = "/login";
-    } catch {
-      setError("No se pudo conectar con el servidor.");
     } finally {
       setIsLoading(false);
     }

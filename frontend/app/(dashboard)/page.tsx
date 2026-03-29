@@ -8,16 +8,6 @@ import { fetchStatsSummary } from "@/services/stats/statsService";
 import type { TodayHabit } from "@/types/checkins";
 import type { StatsSummary } from "@/types/stats";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-function getAuthHeaders(): HeadersInit {
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
-
 function formatDate(): string {
   const now = new Date();
   const options: Intl.DateTimeFormatOptions = {
@@ -28,21 +18,6 @@ function formatDate(): string {
   return now.toLocaleDateString("es-MX", options);
 }
 
-interface Stats {
-  streak: number;
-  today_completed: number;
-  today_total: number;
-  completion_rate: number;
-}
-
-interface TodayHabit {
-  id: number;
-  name: string;
-  icon: string;
-  checked_today: boolean;
-  section: string;
-}
-
 const POMODORO_THEMES = [
   { key: "fire", label: "Fuego", emoji: "🔥", bg: "bg-orange-950/60", border: "border-orange-800/40" },
   { key: "candle", label: "Vela", emoji: "🕯️", bg: "bg-purple-950/60", border: "border-purple-800/40" },
@@ -51,8 +26,10 @@ const POMODORO_THEMES = [
 ];
 
 export default function DashboardHomePage() {
-  const [stats, setStats] = useState<StatsSummary>({ streak: 0, today_completed: 0, today_total: 0, completion_rate: 0 });
-  const [stats, setStats] = useState<Stats>({ streak: 0, today_completed: 0, today_total: 0, completion_rate: 0 });
+  const [stats, setStats] = useState<StatsSummary>({
+    streak: 0, today_completed: 0, today_total: 0, completion_rate: 0,
+    total_xp: 0, level: 1, validations_today: 0,
+  });
   const [todayHabits, setTodayHabits] = useState<TodayHabit[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,20 +41,6 @@ export default function DashboardHomePage() {
       ]);
       setStats(statsData);
       setTodayHabits(habitsData);
-    } catch {
-      setStats({ streak: 0, today_completed: 0, today_total: 0, completion_rate: 0 });
-      setTodayHabits([]);
-      const [statsRes, habitsRes] = await Promise.all([
-        fetch(`${API_URL}/api/stats/summary`, { headers: getAuthHeaders() }),
-        fetch(`${API_URL}/api/checkins/today`, { headers: getAuthHeaders() }),
-      ]);
-
-      if (statsRes.ok) {
-        setStats(await statsRes.json());
-      }
-      if (habitsRes.ok) {
-        setTodayHabits(await habitsRes.json());
-      }
     } catch {
       // silently fail — data will show defaults
     } finally {
@@ -95,22 +58,6 @@ export default function DashboardHomePage() {
       const [statsData, habitsData] = await Promise.all([fetchStatsSummary(), fetchTodayHabits()]);
       setStats(statsData);
       setTodayHabits(habitsData);
-      const res = await fetch(`${API_URL}/api/checkins/toggle`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ habit_id: habitId }),
-      });
-
-      if (res.ok) {
-        setTodayHabits((prev) =>
-          prev.map((h) =>
-            h.id === habitId ? { ...h, checked_today: !h.checked_today } : h
-          )
-        );
-        // Refresh stats
-        const statsRes = await fetch(`${API_URL}/api/stats/summary`, { headers: getAuthHeaders() });
-        if (statsRes.ok) setStats(await statsRes.json());
-      }
     } catch {
       // silently fail
     }

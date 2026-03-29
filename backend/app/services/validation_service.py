@@ -13,6 +13,7 @@ from app.models.habit import Habit
 from app.models.validation_log import ValidationLog
 from app.models.checkin import CheckIn
 from app.services.openai_service import analyze_habit_image
+from app.services.xp_service import award_xp
 
 XP_PER_VALIDATION = 50
 
@@ -70,7 +71,10 @@ def validate_habit(user_id: int, habit_id: int, image_base64: str) -> dict:
         # 5. Calculate current streak
         nueva_racha = _calculate_streak(habit_id, user_id, today)
 
-    # 6. Save validation log
+        # 6. Award XP via centralized service
+        award_xp(user_id, xp_awarded, "validation")
+
+    # 7. Save validation log
     log = ValidationLog(
         habit_id=habit_id,
         user_id=user_id,
