@@ -8,11 +8,14 @@ Responsibility:
 
 from datetime import date as date_type
 
+from sqlalchemy import func
+
 from app.extensions import db
-from app.models.habit import Habit
-from app.models.validation_log import ValidationLog
 from app.models.checkin import CheckIn
+from app.models.validation_log import ValidationLog
+from app.services.habit_service import get_user_habit
 from app.services.openai_service import analyze_habit_image
+from app.services.xp_service import award_xp
 
 XP_PER_VALIDATION = 50
 
@@ -31,22 +34,24 @@ def validate_habit(user_id: int, habit_id: int, image_base64: str) -> dict:
     Raises:
         ValueError: If habit not found or already validated today.
     """
-    # 1. Verify habit belongs to user
-    habit = Habit.query.filter_by(id=habit_id, user_id=user_id).first()
-    if habit is None:
+    user_habit = get_user_habit(habit_id, user_id, active_only=True)
+    if user_habit is None:
         raise ValueError("Hábito no encontrado.")
 
     today = date_type.today()
 
-    # 2. Check for existing validation today
-    existing = ValidationLog.query.filter_by(
-        habit_id=habit_id, user_id=user_id, date=today
-    ).first()
+    existing = (
+        ValidationLog.query
+        .filter(
+            ValidationLog.habitousuario_id == user_habit.id,
+            func.date(ValidationLog.fecha) == today.isoformat(),
+        )
+        .first()
+    )
     if existing:
         raise ValueError("Ya validaste este hábito hoy.")
 
-    # 3. Call OpenAI to analyze the image
-    ai_result = analyze_habit_image(habit.name, image_base64)
+    ai_result = analyze_habit_image(user_habit.habit.nombre, image_base64)
 
     xp_awarded = 0
     nueva_racha = 0
@@ -54,31 +59,28 @@ def validate_habit(user_id: int, habit_id: int, image_base64: str) -> dict:
     if ai_result["valido"]:
         xp_awarded = XP_PER_VALIDATION
 
-        # 4. Create check-in if not already checked today
         existing_checkin = CheckIn.query.filter_by(
-            habit_id=habit_id, user_id=user_id, date=today
+            habitousuario_id=user_habit.id,
+            fecha=today,
         ).first()
         if not existing_checkin:
             checkin = CheckIn(
-                habit_id=habit_id,
-                user_id=user_id,
-                date=today,
-                completed=True,
+                habitousuario_id=user_habit.id,
+                fecha=today,
+                completado=True,
+                xp_ganado=0,
             )
             db.session.add(checkin)
 
-        # 5. Calculate current streak
-        nueva_racha = _calculate_streak(habit_id, user_id, today)
+        nueva_racha = _calculate_streak(user_habit.id, today)
 
-    # 6. Save validation log
+        award_xp(user_id, xp_awarded, "validation")
+
     log = ValidationLog(
-        habit_id=habit_id,
-        user_id=user_id,
-        date=today,
-        valid=ai_result["valido"],
-        reason=ai_result["razon"],
-        confidence=ai_result["confianza"],
-        xp_awarded=xp_awarded,
+        habitousuario_id=user_habit.id,
+        tipo_validacion="foto",
+        evidencia=image_base64,
+        validado=ai_result["valido"],
     )
     db.session.add(log)
     db.session.commit()
@@ -92,19 +94,18 @@ def validate_habit(user_id: int, habit_id: int, image_base64: str) -> dict:
     }
 
 
-def _calculate_streak(habit_id: int, user_id: int, today: date_type) -> int:
+def _calculate_streak(habit_id: int, today: date_type) -> int:
     """Calculate the current consecutive-day streak for a habit."""
     from datetime import timedelta
 
     checkins = (
         CheckIn.query
-        .filter_by(habit_id=habit_id, user_id=user_id, completed=True)
-        .order_by(CheckIn.date.desc())
+        .filter_by(habitousuario_id=habit_id, completado=True)
+        .order_by(CheckIn.fecha.desc())
         .all()
     )
 
-    checked_dates = {c.date for c in checkins}
-    # Include today since we just added the check-in
+    checked_dates = {checkin.fecha for checkin in checkins}
     checked_dates.add(today)
 
     streak = 0

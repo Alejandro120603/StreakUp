@@ -5,11 +5,13 @@ import {
 } from "@/services/api/client";
 import type { AuthSession } from "@/types/auth";
 
-const OFFLINE_LOGIN_ERROR = "No hay conexión. Usa una sesión guardada previamente.";
+const OFFLINE_LOGIN_ERROR = "No hay conexión. El inicio de sesión requiere conexión.";
 const OFFLINE_REGISTER_ERROR = "No hay conexión. El registro requiere internet.";
-
-import { apiRequest, API_ENDPOINTS } from "@/services/api/client";
-import type { AuthSession } from "@/types/auth";
+const STORAGE_KEYS = {
+  accessToken: "access_token",
+  refreshToken: "refresh_token",
+  user: "user",
+} as const;
 
 export interface LoginPayload {
   email: string;
@@ -45,58 +47,88 @@ export interface RegisterResponse {
   };
 }
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
+interface JwtPayload {
+  exp?: number;
 }
 
-function mapSessionToLoginResponse(session: AuthSession): LoginResponse {
-  return {
-    access_token: session.accessToken,
-    refresh_token: session.refreshToken ?? "",
-    user: {
-      id: session.user.id,
-      username: session.user.username,
-      email: session.user.email,
-      role: session.user.role,
-      created_at: session.user.created_at ?? "",
-    },
-  };
+function hasStoredAuthArtifacts(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return Object.values(STORAGE_KEYS).some((key) => window.localStorage.getItem(key) !== null);
 }
 
-function getMatchingSavedSession(email: string): AuthSession | null {
-  const session = getSession();
+function decodeBase64Url(value: string): string | null {
+  const normalizedValue = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalizedValue.length % 4;
+  const paddedValue =
+    padding === 0 ? normalizedValue : `${normalizedValue}${"=".repeat(4 - padding)}`;
 
-  if (!session) {
+  try {
+    if (typeof atob === "function") {
+      return atob(paddedValue);
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function parseTokenPayload(token: string): JwtPayload | null {
+  const segments = token.split(".");
+
+  if (segments.length !== 3) {
     return null;
   }
 
-  return normalizeEmail(session.user.email) === normalizeEmail(email) ? session : null;
+  const decodedPayload = decodeBase64Url(segments[1]);
+
+  if (!decodedPayload) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(decodedPayload) as JwtPayload;
+    return payload && typeof payload === "object" ? payload : null;
+  } catch {
+    return null;
+  }
+}
+
+function isStoredUser(value: unknown): value is AuthSession["user"] {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const user = value as Record<string, unknown>;
+  return (
+    typeof user.id === "number" &&
+    typeof user.username === "string" &&
+    typeof user.email === "string" &&
+    typeof user.role === "string" &&
+    (user.created_at === undefined || typeof user.created_at === "string")
+  );
 }
 
 /**
  * Authenticate a user and receive JWT tokens.
  */
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
+  clearSession();
+
   try {
     return await apiPost<LoginResponse>(API_ENDPOINTS.auth.login, JSON.stringify(payload), {
       headers: { Authorization: "" },
+      redirectOnUnauthorized: false,
     });
   } catch (error) {
     if (shouldUseOfflineFallback(error)) {
-      const session = getMatchingSavedSession(payload.email);
-      if (session) {
-        return mapSessionToLoginResponse(session);
-      }
-
       throw new Error(OFFLINE_LOGIN_ERROR);
     }
     throw error;
   }
-  return apiRequest<LoginResponse>({
-    path: API_ENDPOINTS.auth.login,
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
 }
 
 /**
@@ -106,6 +138,7 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
   try {
     return await apiPost<RegisterResponse>(API_ENDPOINTS.auth.register, JSON.stringify(payload), {
       headers: { Authorization: "" },
+      redirectOnUnauthorized: false,
     });
   } catch (error) {
     if (shouldUseOfflineFallback(error)) {
@@ -113,11 +146,39 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
     }
     throw error;
   }
-  return apiRequest<RegisterResponse>({
-    path: API_ENDPOINTS.auth.register,
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+}
+
+/**
+ * Read the current access token from localStorage.
+ */
+export function getToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(STORAGE_KEYS.accessToken);
+}
+
+/**
+ * Persist the access token in localStorage.
+ */
+export function setToken(token: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(STORAGE_KEYS.accessToken, token);
+}
+
+/**
+ * Remove the persisted access token from localStorage.
+ */
+export function removeToken(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(STORAGE_KEYS.accessToken);
 }
 
 /**
@@ -128,44 +189,64 @@ export function saveSession(data: LoginResponse): void {
     return;
   }
 
-  window.localStorage.setItem("access_token", data.access_token);
+  setToken(data.access_token);
   if (data.refresh_token) {
-    window.localStorage.setItem("refresh_token", data.refresh_token);
+    window.localStorage.setItem(STORAGE_KEYS.refreshToken, data.refresh_token);
+  } else {
+    window.localStorage.removeItem(STORAGE_KEYS.refreshToken);
   }
-  window.localStorage.setItem("user", JSON.stringify(data.user));
-  localStorage.setItem("access_token", data.access_token);
-  if (data.refresh_token) {
-    localStorage.setItem("refresh_token", data.refresh_token);
-  }
-  localStorage.setItem("user", JSON.stringify(data.user));
+  window.localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(data.user));
 }
 
 /**
  * Get current session from localStorage.
  */
 export function getSession(): AuthSession | null {
-  if (typeof window === "undefined") {
+  const token = getToken();
+  const userJson = typeof window === "undefined" ? null : window.localStorage.getItem(STORAGE_KEYS.user);
+  const refreshToken =
+    typeof window === "undefined"
+      ? null
+      : window.localStorage.getItem(STORAGE_KEYS.refreshToken);
+
+  if (!token || !userJson) {
+    if (hasStoredAuthArtifacts()) {
+      clearSession();
+    }
     return null;
   }
 
-  const token = window.localStorage.getItem("access_token");
-  const userJson = window.localStorage.getItem("user");
-  const token = localStorage.getItem("access_token");
-  const userJson = localStorage.getItem("user");
+  const payload = parseTokenPayload(token);
+  if (payload === null) {
+    clearSession();
+    return null;
+  }
 
-  if (!token || !userJson) return null;
+  if (typeof payload.exp === "number" && payload.exp * 1000 <= Date.now()) {
+    clearSession();
+    return null;
+  }
 
   try {
     const user = JSON.parse(userJson);
+    if (!isStoredUser(user)) {
+      clearSession();
+      return null;
+    }
+
     return {
       accessToken: token,
-      refreshToken: window.localStorage.getItem("refresh_token") ?? undefined,
-      refreshToken: localStorage.getItem("refresh_token") ?? undefined,
+      refreshToken: refreshToken ?? undefined,
       user,
     };
   } catch {
+    clearSession();
     return null;
   }
+}
+
+export function getCurrentUser(): AuthSession["user"] | null {
+  return getSession()?.user ?? null;
 }
 
 /**
@@ -176,14 +257,11 @@ export function clearSession(): void {
     return;
   }
 
-  window.localStorage.removeItem("access_token");
-  window.localStorage.removeItem("refresh_token");
-  window.localStorage.removeItem("user");
+  removeToken();
+  window.localStorage.removeItem(STORAGE_KEYS.refreshToken);
+  window.localStorage.removeItem(STORAGE_KEYS.user);
 }
 
 export function hasSavedSession(): boolean {
   return getSession() !== null;
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-  localStorage.removeItem("user");
 }

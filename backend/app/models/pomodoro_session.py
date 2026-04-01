@@ -20,7 +20,7 @@ class PomodoroSession(db.Model):
         db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     habit_id = db.Column(
-        db.Integer, db.ForeignKey("habits.id", ondelete="SET NULL"), nullable=True
+        db.Integer, db.ForeignKey("habitos_usuario.id", ondelete="SET NULL"), nullable=True
     )
     theme = db.Column(db.String(20), nullable=False, default="fire")  # fire | candle | ice | hourglass
     study_minutes = db.Column(db.Integer, nullable=False, default=25)
@@ -34,7 +34,7 @@ class PomodoroSession(db.Model):
 
     # Relationships
     user = db.relationship("User", backref=db.backref("pomodoro_sessions", lazy=True))
-    habit = db.relationship("Habit", backref=db.backref("pomodoro_sessions", lazy=True))
+    habit = db.relationship("UserHabit", backref=db.backref("pomodoro_sessions", lazy=True))
 
     def to_dict(self) -> dict:
         return {

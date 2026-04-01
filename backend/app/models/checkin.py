@@ -2,45 +2,43 @@
 Check-in model module.
 
 Responsibility:
-- Store daily check-in records for habits.
+- Store daily completion records for assigned user habits.
 """
 
-from datetime import datetime, timezone, date as date_type
+from datetime import date as date_type
 
 from app.extensions import db
 
 
 class CheckIn(db.Model):
-    """Daily check-in record for a habit."""
+    """Daily check-in record for an assigned habit."""
 
-    __tablename__ = "checkins"
+    __tablename__ = "registro_habitos"
     __table_args__ = (
-        db.UniqueConstraint("habit_id", "date", name="uq_checkin_habit_date"),
+        db.UniqueConstraint("habitousuario_id", "fecha", name="uq_registro_habitos_fecha"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    habit_id = db.Column(
-        db.Integer, db.ForeignKey("habits.id", ondelete="CASCADE"), nullable=False, index=True
+    habitousuario_id = db.Column(
+        db.Integer,
+        db.ForeignKey("habitos_usuario.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    user_id = db.Column(
-        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    date = db.Column(db.Date, nullable=False, default=lambda: date_type.today())
-    completed = db.Column(db.Boolean, nullable=False, default=True)
-    created_at = db.Column(
-        db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
-    )
+    fecha = db.Column(db.Date, nullable=False, default=lambda: date_type.today())
+    completado = db.Column(db.Boolean, nullable=False, default=True)
+    xp_ganado = db.Column(db.Integer, nullable=False, default=0)
 
-    # Relationships
-    habit = db.relationship("Habit", backref=db.backref("checkins", lazy=True, cascade="all, delete-orphan"))
-    user = db.relationship("User", backref=db.backref("checkins", lazy=True, cascade="all, delete-orphan"))
+    user_habit = db.relationship(
+        "UserHabit",
+        backref=db.backref("checkins", lazy=True, cascade="all, delete-orphan"),
+    )
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
-            "habit_id": self.habit_id,
-            "user_id": self.user_id,
-            "date": self.date.isoformat() if self.date else None,
-            "completed": self.completed,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "habit_id": self.habitousuario_id,
+            "date": self.fecha.isoformat() if self.fecha else None,
+            "completed": self.completado,
+            "xp_awarded": self.xp_ganado,
         }

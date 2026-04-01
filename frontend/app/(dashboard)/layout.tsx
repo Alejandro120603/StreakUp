@@ -18,18 +18,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [authed, setAuthed] = useState(false);
+  const [checkedAuth, setCheckedAuth] = useState(false);
 
   useEffect(() => {
-    if (!hasSavedSession()) {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
+    const hasSession = hasSavedSession();
+
+    setAuthed(hasSession);
+    setCheckedAuth(true);
+
+    if (!hasSession) {
       router.replace("/login");
-    } else {
-      setAuthed(true);
     }
   }, [router]);
 
-  if (!authed) {
+  if (!checkedAuth || !authed) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
         <div className="size-8 border-2 border-[#5D5FEF] border-t-transparent rounded-full animate-spin" />
@@ -71,4 +73,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-

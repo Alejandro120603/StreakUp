@@ -22,7 +22,6 @@ const THEMES = {
 };
 
 type ThemeKey = PomodoroTheme;
-type ThemeKey = keyof typeof THEMES;
 type TimerState = "idle" | "focus" | "break" | "finished";
 
 /* ─── Animated Theme Components ─── */
@@ -166,8 +165,6 @@ function PomodoroContent() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const completingSessionRef = useRef(false);
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -238,7 +235,6 @@ function PomodoroContent() {
       return;
     }
 
-  function startTimer() {
     const secs = studyMinutes * 60;
     setSecondsLeft(secs);
     setTotalSeconds(secs);
@@ -280,7 +276,6 @@ function PomodoroContent() {
       });
   }, [activeSessionId, timerState]);
 
-  }
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;

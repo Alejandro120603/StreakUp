@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, X, Camera } from "lucide-react";
+import { Plus, Trash2, X, Camera } from "lucide-react";
 import { fetchHabits, deleteHabit } from "@/services/habits/habitService";
 import type { Habit } from "@/types/habits";
 import { SECTION_ICONS } from "@/types/habits";
@@ -99,19 +99,16 @@ export default function HabitsPage() {
                 {SECTION_ICONS[habit.section] ?? habit.icon}
               </div>
 
-              {/* Name & Frequency */}
               <div className="flex-1 min-w-0">
                 <p className="text-white font-semibold text-sm truncate">
                   {habit.name}
                 </p>
-                <p className="text-muted-foreground text-xs capitalize">
-                  {habit.frequency === "daily" ? "Diario" : "Semanal"}
+                <p className="text-muted-foreground text-xs">
+                  {habit.description ?? (habit.frequency === "daily" ? "Diario" : "Semanal")}
                 </p>
               </div>
 
-              {/* Actions */}
               {confirmingDeleteId === habit.id ? (
-                // Inline confirmation
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleDelete(habit.id)}
@@ -128,22 +125,14 @@ export default function HabitsPage() {
                   </button>
                 </div>
               ) : (
-                // Normal actions
                 <>
                   <button
-                    onClick={() => router.push(`/habits/${habit.id}/validate`)}
+                    onClick={() => router.push(`/habits/validate?id=${habit.id}`)}
                     className="flex items-center justify-center size-9 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
                     title="Validar con imagen"
                   >
                     <Camera className="size-4" />
                   </button>
-                  <Link
-                    href={`/habits/edit?id=${habit.id}`}
-                    href={`/habits/${habit.id}/edit`}
-                    className="flex items-center justify-center size-9 rounded-lg text-muted-foreground hover:text-white hover:bg-[#1A1A2E] transition-colors"
-                  >
-                    <Pencil className="size-4" />
-                  </Link>
                   <button
                     onClick={() => setConfirmingDeleteId(habit.id)}
                     className="flex items-center justify-center size-9 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
@@ -159,4 +148,3 @@ export default function HabitsPage() {
     </div>
   );
 }
-

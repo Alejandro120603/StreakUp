@@ -17,96 +17,126 @@ import {
   Moon,
   Globe,
   ChevronRight,
+  ImageIcon,
 } from "lucide-react";
-import { getSession } from "@/services/auth/authService";
-import { fetchProfileStats } from "@/services/stats/statsService";
-import type { AuthUser } from "@/types/auth";
-import type { ProfileStats } from "@/types/stats";
+import { fetchProfileStats, fetchXpInfo, fetchDetailedStats } from "@/services/stats/statsService";
+import { getCurrentUser } from "@/services/auth/authService";
+import type { ProfileStats, XpInfo } from "@/types/stats";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-function getAuthHeaders(): HeadersInit {
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+interface AchievementDef {
+  name: string;
+  icon: typeof Zap;
+  color: string;
+  description: string;
+  check: (data: AchievementData) => boolean;
 }
 
-interface UserProfile {
-  username: string;
-  email: string;
-  role: string;
-}
-
-interface ProfileStats {
+interface AchievementData {
   streak: number;
-  today_completed: number;
-  today_total: number;
-  completion_rate: number;
-  habits_count: number;
+  totalCheckins: number;
+  totalValidations: number;
+  habitsCount: number;
+  longestStreak: number;
+  activeDays: number;
+  level: number;
 }
 
-const ACHIEVEMENTS = [
-  { name: "Principiante", icon: Zap, color: "bg-blue-600", unlocked: true },
-  { name: "Consistente", icon: Flame, color: "bg-yellow-600", unlocked: true },
-  { name: "Dedicado", icon: Award, color: "bg-green-600", unlocked: true },
-  { name: "Imparable", icon: Target, color: "bg-orange-600", unlocked: true },
-  { name: "Maestro", icon: Crown, color: "bg-red-600", unlocked: true },
-  { name: "Leyenda", icon: Gem, color: "bg-purple-600/40", unlocked: false },
-  { name: "Perfeccionista", icon: Sparkles, color: "bg-teal-600/40", unlocked: false },
-  { name: "Inspirador", icon: Star, color: "bg-amber-600/40", unlocked: false },
+const ACHIEVEMENTS: AchievementDef[] = [
+  {
+    name: "Principiante",
+    icon: Zap,
+    color: "bg-blue-600",
+    description: "Crea tu primer hábito",
+    check: (d) => d.habitsCount >= 1,
+  },
+  {
+    name: "Consistente",
+    icon: Flame,
+    color: "bg-yellow-600",
+    description: "Racha de 3 días",
+    check: (d) => d.streak >= 3,
+  },
+  {
+    name: "Dedicado",
+    icon: Award,
+    color: "bg-green-600",
+    description: "10 check-ins totales",
+    check: (d) => d.totalCheckins >= 10,
+  },
+  {
+    name: "Imparable",
+    icon: Target,
+    color: "bg-orange-600",
+    description: "Racha de 7 días",
+    check: (d) => d.streak >= 7,
+  },
+  {
+    name: "Validador",
+    icon: ImageIcon,
+    color: "bg-teal-600",
+    description: "5 validaciones exitosas",
+    check: (d) => d.totalValidations >= 5,
+  },
+  {
+    name: "Maestro",
+    icon: Crown,
+    color: "bg-red-600",
+    description: "Alcanza nivel 5",
+    check: (d) => d.level >= 5,
+  },
+  {
+    name: "Leyenda",
+    icon: Gem,
+    color: "bg-purple-600",
+    description: "Racha de 30 días",
+    check: (d) => d.longestStreak >= 30,
+  },
+  {
+    name: "Perfeccionista",
+    icon: Sparkles,
+    color: "bg-amber-600",
+    description: "50 días activos",
+    check: (d) => d.activeDays >= 50,
+  },
 ];
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<{ username: string; email: string } | null>(null);
   const [stats, setStats] = useState<ProfileStats>({
-    streak: 0, today_completed: 0, today_total: 0, completion_rate: 0, habits_count: 0,
+    streak: 0, today_completed: 0, today_total: 0, completion_rate: 0,
+    habits_count: 0, total_xp: 0, level: 1, validations_today: 0,
+  });
+  const [xpInfo, setXpInfo] = useState<XpInfo>({
+    total_xp: 0, level: 1, xp_in_level: 0, xp_for_next_level: 250, progress_pct: 0,
+  });
+  const [records, setRecords] = useState({
+    longest_streak: 0, best_day: 0, current_streak: 0, active_days: 0,
+  });
+  const [validationStats, setValidationStats] = useState({
+    total_successful: 0, total_attempts: 0, success_rate: 0,
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
-      const session = getSession();
-      if (session) {
-        setUser(session.user);
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
       }
 
       try {
-        setStats(await fetchProfileStats());
-      } catch {
-        setStats({
-          streak: 0,
-          today_completed: 0,
-          today_total: 0,
-          completion_rate: 0,
-          habits_count: 0,
-        });
-      // Get user from localStorage
-      const userJson = localStorage.getItem("user");
-      if (userJson) {
-        setUser(JSON.parse(userJson));
-      }
-
-      try {
-        const [statsRes, habitsRes] = await Promise.all([
-          fetch(`${API_URL}/api/stats/summary`, { headers: getAuthHeaders() }),
-          fetch(`${API_URL}/api/habits`, { headers: getAuthHeaders() }),
+        const [profileStats, xp, detailed] = await Promise.all([
+          fetchProfileStats(),
+          fetchXpInfo(),
+          fetchDetailedStats(),
         ]);
 
-        const statsData = statsRes.ok ? await statsRes.json() : {};
-        const habitsData = habitsRes.ok ? await habitsRes.json() : [];
-
-        setStats({
-          streak: statsData.streak ?? 0,
-          today_completed: statsData.today_completed ?? 0,
-          today_total: statsData.today_total ?? 0,
-          completion_rate: statsData.completion_rate ?? 0,
-          habits_count: habitsData.length ?? 0,
-        });
+        setStats(profileStats);
+        setXpInfo(xp);
+        setRecords(detailed.records);
+        setValidationStats(detailed.validations);
       } catch {
-        // silently fail
+        // silently fail — data will show defaults
       } finally {
         setLoading(false);
       }
@@ -114,14 +144,18 @@ export default function ProfilePage() {
     fetchData();
   }, []);
 
-  // Compute level from XP (simple: 1 level per 5 habits completed)
-  const xp = stats.streak * 50 + stats.today_completed * 25;
-  const level = Math.floor(xp / 250) + 1;
-  const xpInLevel = xp % 250;
-  const xpForNextLevel = 250;
-  const xpProgress = (xpInLevel / xpForNextLevel) * 100;
+  // Achievement data for checking unlock status
+  const achievementData: AchievementData = {
+    streak: records.current_streak,
+    totalCheckins: stats.today_completed, // simplified; detailed has total_completed
+    totalValidations: validationStats.total_successful,
+    habitsCount: stats.habits_count,
+    longestStreak: records.longest_streak,
+    activeDays: records.active_days,
+    level: xpInfo.level,
+  };
 
-  const unlockedCount = ACHIEVEMENTS.filter((a) => a.unlocked).length;
+  const unlockedCount = ACHIEVEMENTS.filter((a) => a.check(achievementData)).length;
 
   if (loading) {
     return (
@@ -154,22 +188,22 @@ export default function ProfilePage() {
             <div className="flex items-center gap-2">
               <span className="font-bold text-white text-lg">{user?.username ?? "Usuario"}</span>
               <span className="text-[10px] font-bold bg-[#5D5FEF] text-white px-2 py-0.5 rounded-full">
-                🏆 Nivel {level}
+                🏆 Nivel {xpInfo.level}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Racha actual: {stats.streak} días 🔥
+              Racha actual: {records.current_streak} días 🔥
             </p>
             {/* XP Bar */}
             <div className="mt-2">
               <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                 <span>Experiencia</span>
-                <span>{xpInLevel} / {xpForNextLevel} XP</span>
+                <span>{xpInfo.xp_in_level} / {xpInfo.xp_for_next_level} XP</span>
               </div>
               <div className="h-2 rounded-full bg-[#2A2A3E] overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-500 transition-all duration-500"
-                  style={{ width: `${xpProgress}%` }}
+                  style={{ width: `${xpInfo.progress_pct}%` }}
                 />
               </div>
             </div>
@@ -186,12 +220,12 @@ export default function ProfilePage() {
         </div>
         <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 space-y-1">
           <Star className="size-5 text-purple-400" />
-          <p className="text-2xl font-bold text-white">{stats.streak * 7}</p>
+          <p className="text-2xl font-bold text-white">{records.active_days}</p>
           <p className="text-xs text-muted-foreground">Días activos</p>
         </div>
         <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 space-y-1">
           <Flame className="size-5 text-orange-400" />
-          <p className="text-2xl font-bold text-white">{stats.streak}</p>
+          <p className="text-2xl font-bold text-white">{records.longest_streak}</p>
           <p className="text-xs text-muted-foreground">Racha más larga</p>
         </div>
         <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 space-y-1">
@@ -208,21 +242,25 @@ export default function ProfilePage() {
           <span className="text-xs text-muted-foreground">{unlockedCount} de {ACHIEVEMENTS.length}</span>
         </div>
         <div className="grid grid-cols-4 gap-3">
-          {ACHIEVEMENTS.map((ach) => (
-            <div
-              key={ach.name}
-              className={`flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all ${
-                ach.unlocked
-                  ? `${ach.color} border border-white/10`
-                  : "bg-[#111127] border border-[#2A2A3E] opacity-50"
-              }`}
-            >
-              <ach.icon className={`size-5 ${ach.unlocked ? "text-white" : "text-muted-foreground"}`} />
-              <span className={`text-[9px] font-medium text-center leading-tight ${ach.unlocked ? "text-white" : "text-muted-foreground"}`}>
-                {ach.name}
-              </span>
-            </div>
-          ))}
+          {ACHIEVEMENTS.map((ach) => {
+            const unlocked = ach.check(achievementData);
+            return (
+              <div
+                key={ach.name}
+                className={`flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all ${
+                  unlocked
+                    ? `${ach.color} border border-white/10`
+                    : "bg-[#111127] border border-[#2A2A3E] opacity-50"
+                }`}
+                title={ach.description}
+              >
+                <ach.icon className={`size-5 ${unlocked ? "text-white" : "text-muted-foreground"}`} />
+                <span className={`text-[9px] font-medium text-center leading-tight ${unlocked ? "text-white" : "text-muted-foreground"}`}>
+                  {ach.name}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -236,25 +274,47 @@ export default function ProfilePage() {
               <p className="text-sm font-medium text-white">Racha más larga</p>
               <p className="text-xs text-muted-foreground">Tu mejor marca</p>
             </div>
-            <span className="text-lg font-bold text-white">{stats.streak} días</span>
+            <span className="text-lg font-bold text-white">{records.longest_streak} días</span>
           </div>
           <div className="flex items-center gap-3 p-4">
             <Calendar className="size-5 text-green-400" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">Mejor semana</p>
-              <p className="text-xs text-muted-foreground">Tasa de finalización</p>
+              <p className="text-sm font-medium text-white">Días activos</p>
+              <p className="text-xs text-muted-foreground">Total histórico</p>
             </div>
-            <span className="text-lg font-bold text-white">{stats.completion_rate}%</span>
+            <span className="text-lg font-bold text-white">{records.active_days}</span>
           </div>
           <div className="flex items-center gap-3 p-4">
             <Zap className="size-5 text-[#5D5FEF]" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">Más hábitos en un día</p>
-              <p className="text-xs text-muted-foreground">Día más productivo</p>
+              <p className="text-sm font-medium text-white">Mejor día</p>
+              <p className="text-xs text-muted-foreground">Más hábitos en un día</p>
             </div>
-            <span className="text-lg font-bold text-white">{stats.today_total}</span>
+            <span className="text-lg font-bold text-white">{records.best_day}</span>
+          </div>
+          <div className="flex items-center gap-3 p-4">
+            <ImageIcon className="size-5 text-emerald-400" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">Validaciones exitosas</p>
+              <p className="text-xs text-muted-foreground">
+                {validationStats.success_rate}% tasa de éxito
+              </p>
+            </div>
+            <span className="text-lg font-bold text-white">{validationStats.total_successful}</span>
           </div>
         </div>
+      </div>
+
+      {/* XP Total */}
+      <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 flex items-center gap-4">
+        <div className="size-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+          <Sparkles className="size-6 text-white" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-white">XP Total</p>
+          <p className="text-xs text-muted-foreground">Nivel {xpInfo.level}</p>
+        </div>
+        <span className="text-2xl font-bold text-white">{xpInfo.total_xp}</span>
       </div>
 
       {/* Settings */}

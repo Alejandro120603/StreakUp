@@ -1,7 +1,7 @@
 import { apiGet, API_ENDPOINTS, shouldUseOfflineFallback } from "@/services/api/client";
 import { fetchHabits } from "@/services/habits/habitService";
 import { getLocalStats } from "@/services/storage/localData";
-import type { ProfileStats, StatsSummary } from "@/types/stats";
+import type { ProfileStats, StatsSummary, XpInfo, DetailedStats } from "@/types/stats";
 
 export async function fetchStatsSummary(): Promise<StatsSummary> {
   try {
@@ -12,6 +12,14 @@ export async function fetchStatsSummary(): Promise<StatsSummary> {
     }
     throw error;
   }
+}
+
+export async function fetchXpInfo(): Promise<XpInfo> {
+  return apiGet<XpInfo>(API_ENDPOINTS.stats.xp);
+}
+
+export async function fetchDetailedStats(): Promise<DetailedStats> {
+  return apiGet<DetailedStats>(API_ENDPOINTS.stats.detailed);
 }
 
 export async function fetchProfileStats(): Promise<ProfileStats> {
