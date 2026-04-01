@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Upload,
@@ -20,11 +20,11 @@ import { SECTION_ICONS } from "@/types/habits";
 type PageStatus = "idle" | "loading" | "success" | "error";
 
 export default function ValidateHabitPage() {
-  const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const habitId = Number(params.id);
+  const habitId = Number(searchParams.get("id"));
 
   const [habit, setHabit] = useState<Habit | null>(null);
   const [loadingHabit, setLoadingHabit] = useState(true);
@@ -38,7 +38,7 @@ export default function ValidateHabitPage() {
     async function loadHabit() {
       try {
         const habits = await fetchHabits();
-        const found = habits.find((h) => h.id === habitId);
+        const found = habits.find((item) => item.id === habitId);
         setHabit(found ?? null);
       } catch {
         setHabit(null);
@@ -46,6 +46,7 @@ export default function ValidateHabitPage() {
         setLoadingHabit(false);
       }
     }
+
     loadHabit();
   }, [habitId]);
 
@@ -53,13 +54,11 @@ export default function ValidateHabitPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       setErrorMsg("Por favor selecciona un archivo de imagen.");
       return;
     }
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       setErrorMsg("La imagen debe ser menor a 10MB.");
       return;
@@ -70,9 +69,7 @@ export default function ValidateHabitPage() {
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
       setImagePreview(dataUrl);
-      // Extract base64 from data URL
-      const base64 = dataUrl.split(",")[1];
-      setImageBase64(base64);
+      setImageBase64(dataUrl.split(",")[1]);
     };
     reader.readAsDataURL(file);
   }
@@ -93,7 +90,6 @@ export default function ValidateHabitPage() {
     }
   }
 
-  // Loading state
   if (loadingHabit) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -102,7 +98,6 @@ export default function ValidateHabitPage() {
     );
   }
 
-  // Habit not found
   if (!habit) {
     return (
       <div className="pt-8 pb-4 max-w-lg mx-auto px-4 text-center">
@@ -119,7 +114,6 @@ export default function ValidateHabitPage() {
 
   return (
     <div className="pt-8 pb-4 max-w-lg mx-auto px-4 space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push("/habits")}
@@ -135,7 +129,6 @@ export default function ValidateHabitPage() {
         </div>
       </div>
 
-      {/* Habit Info Card */}
       <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 flex items-center gap-4">
         <div className="flex items-center justify-center size-14 rounded-xl bg-[#1A1A2E] text-3xl shrink-0">
           {SECTION_ICONS[habit.section] ?? habit.icon}
@@ -153,7 +146,6 @@ export default function ValidateHabitPage() {
         </div>
       </div>
 
-      {/* Upload Area */}
       {status === "idle" && (
         <div className="space-y-4">
           <input
@@ -212,14 +204,12 @@ export default function ValidateHabitPage() {
             </div>
           )}
 
-          {/* Error */}
           {errorMsg && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
               {errorMsg}
             </div>
           )}
 
-          {/* Validate Button */}
           <button
             onClick={handleValidate}
             disabled={!imageBase64}
@@ -231,7 +221,6 @@ export default function ValidateHabitPage() {
         </div>
       )}
 
-      {/* Loading State */}
       {status === "loading" && (
         <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-8 flex flex-col items-center gap-4">
           <div className="relative">
@@ -249,7 +238,6 @@ export default function ValidateHabitPage() {
         </div>
       )}
 
-      {/* Success State */}
       {status === "success" && result && (
         <div className="space-y-4">
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-6 space-y-4">
@@ -258,95 +246,87 @@ export default function ValidateHabitPage() {
                 <CheckCircle2 className="size-6 text-emerald-400" />
               </div>
               <div>
-                <p className="text-emerald-400 font-bold text-lg">
-                  ¡Hábito validado!
-                </p>
-                <p className="text-emerald-300/70 text-sm">{result.razon}</p>
+                <p className="text-white font-semibold text-lg">¡Validación exitosa!</p>
+                <p className="text-emerald-400 text-sm">{result.razon}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {/* XP */}
-              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-center">
-                <Sparkles className="size-5 text-yellow-400 mx-auto mb-1" />
-                <p className="text-2xl font-bold text-white">
-                  +{result.xp_ganado}
-                </p>
+              <div className="rounded-lg bg-[#111127] p-4 text-center">
+                <Sparkles className="size-5 text-[#5D5FEF] mx-auto mb-2" />
+                <p className="text-2xl font-bold text-white">+{result.xp_ganado ?? 0}</p>
                 <p className="text-xs text-muted-foreground">XP ganado</p>
               </div>
-
-              {/* Streak */}
-              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-center">
-                <Flame className="size-5 text-orange-400 mx-auto mb-1" />
-                <p className="text-2xl font-bold text-white">
-                  {result.nueva_racha}
-                </p>
+              <div className="rounded-lg bg-[#111127] p-4 text-center">
+                <Flame className="size-5 text-orange-400 mx-auto mb-2" />
+                <p className="text-2xl font-bold text-white">{result.nueva_racha ?? 0}</p>
                 <p className="text-xs text-muted-foreground">Racha actual</p>
               </div>
-            </div>
-
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">
-                Confianza: {Math.round((result.confianza ?? 0) * 100)}%
-              </p>
             </div>
           </div>
 
           <button
             onClick={() => router.push("/habits")}
-            className="w-full py-3 rounded-xl font-semibold text-white bg-[#5D5FEF] hover:bg-[#4B4DDC] transition-all active:scale-[0.98]"
+            className="w-full py-3.5 rounded-xl font-semibold text-white bg-[#5D5FEF] hover:bg-[#4B4DDC] transition-colors"
           >
             Volver a hábitos
           </button>
         </div>
       )}
 
-      {/* Error State */}
-      {status === "error" && !result?.valido && (
+      {status === "error" && result && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 space-y-3">
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="size-12 rounded-full bg-red-500/20 flex items-center justify-center">
                 <XCircle className="size-6 text-red-400" />
               </div>
               <div>
-                <p className="text-red-400 font-bold text-lg">
-                  No se pudo validar
-                </p>
-                <p className="text-red-300/70 text-sm">
-                  {result?.razon || errorMsg || "La imagen no corresponde al hábito."}
-                </p>
+                <p className="text-white font-semibold text-lg">Validación rechazada</p>
+                <p className="text-red-400 text-sm">{result.razon}</p>
               </div>
             </div>
 
-            {result?.confianza !== undefined && (
-              <p className="text-xs text-muted-foreground text-center">
-                Confianza: {Math.round(result.confianza * 100)}%
-              </p>
-            )}
+            <div className="rounded-lg bg-[#111127] p-4">
+              <p className="text-xs text-muted-foreground mb-1">Confianza del modelo</p>
+              <p className="text-white font-semibold">{Math.round(result.confianza * 100)}%</p>
+            </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => {
                 setStatus("idle");
                 setResult(null);
-                setErrorMsg("");
-                setImagePreview(null);
-                setImageBase64(null);
-                if (fileInputRef.current) fileInputRef.current.value = "";
               }}
-              className="flex-1 py-3 rounded-xl font-semibold text-white bg-[#1A1A2E] border border-[#2A2A3E] hover:bg-[#2A2A3E] transition-all active:scale-[0.98]"
+              className="py-3 rounded-xl font-semibold text-white bg-[#1A1A2E] hover:bg-[#252540] transition-colors"
             >
-              Intentar de nuevo
+              Intentar otra vez
             </button>
             <button
               onClick={() => router.push("/habits")}
-              className="flex-1 py-3 rounded-xl font-semibold text-white bg-[#5D5FEF] hover:bg-[#4B4DDC] transition-all active:scale-[0.98]"
+              className="py-3 rounded-xl font-semibold text-white bg-[#5D5FEF] hover:bg-[#4B4DDC] transition-colors"
             >
               Volver
             </button>
           </div>
+        </div>
+      )}
+
+      {status === "error" && !result && errorMsg && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6">
+            <p className="text-red-400 font-medium">{errorMsg}</p>
+          </div>
+          <button
+            onClick={() => {
+              setStatus("idle");
+              setErrorMsg("");
+            }}
+            className="w-full py-3 rounded-xl font-semibold text-white bg-[#5D5FEF] hover:bg-[#4B4DDC] transition-colors"
+          >
+            Reintentar
+          </button>
         </div>
       )}
     </div>

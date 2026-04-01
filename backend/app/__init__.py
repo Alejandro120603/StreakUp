@@ -17,6 +17,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     """Create and configure the Flask application instance."""
     app = Flask(__name__)
     app.config.from_object(config_class)
+    print("DB URI:", app.config["SQLALCHEMY_DATABASE_URI"])
 
     # Enable CORS for frontend communication
     CORS(app, resources={r"/api/*": {
@@ -36,24 +37,18 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     from app.routes.validation_routes import validation_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
-    app.register_blueprint(habits_bp, url_prefix="/api/habits")
+    app.register_blueprint(habits_bp, url_prefix="/api")
     app.register_blueprint(checkins_bp, url_prefix="/api/checkins")
     app.register_blueprint(stats_bp, url_prefix="/api/stats")
     app.register_blueprint(pomodoro_bp, url_prefix="/api/pomodoro")
     app.register_blueprint(validation_bp, url_prefix="/api/habits")
 
-    # Create database tables in development
     with app.app_context():
         from app.models.user import User  # noqa: F401
         from app.models.habit import Habit  # noqa: F401
+        from app.models.user_habit import UserHabit  # noqa: F401
         from app.models.checkin import CheckIn  # noqa: F401
         from app.models.pomodoro_session import PomodoroSession  # noqa: F401
         from app.models.validation_log import ValidationLog  # noqa: F401
-        from app.services.auth_service import ensure_seed_user
-
-        from .extensions import db
-
-        db.create_all()
-        ensure_seed_user()
 
     return app

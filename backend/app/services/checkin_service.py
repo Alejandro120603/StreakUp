@@ -11,7 +11,8 @@ from datetime import date as date_type
 
 from app.extensions import db
 from app.models.checkin import CheckIn
-from app.models.habit import Habit
+from app.models.user_habit import UserHabit
+from app.services.habit_service import get_user_habit, serialize_user_habit
 from app.services.xp_service import award_xp
 
 XP_PER_CHECKIN = 25
@@ -26,33 +27,33 @@ def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = 
     if target_date is None:
         target_date = date_type.today()
 
-    # Verify habit belongs to user
-    habit = Habit.query.filter_by(id=habit_id, user_id=user_id).first()
-    if habit is None:
+    user_habit = get_user_habit(habit_id, user_id, active_only=True)
+    if user_habit is None:
         raise ValueError("Habit not found.")
 
     existing = CheckIn.query.filter_by(
-        habit_id=habit_id, user_id=user_id, date=target_date
+        habitousuario_id=user_habit.id,
+        fecha=target_date,
     ).first()
 
     if existing:
+        xp_delta = existing.xp_ganado
         db.session.delete(existing)
         db.session.commit()
-        # Revoke XP
-        award_xp(user_id, -XP_PER_CHECKIN, "checkin_undo")
+        if xp_delta:
+            award_xp(user_id, -xp_delta, "checkin_undo")
         return {"checked": False, "habit_id": habit_id, "date": target_date.isoformat()}
-    else:
-        checkin = CheckIn(
-            habit_id=habit_id,
-            user_id=user_id,
-            date=target_date,
-            completed=True,
-        )
-        db.session.add(checkin)
-        db.session.commit()
-        # Award XP
-        award_xp(user_id, XP_PER_CHECKIN, "checkin")
-        return {"checked": True, "habit_id": habit_id, "date": target_date.isoformat()}
+
+    checkin = CheckIn(
+        habitousuario_id=user_habit.id,
+        fecha=target_date,
+        completado=True,
+        xp_ganado=XP_PER_CHECKIN,
+    )
+    db.session.add(checkin)
+    db.session.commit()
+    award_xp(user_id, XP_PER_CHECKIN, "checkin")
+    return {"checked": True, "habit_id": habit_id, "date": target_date.isoformat()}
 
 
 def get_today_habits(user_id: int, target_date: date_type | None = None) -> list[dict]:
@@ -60,15 +61,28 @@ def get_today_habits(user_id: int, target_date: date_type | None = None) -> list
     if target_date is None:
         target_date = date_type.today()
 
-    habits = Habit.query.filter_by(user_id=user_id, frequency="daily").order_by(Habit.name).all()
+    habits = (
+        UserHabit.query
+        .filter_by(usuario_id=user_id, activo=True)
+        .all()
+    )
 
-    checkins = CheckIn.query.filter_by(user_id=user_id, date=target_date).all()
-    checked_ids = {c.habit_id for c in checkins}
+    checkins = (
+        CheckIn.query
+        .join(UserHabit, CheckIn.habitousuario_id == UserHabit.id)
+        .filter(
+            UserHabit.usuario_id == user_id,
+            UserHabit.activo.is_(True),
+            CheckIn.fecha == target_date,
+        )
+        .all()
+    )
+    checked_ids = {checkin.habitousuario_id for checkin in checkins}
 
     result = []
-    for h in habits:
-        habit_dict = h.to_dict()
-        habit_dict["checked_today"] = h.id in checked_ids
+    for habit in habits:
+        habit_dict = serialize_user_habit(habit)
+        habit_dict["checked_today"] = habit.id in checked_ids
         result.append(habit_dict)
 
     return result

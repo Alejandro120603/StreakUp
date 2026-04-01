@@ -2,88 +2,124 @@
 Habit service module.
 
 Responsibility:
-- Host CRUD use cases for habits.
+- Host catalog and user-assignment habit use cases.
 """
+
+from datetime import date as date_type
 
 from app.extensions import db
 from app.models.habit import Habit
+from app.models.user_habit import UserHabit
 
 
-SECTION_LABELS = {
-    "fire": "BIENESTAR",
-    "plant": "APRENDIZAJE",
-    "moon": "SALUD",
+_CATEGORY_PRESENTATION = {
+    1: {"section": "moon", "icon": "🌙"},
+    2: {"section": "plant", "icon": "🌱"},
+    3: {"section": "fire", "icon": "🔥"},
 }
 
 
-def create_habit(user_id: int, data: dict) -> dict:
-    """Create a new habit for the given user."""
-    habit = Habit(
-        user_id=user_id,
-        name=data["name"],
-        icon=data.get("icon", "🔥"),
-        habit_type=data.get("habit_type", "boolean"),
-        frequency=data.get("frequency", "daily"),
-        section=data.get("section", "fire"),
-        target_duration=data.get("target_duration"),
-        pomodoro_enabled=data.get("pomodoro_enabled", False),
-        target_quantity=data.get("target_quantity"),
-        target_unit=data.get("target_unit"),
+def _get_presentation(category_id: int) -> dict[str, str]:
+    return _CATEGORY_PRESENTATION.get(category_id, {"section": "fire", "icon": "🔥"})
+
+
+def list_catalog_habits() -> list[dict]:
+    """Return the seeded habit catalog."""
+    habits = Habit.query.order_by(Habit.categoria_id, Habit.nombre).all()
+    return [habit.to_dict() for habit in habits]
+
+
+def get_catalog_habit(habit_id: int) -> Habit | None:
+    """Return a catalog habit by id."""
+    return Habit.query.filter_by(id=habit_id).first()
+
+
+def list_active_user_habits(user_id: int) -> list[UserHabit]:
+    """Return active user-habit assignments ordered for UI display."""
+    return (
+        UserHabit.query
+        .filter_by(usuario_id=user_id, activo=True)
+        .join(Habit, UserHabit.habito_id == Habit.id)
+        .order_by(Habit.categoria_id, Habit.nombre)
+        .all()
     )
-    db.session.add(habit)
-    db.session.commit()
-    return habit.to_dict()
+
+
+def get_user_habit(habit_id: int, user_id: int, active_only: bool = True) -> UserHabit | None:
+    """Return a user-habit assignment for the given user."""
+    query = UserHabit.query.filter_by(id=habit_id, usuario_id=user_id)
+    if active_only:
+        query = query.filter_by(activo=True)
+    return query.first()
+
+
+def serialize_user_habit(user_habit: UserHabit) -> dict:
+    """Return a frontend-compatible representation of an assigned habit."""
+    catalog_habit = user_habit.habit
+    presentation = _get_presentation(catalog_habit.categoria_id)
+    created_at = user_habit.fecha_creacion.isoformat() if user_habit.fecha_creacion else None
+
+    return {
+        "id": user_habit.id,
+        "catalog_habit_id": catalog_habit.id,
+        "user_id": user_habit.usuario_id,
+        "name": catalog_habit.nombre,
+        "description": catalog_habit.descripcion,
+        "difficulty": catalog_habit.dificultad,
+        "xp_base": catalog_habit.xp_base,
+        "active": bool(user_habit.activo),
+        "start_date": user_habit.fecha_inicio.isoformat() if user_habit.fecha_inicio else None,
+        "end_date": user_habit.fecha_fin.isoformat() if user_habit.fecha_fin else None,
+        "icon": presentation["icon"],
+        "habit_type": "boolean",
+        "frequency": "daily",
+        "section": presentation["section"],
+        "target_duration": None,
+        "pomodoro_enabled": False,
+        "target_quantity": None,
+        "target_unit": None,
+        "created_at": created_at,
+        "updated_at": created_at,
+    }
 
 
 def get_habits(user_id: int) -> list[dict]:
-    """Return all habits for a user, ordered by section then name."""
-    habits = (
-        Habit.query.filter_by(user_id=user_id)
-        .order_by(Habit.section, Habit.name)
-        .all()
+    """Compatibility wrapper used by the existing frontend habits list."""
+    return [serialize_user_habit(user_habit) for user_habit in list_active_user_habits(user_id)]
+
+
+def assign_habit_to_user(user_id: int, habito_id: int) -> dict:
+    """Assign a catalog habit to a user as an active habit."""
+    catalog_habit = get_catalog_habit(habito_id)
+    if catalog_habit is None:
+        raise LookupError("Habit catalog entry not found.")
+
+    existing = UserHabit.query.filter_by(
+        usuario_id=user_id,
+        habito_id=habito_id,
+        activo=True,
+    ).first()
+    if existing is not None:
+        raise ValueError("This habit is already active for the user.")
+
+    user_habit = UserHabit(
+        usuario_id=user_id,
+        habito_id=habito_id,
+        fecha_inicio=date_type.today(),
+        activo=True,
     )
-    return [h.to_dict() for h in habits]
-
-
-def get_habit(habit_id: int, user_id: int) -> Habit | None:
-    """Return a single habit if it belongs to the user."""
-    return Habit.query.filter_by(id=habit_id, user_id=user_id).first()
-
-
-def update_habit(habit_id: int, user_id: int, data: dict) -> dict | None:
-    """Update a habit. Returns updated dict or None if not found."""
-    habit = get_habit(habit_id, user_id)
-    if habit is None:
-        return None
-
-    for field in ("name", "icon", "habit_type", "frequency", "section",
-                  "target_duration", "pomodoro_enabled", "target_quantity", "target_unit"):
-        if field in data:
-            setattr(habit, field, data[field])
-
+    db.session.add(user_habit)
     db.session.commit()
-    return habit.to_dict()
+    return serialize_user_habit(user_habit)
 
 
-def delete_habit(habit_id: int, user_id: int) -> bool:
-    """Delete a habit. Returns True if deleted, False if not found."""
-    habit = get_habit(habit_id, user_id)
-    if habit is None:
+def deactivate_user_habit(habit_id: int, user_id: int) -> bool:
+    """Deactivate a user-habit assignment without deleting the catalog row."""
+    user_habit = get_user_habit(habit_id, user_id, active_only=True)
+    if user_habit is None:
         return False
 
-    db.session.delete(habit)
+    user_habit.activo = False
+    user_habit.fecha_fin = date_type.today()
     db.session.commit()
     return True
-
-
-def seed_default_habit(user_id: int) -> None:
-    """Create a default 'Meditar' habit for a new user if they have none."""
-    existing = Habit.query.filter_by(user_id=user_id).first()
-    if existing is None:
-        create_habit(user_id, {
-            "name": "Meditar",
-            "icon": "🧘",
-            "habit_type": "boolean",
-            "frequency": "daily",
-            "section": "fire",
-        })

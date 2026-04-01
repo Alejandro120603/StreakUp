@@ -3,6 +3,7 @@ import {
   getApiBaseUrl,
   isOfflineModeActive,
 } from "@/services/config/runtime";
+import { clearSession, getToken } from "@/services/auth/authService";
 
 import { API_ENDPOINTS } from "./endpoints";
 
@@ -15,18 +16,18 @@ export class OfflineModeError extends Error {
 
 export interface RequestOptions extends RequestInit {
   path: string;
+  redirectOnUnauthorized?: boolean;
 }
 
-function getAccessToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
+export class UnauthorizedError extends Error {
+  constructor(message = "API request failed with status 401") {
+    super(message);
+    this.name = "UnauthorizedError";
   }
-
-  return window.localStorage.getItem("access_token");
 }
 
 export function buildAuthHeaders(headers?: HeadersInit): HeadersInit {
-  const token = getAccessToken();
+  const token = getToken();
 
   return {
     "Content-Type": "application/json",
@@ -85,7 +86,20 @@ export function shouldUseOfflineFallback(error: unknown): boolean {
   return false;
 }
 
-export async function apiRequest<T>({ path, headers, ...options }: RequestOptions): Promise<T> {
+function redirectToLogin(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.location.replace("/login");
+}
+
+export async function fetchWithAuth<T>({
+  path,
+  headers,
+  redirectOnUnauthorized = true,
+  ...options
+}: RequestOptions): Promise<T> {
   if (isOfflineModeActive()) {
     throw new OfflineModeError();
   }
@@ -99,6 +113,17 @@ export async function apiRequest<T>({ path, headers, ...options }: RequestOption
 
   const responseBody = await parseResponseBody(response);
 
+  if (response.status === 401) {
+    const message = getApiErrorMessage(responseBody, "API request failed with status 401");
+
+    if (redirectOnUnauthorized) {
+      clearSession();
+      redirectToLogin();
+    }
+
+    throw new UnauthorizedError(message);
+  }
+
   if (!response.ok) {
     throw new Error(
       getApiErrorMessage(responseBody, `API request failed with status ${response.status}`),
@@ -106,6 +131,10 @@ export async function apiRequest<T>({ path, headers, ...options }: RequestOption
   }
 
   return responseBody as T;
+}
+
+export async function apiRequest<T>(options: RequestOptions): Promise<T> {
+  return fetchWithAuth<T>(options);
 }
 
 export function apiGet<T>(path: string, options?: Omit<RequestOptions, "path" | "method">): Promise<T> {

@@ -10,19 +10,8 @@ import {
   Zap,
   BarChart3,
 } from "lucide-react";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-function getAuthHeaders(): HeadersInit {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("access_token")
-      : null;
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
+import { shouldUseOfflineFallback } from "@/services/api/client";
+import { fetchDetailedStats } from "@/services/stats/statsService";
 
 /* ── Types ────────────────────────────────────── */
 
@@ -251,25 +240,23 @@ export default function StatsPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/stats/detailed`, {
-        headers: getAuthHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // If API returns data with at least 1 habit, use it; otherwise demo
-        if (data.summary?.total_habits > 0) {
-          setStats(data);
-        } else {
-          setStats(DEMO_DATA);
-          setUsingDemo(true);
-        }
+      const data = await fetchDetailedStats();
+
+      if (data.summary.total_habits > 0) {
+        setStats(data);
+        setUsingDemo(false);
       } else {
         setStats(DEMO_DATA);
         setUsingDemo(true);
       }
-    } catch {
-      setStats(DEMO_DATA);
-      setUsingDemo(true);
+    } catch (error) {
+      if (shouldUseOfflineFallback(error)) {
+        setStats(DEMO_DATA);
+        setUsingDemo(true);
+      } else {
+        setStats(null);
+        setUsingDemo(false);
+      }
     } finally {
       setLoading(false);
     }

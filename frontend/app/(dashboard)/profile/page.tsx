@@ -20,6 +20,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { fetchProfileStats, fetchXpInfo, fetchDetailedStats } from "@/services/stats/statsService";
+import { getCurrentUser } from "@/services/auth/authService";
 import type { ProfileStats, XpInfo } from "@/types/stats";
 
 interface AchievementDef {
@@ -118,14 +119,9 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function fetchData() {
-      // Get user from localStorage
-      const userJson = localStorage.getItem("user");
-      if (userJson) {
-        try {
-          setUser(JSON.parse(userJson));
-        } catch {
-          // ignore parse error
-        }
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
       }
 
       try {

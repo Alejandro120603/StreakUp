@@ -2,74 +2,81 @@
 Habit routes module.
 
 Responsibility:
-- Define HTTP endpoints for habit CRUD operations.
+- Define HTTP endpoints for catalog habits and user habit assignments.
 - All endpoints require JWT authentication.
 """
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from app.schemas.habit_validations import validate_create_habit, validate_update_habit
 from app.services.habit_service import (
-    create_habit,
-    delete_habit,
+    assign_habit_to_user,
+    deactivate_user_habit,
     get_habits,
-    update_habit,
+    list_catalog_habits,
 )
 from app.utils.error_handler import error_response
 
 habits_bp = Blueprint("habits", __name__)
 
 
-@habits_bp.route("", methods=["GET"])
+@habits_bp.route("/habitos", methods=["GET"])
+@jwt_required()
+def list_catalog():
+    """Return the habit catalog."""
+    return jsonify(list_catalog_habits()), 200
+
+
+@habits_bp.route("/habitos_usuario", methods=["POST"])
+@jwt_required()
+def assign():
+    """Assign a catalog habit to the authenticated user."""
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True)
+
+    if not data or "habito_id" not in data:
+        return error_response("habito_id is required.", 400)
+
+    try:
+        habit = assign_habit_to_user(user_id, int(data["habito_id"]))
+        return jsonify(habit), 201
+    except ValueError as exc:
+        return error_response(str(exc), 409)
+    except LookupError as exc:
+        return error_response(str(exc), 404)
+
+
+@habits_bp.route("/mis-habitos", methods=["GET"])
+@jwt_required()
+def list_user_habits():
+    """Return active habits for the authenticated user."""
+    user_id = int(get_jwt_identity())
+    return jsonify(get_habits(user_id)), 200
+
+
+@habits_bp.route("/habitos_usuario/<int:habit_id>", methods=["DELETE"])
+@jwt_required()
+def deactivate(habit_id: int):
+    """Deactivate an assigned habit for the authenticated user."""
+    user_id = int(get_jwt_identity())
+    if not deactivate_user_habit(habit_id, user_id):
+        return error_response("Habit not found.", 404)
+    return jsonify({"message": "Habit deactivated successfully."}), 200
+
+
+@habits_bp.route("/habits", methods=["GET"])
 @jwt_required()
 def list_habits():
-    """Return all habits for the authenticated user."""
+    """Compatibility endpoint for the existing frontend habits list."""
     user_id = int(get_jwt_identity())
-    habits = get_habits(user_id)
-    return jsonify(habits), 200
+    return jsonify(get_habits(user_id)), 200
 
 
-@habits_bp.route("", methods=["POST"])
-@jwt_required()
-def create():
-    """Create a new habit for the authenticated user."""
-    user_id = int(get_jwt_identity())
-    data = request.get_json(silent=True)
-
-    errors = validate_create_habit(data)
-    if errors:
-        return error_response(errors, 400)
-
-    habit = create_habit(user_id, data)
-    return jsonify(habit), 201
-
-
-@habits_bp.route("/<int:habit_id>", methods=["PUT"])
-@jwt_required()
-def update(habit_id: int):
-    """Update an existing habit."""
-    user_id = int(get_jwt_identity())
-    data = request.get_json(silent=True)
-
-    errors = validate_update_habit(data)
-    if errors:
-        return error_response(errors, 400)
-
-    result = update_habit(habit_id, user_id, data)
-    if result is None:
-        return error_response("Habit not found.", 404)
-
-    return jsonify(result), 200
-
-
-@habits_bp.route("/<int:habit_id>", methods=["DELETE"])
+@habits_bp.route("/habits/<int:habit_id>", methods=["DELETE"])
 @jwt_required()
 def delete(habit_id: int):
-    """Delete a habit."""
+    """Compatibility endpoint that deactivates an assigned habit."""
     user_id = int(get_jwt_identity())
-
-    if not delete_habit(habit_id, user_id):
+    if not deactivate_user_habit(habit_id, user_id):
         return error_response("Habit not found.", 404)
-
-    return jsonify({"message": "Habit deleted successfully."}), 200
+    return jsonify({"message": "Habit deactivated successfully."}), 200
