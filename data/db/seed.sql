@@ -24,6 +24,14 @@ VALUES
     'scrypt:32768:8:1$cWJQ9BTuaFCv82Sy$b90fbb8797c36594e1ff0bf71d789e4757757db8910b1aead4cb02acd01311d98f7e4771d1bebb1a3e2851bbfe6a67741c24b6b52587da6135dbc5c6b039c875',
     'user',
     0
+),
+
+(
+    'Prueba',
+    'prueba@correo.com',
+    'scrypt:32768:8:1$ifWQRcoPaFDoct0u$4a8695472ce8835fd478499e2633f469cdcaaf8609fa68afd2ae294379928845e0c66247c17b32b4d85844a61c63757fc2abac3bcfee0a817ffbc87867f9058d',
+    'user',
+    0
 );
 
 -- =========================================
@@ -41,23 +49,23 @@ INSERT INTO categorias (nombre, descripcion) VALUES
 
 -- SALUD Y BIENESTAR
 INSERT INTO habitos (categoria_id, nombre, descripcion, dificultad, xp_base) VALUES
-(1, 'Beber 2L de agua', 'Mantener hidratación diaria', 'facil', 10),
-(1, 'Ejercicio 30 min', 'Actividad física diaria', 'media', 20),
-(1, 'Comida saludable', 'Alimentación balanceada', 'media', 15),
-(1, 'Meditar 5-10 min', 'Relajación mental', 'facil', 10),
-(1, 'Día sin quejas', 'Control emocional', 'dificil', 25);
+(1, 'Beber 2L de agua', 'Mantener hidratación diaria', 'Fácil', 10),
+(1, 'Ejercicio 30 min', 'Actividad física diaria', 'Media', 20),
+(1, 'Comida saludable', 'Alimentación balanceada', 'Media', 15),
+(1, 'Meditar 5-10 min', 'Relajación mental', 'Fácil', 10),
+(1, 'Día sin quejas', 'Control emocional', 'Difícil', 25);
 
 
 -- PRODUCTIVIDAD
 INSERT INTO habitos (categoria_id, nombre, descripcion, dificultad, xp_base) VALUES
-(2, 'Trabajo profundo 60 min', 'Sesión sin distracciones', 'dificil', 30),
-(2, 'Completar tarea clave', 'Tarea importante del día', 'media', 20),
-(2, 'Empezar antes de las 9am', 'Disciplina matutina', 'media', 15),
-(2, 'Leer 20 min', 'Lectura diaria', 'facil', 10),
-(2, 'Practicar idioma', 'Aprendizaje lingüístico', 'media', 15);
+(2, 'Trabajo profundo 60 min', 'Sesión sin distracciones', 'Difícil', 30),
+(2, 'Completar tarea clave', 'Tarea importante del día', 'Media', 20),
+(2, 'Empezar antes de las 9am', 'Disciplina matutina', 'Media', 15),
+(2, 'Leer 20 min', 'Lectura diaria', 'Fácil', 10),
+(2, 'Practicar idioma', 'Aprendizaje lingüístico', 'Media', 15);
 
 
 -- ORDEN
 INSERT INTO habitos (categoria_id, nombre, descripcion, dificultad, xp_base) VALUES
-(3, 'Tender la cama', 'Orden básico diario', 'facil', 5),
-(3, 'dormir', 'Orden básico diario', 'facil', 5);
+(3, 'Tender la cama', 'Orden básico diario', 'Fácil', 5),
+(3, 'Dormir', 'Orden básico diario', 'Fácil', 5);

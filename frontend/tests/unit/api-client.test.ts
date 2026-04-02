@@ -4,7 +4,6 @@ import { Capacitor } from "@capacitor/core";
 
 import {
   OfflineModeError,
-  UnauthorizedError,
   apiRequest,
   shouldUseOfflineFallback,
 } from "@/services/api/client";
@@ -19,7 +18,6 @@ const originalWindow = globalThis.window;
 const originalOfflineMode = process.env.NEXT_PUBLIC_OFFLINE_MODE;
 const originalApiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
 const originalIsNativePlatform = Capacitor.isNativePlatform;
-let replacedTo: string | null = null;
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -50,9 +48,7 @@ function createWindow() {
   return {
     localStorage: createStorage(),
     location: {
-      replace(path: string) {
-        replacedTo = path;
-      },
+      href: "",
     },
   };
 }
@@ -60,7 +56,6 @@ function createWindow() {
 beforeEach(() => {
   process.env.NEXT_PUBLIC_OFFLINE_MODE = "";
   process.env.NEXT_PUBLIC_API_URL = "";
-  replacedTo = null;
 
   Object.defineProperty(globalThis, "window", {
     configurable: true,
@@ -219,7 +214,7 @@ test("apiRequest accepts a LAN IP for native apps", async () => {
   assert.deepEqual(result, [{ id: 2 }]);
 });
 
-test("apiRequest clears the saved session and redirects on 401 responses", async () => {
+test("apiRequest clears session and throws on 401 responses", async () => {
   window.localStorage.setItem("access_token", "expired-token");
   window.localStorage.setItem("refresh_token", "expired-refresh");
   window.localStorage.setItem("user", JSON.stringify({ id: 7, email: "test@example.com" }));
@@ -236,40 +231,13 @@ test("apiRequest clears the saved session and redirects on 401 responses", async
       method: "GET",
     }),
     (error: unknown) =>
-      error instanceof UnauthorizedError &&
+      error instanceof Error &&
       error.message === "Token expired.",
   );
 
   assert.equal(window.localStorage.getItem("access_token"), null);
   assert.equal(window.localStorage.getItem("refresh_token"), null);
   assert.equal(window.localStorage.getItem("user"), null);
-  assert.equal(replacedTo, "/login");
-});
-
-test("apiRequest can skip the global redirect when unauthorized handling is disabled", async () => {
-  window.localStorage.setItem("access_token", "saved-access");
-  window.localStorage.setItem("user", JSON.stringify({ id: 7, email: "test@example.com" }));
-
-  globalThis.fetch = async () =>
-    new Response(JSON.stringify({ error: "Invalid credentials." }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-
-  await assert.rejects(
-    apiRequest({
-      path: "/api/auth/login",
-      method: "POST",
-      redirectOnUnauthorized: false,
-    }),
-    (error: unknown) =>
-      error instanceof UnauthorizedError &&
-      error.message === "Invalid credentials.",
-  );
-
-  assert.equal(window.localStorage.getItem("access_token"), "saved-access");
-  assert.notEqual(window.localStorage.getItem("user"), null);
-  assert.equal(replacedTo, null);
 });
 
 test("shouldUseOfflineFallback matches network failures but not HTTP errors", async () => {

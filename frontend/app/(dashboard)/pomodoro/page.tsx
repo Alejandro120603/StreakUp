@@ -12,7 +12,7 @@ import {
   createPomodoroSession,
   fetchPomodoroSessions,
 } from "@/services/pomodoro/pomodoroService";
-import type { PomodoroSession, PomodoroTheme } from "@/types/pomodoro";
+import type { PomodoroSession } from "@/types/pomodoro";
 
 const THEMES = {
   fire: { label: "Fuego", bg: "from-orange-950 to-[#0A0A0A]", accent: "#F97316" },
@@ -21,7 +21,7 @@ const THEMES = {
   hourglass: { label: "Reloj", bg: "from-amber-950 to-[#0A0A0A]", accent: "#D97706" },
 };
 
-type ThemeKey = PomodoroTheme;
+type ThemeKey = keyof typeof THEMES;
 type TimerState = "idle" | "focus" | "break" | "finished";
 
 /* ─── Animated Theme Components ─── */
@@ -230,18 +230,17 @@ function PomodoroContent() {
       });
       setActiveSessionId(session.id);
       setRecentSessions((prev) => [session, ...prev.filter((existing) => existing.id !== session.id)].slice(0, 5));
+      
+      const secs = studyMinutes * 60;
+      setSecondsLeft(secs);
+      setTotalSeconds(secs);
+      setCurrentCycle(1);
+      setTimerState("focus");
+      setIsPaused(false);
+      completingSessionRef.current = false;
     } catch (error) {
       setSessionError(error instanceof Error ? error.message : "No se pudo iniciar la sesión.");
-      return;
     }
-
-    const secs = studyMinutes * 60;
-    setSecondsLeft(secs);
-    setTotalSeconds(secs);
-    setCurrentCycle(1);
-    setTimerState("focus");
-    setIsPaused(false);
-    completingSessionRef.current = false;
   }
 
   function togglePause() {
@@ -275,7 +274,6 @@ function PomodoroContent() {
         setSessionError(error instanceof Error ? error.message : "No se pudo completar la sesión.");
       });
   }, [activeSessionId, timerState]);
-
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;

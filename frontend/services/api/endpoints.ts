@@ -4,13 +4,13 @@ export const API_ENDPOINTS = {
     register: "/api/auth/register"
   },
   habits: {
-    list: "/api/mis-habitos",
-    catalog: "/api/habitos",
-    create: "/api/habitos_usuario",
-    detail: (id: number) => `/api/habitos_usuario/${id}`,
-    update: (id: number) => `/api/habitos_usuario/${id}`,
-    delete: (id: number) => `/api/habitos_usuario/${id}`,
+    list: "/api/habits",
+    create: "/api/habits",
+    catalog: "/api/habits/catalog",
     validate: "/api/habits/validate",
+    detail: (id: number) => `/api/habits/${id}`,
+    update: (id: number) => `/api/habits/${id}`,
+    delete: (id: number) => `/api/habits/${id}`,
   },
   checkins: {
     toggle: "/api/checkins/toggle",
@@ -18,11 +18,12 @@ export const API_ENDPOINTS = {
   },
   stats: {
     summary: "/api/stats/summary",
-    detailed: "/api/stats/detailed",
     xp: "/api/stats/xp",
+    detailed: "/api/stats/detailed",
   },
   pomodoro: {
     sessions: "/api/pomodoro/sessions",
     complete: (id: number) => `/api/pomodoro/sessions/${id}/complete`,
   },
 } as const;
+
