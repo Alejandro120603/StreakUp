@@ -234,3 +234,36 @@ test("login reports offline when the backend request fails", async () => {
     },
   );
 });
+
+test("login with cached session fails securely when backend request throws", async () => {
+  saveSession({
+    access_token: "saved-access",
+    refresh_token: "saved-refresh",
+    user: {
+      id: 7,
+      username: "user_test",
+      email: TEST_EMAIL,
+      role: "user",
+      created_at: "2026-03-27T00:00:00Z",
+    },
+  });
+
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new TypeError("Failed to fetch");
+  };
+
+  await assert.rejects(
+    login({
+      email: TEST_EMAIL,
+      password: "wrong_password",
+    }),
+    (error: unknown) => {
+      assert.equal(fetchCalls, 1);
+      assert.ok(error instanceof Error);
+      assert.equal(error.message, "No hay conexión. Usa una sesión guardada previamente.");
+      return true;
+    },
+  );
+});

@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { fetchHabits, updateHabit } from "@/services/habits/habitService";
+import { isOfflineModeActive } from "@/services/config/runtime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +48,7 @@ export default function EditHabitPage() {
   const router = useRouter();
   const params = useParams();
   const habitId = Number(params.id);
+  const isOnline = !isOfflineModeActive();
 
   const [name, setName] = useState<string>(PREDEFINED_HABITS[0]);
   const [habitType, setHabitType] = useState<"boolean" | "time" | "quantity">("boolean");
@@ -91,6 +93,7 @@ export default function EditHabitPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (isOnline) return;
     setError("");
     setIsLoading(true);
 
@@ -291,13 +294,28 @@ export default function EditHabitPage() {
           </div>
         </div>
         {/* Submit */}
-        <Button
-          type="submit"
-          disabled={isLoading}
-          className="w-full h-12 rounded-xl text-base font-semibold bg-[#5D5FEF] hover:bg-[#4B4DDC] text-white shadow-[0_0_24px_rgba(93,95,239,0.4)] hover:shadow-[0_0_32px_rgba(93,95,239,0.55)] transition-all duration-300"
-        >
-          {isLoading ? "Guardando..." : "Guardar cambios"}
-        </Button>
+        {isOnline ? (
+          <div className="w-full text-center space-y-2 mt-4">
+            <p className="text-sm font-medium text-amber-400 bg-amber-400/10 py-3 rounded-xl border border-amber-400/20">
+              La edición de hábitos en la nube se implementará próximamente. Sólo disponible en modo offline.
+            </p>
+            <Button
+              type="button"
+              disabled
+              className="w-full h-12 rounded-xl text-base font-semibold bg-[#2A2A3E] text-muted-foreground cursor-not-allowed"
+            >
+              Guardar cambios
+            </Button>
+          </div>
+        ) : (
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="w-full h-12 rounded-xl text-base font-semibold bg-[#5D5FEF] hover:bg-[#4B4DDC] text-white shadow-[0_0_24px_rgba(93,95,239,0.4)] hover:shadow-[0_0_32px_rgba(93,95,239,0.55)] transition-all duration-300"
+          >
+            {isLoading ? "Guardando..." : "Guardar cambios"}
+          </Button>
+        )}
       </form>
     </div>
   );

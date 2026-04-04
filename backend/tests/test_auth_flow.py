@@ -13,6 +13,8 @@ from app.extensions import db
 from app.models.habit import Habit
 from app.models.user import User
 from app.models.user_habit import UserHabit
+from app.models.xp_log import XpLog
+from app.services.xp_service import award_xp
 
 
 class AuthFlowTestCase(unittest.TestCase):
@@ -224,6 +226,25 @@ class AuthFlowTestCase(unittest.TestCase):
             {"error": "This habit is already active for the user."},
         )
 
+    def test_award_xp_saves_log_correctly(self) -> None:
+        award_xp(self.daniel_user.id, 50, "test_reason")
+        
+        log_entry = XpLog.query.filter_by(user_id=self.daniel_user.id).first()
+        self.assertIsNotNone(log_entry)
+        self.assertEqual(log_entry.cantidad, 50)
+        self.assertEqual(log_entry.razon, "test_reason")
+
+    def test_update_habit_returns_501(self) -> None:
+        login = self._login("daniel@correo.com", "daniel-password").get_json()
+        
+        response = self.client.put(
+            f"/api/habits/{self.daniel_habit.id}",
+            json={"name": "Nuevo Nombre"},
+            headers=self._auth_headers(login["access_token"]),
+        )
+        
+        self.assertEqual(response.status_code, 501)
+        self.assertEqual(response.get_json(), {"error": "La edición de hábitos en la nube se implementará próximamente."})
 
 if __name__ == "__main__":
     unittest.main()

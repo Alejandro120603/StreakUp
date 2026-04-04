@@ -42,33 +42,7 @@ export interface RegisterResponse {
   };
 }
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
 
-function mapSessionToLoginResponse(session: AuthSession): LoginResponse {
-  return {
-    access_token: session.accessToken,
-    refresh_token: session.refreshToken ?? "",
-    user: {
-      id: session.user.id,
-      username: session.user.username,
-      email: session.user.email,
-      role: session.user.role,
-      created_at: session.user.created_at ?? "",
-    },
-  };
-}
-
-function getMatchingSavedSession(email: string): AuthSession | null {
-  const session = getSession();
-
-  if (!session) {
-    return null;
-  }
-
-  return normalizeEmail(session.user.email) === normalizeEmail(email) ? session : null;
-}
 
 /**
  * Authenticate a user and receive JWT tokens.
@@ -80,11 +54,6 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
     });
   } catch (error) {
     if (shouldUseOfflineFallback(error)) {
-      const session = getMatchingSavedSession(payload.email);
-      if (session) {
-        return mapSessionToLoginResponse(session);
-      }
-
       throw new Error(OFFLINE_LOGIN_ERROR);
     }
     throw error;

@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
 
     role TEXT NOT NULL DEFAULT 'user',         -- 🔥 FIX CRÍTICO
     total_xp INTEGER NOT NULL DEFAULT 0,
+    level INTEGER NOT NULL DEFAULT 1,
+    xp_in_level INTEGER NOT NULL DEFAULT 0,
 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -23,6 +25,25 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email 
 ON users(email);
+
+
+-- =====================================================
+-- XP_LOGS
+-- =====================================================
+CREATE TABLE IF NOT EXISTS xp_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL,
+    cantidad INTEGER NOT NULL,
+    fuente TEXT NOT NULL,
+    fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (usuario_id) 
+        REFERENCES users(id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_xp_logs_usuario 
+ON xp_logs(usuario_id);
 
 
 -- =====================================================

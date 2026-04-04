@@ -8,16 +8,6 @@ import { fetchStatsSummary } from "@/services/stats/statsService";
 import type { TodayHabit } from "@/types/checkins";
 import type { StatsSummary } from "@/types/stats";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-function getAuthHeaders(): HeadersInit {
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
-
 function formatDate(): string {
   const now = new Date();
   const options: Intl.DateTimeFormatOptions = {
@@ -70,22 +60,6 @@ export default function DashboardHomePage() {
       const [statsData, habitsData] = await Promise.all([fetchStatsSummary(), fetchTodayHabits()]);
       setStats(statsData);
       setTodayHabits(habitsData);
-      const res = await fetch(`${API_URL}/api/checkins/toggle`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ habit_id: habitId }),
-      });
-
-      if (res.ok) {
-        setTodayHabits((prev) =>
-          prev.map((h) =>
-            h.id === habitId ? { ...h, checked_today: !h.checked_today } : h
-          )
-        );
-        // Refresh stats
-        const statsRes = await fetch(`${API_URL}/api/stats/summary`, { headers: getAuthHeaders() });
-        if (statsRes.ok) setStats(await statsRes.json());
-      }
     } catch {
       // silently fail
     }

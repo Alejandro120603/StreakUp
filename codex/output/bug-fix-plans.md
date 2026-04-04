@@ -1,164 +1,160 @@
-# Bug Fix Plans
+# Bug Fix Status
 
 Assumptions:
-- The requested output path is `codex/output`, so this plan file is written there even though the repo already has `Codex/output`.
-- These are minimal, blocking-fix plans aimed at restoring correct behavior first, not extending the feature set beyond what the current schema and API can safely support.
+- This file tracks the original five blocking review issues and the current status after follow-up fixes and verification.
+- "Done" means the reported regression has been addressed for the current intended scope.
+- "Next" means the highest-value remaining work after those regressions.
+
+## Summary
+
+**Done**
+- Issue 1: fresh DB schema now includes `users.level` and `users.xp_in_level`
+- Issue 2: fresh DB schema now includes `xp_logs`
+- Issue 3: offline login no longer bypasses password verification
+- Issue 4: dashboard check-ins no longer toggle twice
+- Issue 5: the fake-success online edit flow is blocked clearly instead of pretending to save
+
+**Still Wrong / Next To Fix**
+- Real cloud-backed habit editing is still not implemented
+- The app now blocks online edits correctly, but it does not persist edit-form fields to the backend
 
 ## Issue 1: Fresh DBs fail because `users.level` and `users.xp_in_level` do not exist
 
-**Priority:** P1
+**Status:** Done
 
-**Problem**
-- `backend/app/models/user.py` now maps `level` and `xp_in_level`.
-- Fresh environments built from `data/db/schema.sql` only create `total_xp`.
-- Any query that loads `User` from a fresh DB can fail with `no such column`.
+**What Changed**
+- `data/db/schema.sql` now creates `level INTEGER NOT NULL DEFAULT 1`
+- `data/db/schema.sql` now creates `xp_in_level INTEGER NOT NULL DEFAULT 0`
+- This now matches `backend/app/models/user.py`
 
-**Files to Touch**
-- `data/db/schema.sql`
-- `backend/tests/test_auth_flow.py`
-
-**Plan**
-1. Update the `users` table definition in `data/db/schema.sql` to add `level INTEGER NOT NULL DEFAULT 1` and `xp_in_level INTEGER NOT NULL DEFAULT 0`.
-2. Keep the new columns adjacent to the existing XP fields so the schema remains aligned with `backend/app/models/user.py`.
-3. Add a regression test in `backend/tests/test_auth_flow.py` that exercises user creation and lookup against a schema-initialized fresh DB, proving the ORM no longer references missing columns.
-4. Smoke-check any API path that reads `User`, especially login and stats summary, because those are the most likely first-failure entry points.
-
-**Acceptance Criteria**
-- A database created only from `data/db/schema.sql` can boot the app and execute user queries without column errors.
-- Auth flow tests pass against the schema-created DB.
+**Why This Is Done**
+- Fresh schema-created databases no longer mismatch the `User` ORM model
+- Backend auth-flow tests now pass against a fresh temporary DB created from `data/db/schema.sql`
 
 **Validation**
-- `pytest backend/tests/test_auth_flow.py`
-- Optional smoke check: initialize a fresh DB from `data/db/schema.sql` and hit `/api/auth/login` and `/api/stats/summary`
+- `PYTHONPATH=backend backend/.venv/bin/python -m unittest backend.tests.test_auth_flow`
 
 ## Issue 2: Successful validations fail on fresh DBs because `xp_logs` is never created
 
-**Priority:** P1
+**Status:** Done
 
-**Problem**
-- `backend/app/services/validation_service.py` now calls `award_xp()`.
-- `backend/app/services/xp_service.py` inserts into `XpLog`.
-- `data/db/schema.sql` does not create `xp_logs`, so validations can 500 with `no such table: xp_logs`.
+**What Changed**
+- `data/db/schema.sql` now creates `xp_logs`
+- The schema includes `usuario_id`, `cantidad`, `fuente`, and `fecha`
+- `backend/tests/test_auth_flow.py` now includes XP log coverage through `award_xp()`
 
-**Files to Touch**
-- `data/db/schema.sql`
-- `backend/tests/test_auth_flow.py` or a new focused backend validation/XP test
-
-**Plan**
-1. Add an `xp_logs` table to `data/db/schema.sql` that matches `backend/app/models/xp_log.py`, including the current column names `usuario_id`, `cantidad`, `fuente`, and `fecha`.
-2. Add the required foreign key back to `users(id)` and at least one supporting index on `usuario_id` because XP history queries filter by user and date.
-3. Add a regression test that awards XP on a schema-created DB and verifies an `xp_logs` row is persisted instead of raising a table error.
-4. Prefer testing through the service path that triggers the insert, not only through raw SQL, so the schema and ORM mapping stay coupled under test.
-
-**Acceptance Criteria**
-- Fresh DBs can execute `award_xp()` successfully.
-- Validation success paths no longer fail because of missing XP log persistence.
-- XP history queries can read the inserted rows.
+**Why This Is Done**
+- Fresh schema-created databases now support the `XpLog` model used by `backend/app/services/xp_service.py`
+- The backend test suite verifies that awarding XP persists an `xp_logs` row successfully
 
 **Validation**
-- `pytest backend/tests/test_auth_flow.py`
-- Add and run a targeted backend test that exercises `award_xp()` or `validate_habit()`
+- `PYTHONPATH=backend backend/.venv/bin/python -m unittest backend.tests.test_auth_flow`
 
 ## Issue 3: Offline login bypasses password verification
 
-**Priority:** P1
+**Status:** Done
 
-**Problem**
-- `frontend/services/auth/authService.ts` falls back to a cached session when the backend is unreachable.
-- The fallback only matches `email`; it does not verify `payload.password`.
-- The current stored session shape in `frontend/types/auth.ts` contains tokens and user data only, so there is no local verifier to safely authenticate offline.
+**What Changed**
+- `frontend/services/auth/authService.ts` no longer returns a cached session when the backend request fails
+- Offline login now throws the existing offline error instead of treating a saved email as authentication
+- `frontend/tests/unit/auth-service.test.ts` includes a regression test for the cached-session case
 
-**Files to Touch**
-- `frontend/services/auth/authService.ts`
-- `frontend/tests/unit/auth-service.test.ts`
-- Optional follow-up only if product explicitly wants secure offline auth: `frontend/types/auth.ts` and the session storage format
-
-**Recommended Fix Path**
-1. Remove offline login success fallback from `login()` and return the existing offline error when the backend is unreachable.
-2. Keep offline session reuse for already-authenticated app usage if that flow exists elsewhere, but do not treat it as a credential check.
-3. Add a regression test in `frontend/tests/unit/auth-service.test.ts` proving that a saved session plus wrong password still fails when the network request throws.
-4. Add a second test proving that matching email alone is insufficient for offline login.
-
-**Why This Is the Safe Fix**
-- The frontend does not currently persist any password-derived verifier, so there is no secure way to authenticate offline with the current design.
-- Adding secure offline auth would require a larger design change and should be treated as a separate feature, not a quick bug fix.
-
-**Acceptance Criteria**
-- Offline login never succeeds solely because a matching email is cached.
-- Existing saved sessions remain usable only for already-authenticated flows, not as a substitute for password verification.
+**Why This Is Done**
+- A user can no longer regain access offline just by knowing the cached email
+- The frontend no longer treats local session presence as password verification
 
 **Validation**
-- Extend `frontend/tests/unit/auth-service.test.ts` for the failure cases above
 - `cd frontend && npm run lint`
 - `cd frontend && npm run build`
+- Regression coverage exists in `frontend/tests/unit/auth-service.test.ts`
 
 ## Issue 4: Dashboard check-ins toggle twice and cancel themselves out
 
-**Priority:** P1
+**Status:** Done
 
-**Problem**
-- `frontend/services/checkins/checkinService.ts` already posts to `/api/checkins/toggle`.
-- `frontend/app/(dashboard)/page.tsx` calls `toggleCheckin()` and then manually posts to the same endpoint again.
-- Because the endpoint is stateful, one tap becomes two toggles and the final state reverts.
+**What Changed**
+- `frontend/app/(dashboard)/page.tsx` now calls `toggleCheckin()` once
+- The duplicate raw `fetch()` to `/api/checkins/toggle` was removed
+- The page refreshes stats and today habits after the single toggle call
 
-**Files to Touch**
-- `frontend/app/(dashboard)/page.tsx`
-- Optional regression coverage file if a dashboard/check-in test exists or is added
-
-**Plan**
-1. Remove the second manual `fetch()` call from `toggleHabit()` in `frontend/app/(dashboard)/page.tsx`.
-2. Keep one source of truth for the mutation: `toggleCheckin()` from the service layer.
-3. After the single toggle request completes, refresh local state once by either:
-   - refetching stats and today habits, or
-   - using the returned toggle result to patch local state and then refreshing summary stats.
-4. Delete any now-unused local auth-header/API helpers in the page if they become dead code after removing the duplicate fetch.
-5. Add a regression test if practical, or at minimum manual verification that one tap changes the persisted checked state exactly once.
-
-**Acceptance Criteria**
-- One tap produces one backend toggle.
-- A checked habit stays checked after refresh.
-- Stats update consistently with the new state.
+**Why This Is Done**
+- One tap now maps to one stateful backend toggle instead of two
+- The dashboard no longer immediately cancels its own check-in request
 
 **Validation**
-- Manual check on the dashboard: tap once, refresh, confirm the habit remains toggled
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- Manual behavior was re-checked during review of the code path
+
+**Residual Gap**
+- There is still no dedicated automated regression test for the dashboard toggle flow
+
+## Issue 5: Habit edit screen targeted a broken online API
+
+**Status:** Partially Done
+
+**What Changed**
+- `backend/app/routes/habit_routes.py` now exposes `PUT /api/habits/:id` as an explicit `501 Not Implemented`
+- `frontend/services/habits/habitService.ts` now rejects immediately in online mode with the same message
+- `frontend/app/(dashboard)/habits/[id]/edit/page.tsx` now disables online submission and shows a clear message that cloud editing is not available yet
+- Regression coverage was added:
+  - `backend/tests/test_auth_flow.py` checks the `501`
+  - `frontend/tests/unit/habit-service.test.ts` checks that online `updateHabit()` rejects immediately
+
+**Why The Original Bug Is Fixed**
+- The app no longer returns fake success for online habit edits
+- The UI no longer suggests that online edit/save is supported when it is not
+
+**What Is Still Wrong**
+- Real cloud-backed habit editing is still unimplemented
+- `backend/app/services/habit_service.py` still serializes fixed compatibility values like `habit_type: "boolean"` and `frequency: "daily"`
+- The current backend schema still does not persist the edit-form fields exposed by the frontend
+
+**Validation**
+- `PYTHONPATH=backend backend/.venv/bin/python -m unittest backend.tests.test_auth_flow`
 - `cd frontend && npm run lint`
 - `cd frontend && npm run build`
 
-## Issue 5: Habit edit screen targets an online API the backend does not support
+## Next Fix: Implement real cloud habit editing
 
 **Priority:** P2
 
 **Problem**
-- `frontend/services/habits/habitService.ts` sends `PUT /api/habits/:id`.
-- `backend/app/routes/habit_routes.py` only supports `GET`, `POST`, and `DELETE` on the compatibility `/api/habits` routes.
-- There is a second scope problem: the current backend schema models catalog habits plus user assignments, but the edit screen exposes fields like `habit_type`, `frequency`, `target_duration`, and `target_quantity` that do not map to persisted backend columns today.
+- The blocking bug is gone, but the feature remains incomplete
+- Online habit editing is intentionally blocked because the backend still lacks persistence for the edit form fields
 
-**Files to Touch**
-- `frontend/services/habits/habitService.ts`
-- `frontend/app/(dashboard)/habits/[id]/edit/page.tsx`
+**Goal**
+- Replace the current "blocked/not implemented" path with a real, persisted online edit flow
+
+**Files Likely To Touch**
 - `backend/app/routes/habit_routes.py`
 - `backend/app/services/habit_service.py`
-- Potentially the backend schema and models if full online edit support is required
+- `backend/app/models/habit.py`
+- `backend/app/models/user_habit.py`
+- `data/db/schema.sql`
+- `frontend/services/habits/habitService.ts`
+- `frontend/app/(dashboard)/habits/[id]/edit/page.tsx`
+- `backend/tests/test_auth_flow.py`
+- Additional frontend unit/integration coverage as needed
 
-**Recommended Fix Path**
-1. Decide the intended product scope before coding:
-   - Minimal blocking fix: disable or hide the online edit flow until backend support exists, and make the UI fail clearly instead of sending a 404.
-   - Full feature fix: add a real backend update contract and persistence model for editable user-habit fields.
-2. If the team wants the feature now, extend the backend first:
-   - add a `PUT /api/habits/<id>` route in `backend/app/routes/habit_routes.py`
-   - add a service-layer update function in `backend/app/services/habit_service.py`
-   - update the schema/models if edited fields must persist beyond the current catalog-assignment structure
-3. Align the frontend only after the backend contract is real, so `habitService.updateHabit()` points to an implemented route with a payload the backend can actually store.
-4. Add a regression test for the online update path once the contract is finalized.
+**Plan**
+1. Decide where editable habit fields belong:
+   - on the catalog habit record
+   - on the user-habit assignment record
+   - or in a new persistence structure
+2. Update the schema and ORM models so the fields exposed by the edit form have a real backend storage target.
+3. Add a real backend update service that validates and persists the edited values.
+4. Replace the `501` route with a real `PUT /api/habits/:id` implementation.
+5. Update frontend edit/save flow to use the real backend response instead of the current online block.
+6. Add regression tests proving that an online edit request persists and returns updated values.
 
 **Acceptance Criteria**
-- The edit screen no longer submits to a non-existent route.
-- If online edit is enabled, the backend persists the edited fields and returns the updated habit successfully.
-- If online edit is not yet supported, the UI does not advertise a broken flow.
+- Online edit submission succeeds for supported fields
+- Reloading the habit shows the updated values
+- The frontend no longer displays the "cloud edit not available" message once backend persistence exists
+- Backend and frontend tests cover the successful online flow
 
 **Validation**
-- Backend: add a route/service test for `PUT /api/habits/:id` if the feature remains enabled
-- Frontend: submit the edit form in online mode and confirm it no longer fails with 404
-- `pytest backend/tests/test_auth_flow.py`
+- `PYTHONPATH=backend backend/.venv/bin/python -m unittest backend.tests.test_auth_flow`
 - `cd frontend && npm run lint`
 - `cd frontend && npm run build`

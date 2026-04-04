@@ -105,3 +105,12 @@ def delete(habit_id: int):
     if not deactivate_user_habit(habit_id, user_id):
         return error_response("Habit not found.", 404)
     return jsonify({"message": "Habit deactivated successfully."}), 200
+
+@habits_bp.route("/habits/<int:habit_id>", methods=["PUT"])
+@jwt_required()
+def update_compatible(habit_id: int):
+    """
+    Compatibility endpoint for updating an assigned habit.
+    Currently returns 501 Not Implemented because the schema does not support persisting edit form fields yet.
+    """
+    return error_response("La edición de hábitos en la nube se implementará próximamente.", 501)

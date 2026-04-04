@@ -6,6 +6,7 @@ import {
   API_ENDPOINTS,
   shouldUseOfflineFallback,
 } from "@/services/api/client";
+import { isOfflineModeActive } from "@/services/config/runtime";
 import {
   cacheHabits,
   createLocalHabit,
@@ -45,6 +46,10 @@ export async function createHabit(payload: CreateHabitPayload): Promise<Habit> {
 }
 
 export async function updateHabit(id: number, payload: UpdateHabitPayload): Promise<Habit> {
+  if (!isOfflineModeActive()) {
+    throw new Error("La edición de hábitos en la nube se implementará próximamente.");
+  }
+
   try {
     const habit = await apiPut<Habit>(API_ENDPOINTS.habits.update(id), JSON.stringify(payload));
     return upsertLocalHabit(habit);
