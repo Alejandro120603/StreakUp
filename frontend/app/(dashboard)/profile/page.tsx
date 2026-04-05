@@ -20,7 +20,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { fetchProfileStats, fetchXpInfo, fetchDetailedStats } from "@/services/stats/statsService";
-import { getCurrentUser } from "@/services/auth/authService";
+import { getSession } from "@/services/auth/authService";
 import type { ProfileStats, XpInfo } from "@/types/stats";
 
 interface AchievementDef {
@@ -119,9 +119,9 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function fetchData() {
-      const currentUser = getCurrentUser();
-      if (currentUser) {
-        setUser(currentUser);
+      const session = getSession();
+      if (session?.user) {
+        setUser(session.user);
       }
 
       try {

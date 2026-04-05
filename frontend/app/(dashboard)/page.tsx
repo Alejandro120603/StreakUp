@@ -18,6 +18,10 @@ function formatDate(): string {
   return now.toLocaleDateString("es-MX", options);
 }
 
+
+
+
+
 const POMODORO_THEMES = [
   { key: "fire", label: "Fuego", emoji: "🔥", bg: "bg-orange-950/60", border: "border-orange-800/40" },
   { key: "candle", label: "Vela", emoji: "🕯️", bg: "bg-purple-950/60", border: "border-purple-800/40" },
@@ -26,10 +30,7 @@ const POMODORO_THEMES = [
 ];
 
 export default function DashboardHomePage() {
-  const [stats, setStats] = useState<StatsSummary>({
-    streak: 0, today_completed: 0, today_total: 0, completion_rate: 0,
-    total_xp: 0, level: 1, validations_today: 0,
-  });
+  const [stats, setStats] = useState<StatsSummary>({ streak: 0, today_completed: 0, today_total: 0, completion_rate: 0, total_xp: 0, level: 1, validations_today: 0 });
   const [todayHabits, setTodayHabits] = useState<TodayHabit[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,10 +40,11 @@ export default function DashboardHomePage() {
         fetchStatsSummary(),
         fetchTodayHabits(),
       ]);
-      setStats(statsData);
+      setStats(statsData as StatsSummary);
       setTodayHabits(habitsData);
     } catch {
-      // silently fail — data will show defaults
+      setStats({ streak: 0, today_completed: 0, today_total: 0, completion_rate: 0, total_xp: 0, level: 1, validations_today: 0 });
+      setTodayHabits([]);
     } finally {
       setLoading(false);
     }

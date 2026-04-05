@@ -4,7 +4,6 @@ User model module.
 Responsibility:
 - Define persistence structure for user entities.
 - Password hashing and verification at model level.
-- XP and level tracking.
 """
 
 from datetime import datetime, timezone
@@ -13,11 +12,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
 
-XP_PER_LEVEL = 250
-
 
 class User(db.Model):
-    """User entity with secure password storage and XP tracking."""
+    """User entity with secure password storage."""
 
     __tablename__ = "users"
 
@@ -26,7 +23,6 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="user")
-    total_xp = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(
         db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
@@ -36,21 +32,15 @@ class User(db.Model):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-
-    @property
-    def level(self) -> int:
-        """Compute user level from total XP."""
-        return self.total_xp // XP_PER_LEVEL + 1
-
-    @property
-    def xp_in_level(self) -> int:
-        """XP progress within the current level."""
-        return self.total_xp % XP_PER_LEVEL
+    total_xp = db.Column(db.Integer, nullable=False, default=0)
+    level = db.Column(db.Integer, nullable=False, default=1)
+    xp_in_level = db.Column(db.Integer, nullable=False, default=0)
 
     @property
     def xp_progress_pct(self) -> float:
-        """Percentage progress to next level."""
-        return round(self.xp_in_level / XP_PER_LEVEL * 100, 1)
+        """Return XP progress percentage within the current level."""
+        xp_per_level = 250
+        return round((self.xp_in_level / xp_per_level) * 100, 1) if xp_per_level > 0 else 0
 
     def set_password(self, password: str) -> None:
         """Hash and store the given plain-text password."""
@@ -67,7 +57,5 @@ class User(db.Model):
             "username": self.username,
             "email": self.email,
             "role": self.role,
-            "total_xp": self.total_xp,
-            "level": self.level,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

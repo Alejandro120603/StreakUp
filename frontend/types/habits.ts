@@ -38,6 +38,14 @@ export interface CreateHabitPayload {
 
 export interface UpdateHabitPayload {
   name?: string;
+  icon?: string;
+  section?: "fire" | "plant" | "moon";
+  habit_type?: "boolean" | "time" | "quantity";
+  frequency?: "daily" | "weekly";
+  target_duration?: number | null;
+  target_quantity?: number | null;
+  target_unit?: string | null;
+  pomodoro_enabled?: boolean;
 }
 
 export const SECTION_LABELS: Record<string, string> = {

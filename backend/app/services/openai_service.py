@@ -66,7 +66,7 @@ def analyze_habit_image(habit_name: str, image_base64: str) -> dict:
     if raw.startswith("```"):
         lines = raw.split("\n")
         # Remove first and last lines (``` markers)
-        lines = [l for l in lines if not l.strip().startswith("```")]
+        lines = [line for line in lines if not line.strip().startswith("```")]
         raw = "\n".join(lines)
 
     try:
