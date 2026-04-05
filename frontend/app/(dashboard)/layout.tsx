@@ -29,21 +29,21 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   if (!authed) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-        <div className="size-8 border-2 border-[#5D5FEF] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Main content */}
       <main className="flex-1 pb-20">
         {children}
       </main>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A] border-t border-[#2A2A3E] z-50">
+      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
         <div className="max-w-lg mx-auto flex justify-around items-center h-16">
           {NAV_ITEMS.map((item) => {
             const isActive = item.href === "/"
@@ -55,8 +55,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 href={item.href}
                 className={`flex flex-col items-center gap-1 px-3 py-2 transition-colors ${
                   isActive
-                    ? "text-[#5D5FEF]"
-                    : "text-[#8888AA] hover:text-white"
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <item.icon className="size-5" />

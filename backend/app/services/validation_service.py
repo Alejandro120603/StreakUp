@@ -17,9 +17,6 @@ from app.services.habit_service import get_user_habit
 from app.services.openai_service import analyze_habit_image
 from app.services.xp_service import award_xp
 
-XP_PER_VALIDATION = 50
-
-
 def validate_habit(user_id: int, habit_id: int, image_base64: str) -> dict:
     """Validate a habit via image analysis and award XP if valid.
 
@@ -57,7 +54,8 @@ def validate_habit(user_id: int, habit_id: int, image_base64: str) -> dict:
     nueva_racha = 0
 
     if ai_result["valido"]:
-        xp_awarded = XP_PER_VALIDATION
+        base_xp = user_habit.habit.xp_base if user_habit.habit else 10
+        xp_awarded = int(base_xp * 1.5)  # 50% bonus for photo validation
 
         existing_checkin = CheckIn.query.filter_by(
             habitousuario_id=user_habit.id,
@@ -68,7 +66,7 @@ def validate_habit(user_id: int, habit_id: int, image_base64: str) -> dict:
                 habitousuario_id=user_habit.id,
                 fecha=today,
                 completado=True,
-                xp_ganado=0,
+                xp_ganado=xp_awarded,
             )
             db.session.add(checkin)
 

@@ -43,6 +43,31 @@ def award_xp(user_id: int, amount: int, reason: str = "validation"):
     db.session.add(log)
     db.session.commit()
 
+
+def revoke_xp(user_id: int, amount: int, reason: str = "revocation"):
+    """Revoke XP from a user and handle leveling down."""
+    user = User.query.get(user_id)
+    if not user:
+        raise ValueError("User not found.")
+
+    user.total_xp = max(0, user.total_xp - amount)
+    user.xp_in_level -= amount
+
+    while user.xp_in_level < 0 and user.level > 1:
+        user.level -= 1
+        user.xp_in_level += XP_PER_LEVEL
+    
+    if user.level == 1 and user.xp_in_level < 0:
+        user.xp_in_level = 0
+
+    log = XpLog(
+        user_id=user_id,
+        cantidad=-amount,
+        razon=reason
+    )
+    db.session.add(log)
+    db.session.commit()
+
 def get_user_xp(user_id: int) -> dict:
     """Get current XP, level, and progress for a user."""
     user = User.query.get(user_id)

@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Flame, Clock, TrendingUp, Plus, Check } from "lucide-react";
+import { Flame, Clock, TrendingUp, Plus, Check, Timer, Snowflake, Hourglass, icons } from "lucide-react";
 import { fetchTodayHabits, toggleCheckin } from "@/services/checkins/checkinService";
 import { fetchStatsSummary } from "@/services/stats/statsService";
+import { ClayMotionBox } from "@/components/ui/clay-motion-box";
+import { SECTION_ICONS } from "@/types/habits";
 import type { TodayHabit } from "@/types/checkins";
 import type { StatsSummary } from "@/types/stats";
 
@@ -18,15 +20,11 @@ function formatDate(): string {
   return now.toLocaleDateString("es-MX", options);
 }
 
-
-
-
-
 const POMODORO_THEMES = [
-  { key: "fire", label: "Fuego", emoji: "🔥", bg: "bg-orange-950/60", border: "border-orange-800/40" },
-  { key: "candle", label: "Vela", emoji: "🕯️", bg: "bg-purple-950/60", border: "border-purple-800/40" },
-  { key: "ice", label: "Hielo", emoji: "🧊", bg: "bg-blue-950/60", border: "border-blue-800/40" },
-  { key: "hourglass", label: "Reloj", emoji: "⏳", bg: "bg-amber-950/60", border: "border-amber-800/40" },
+  { key: "fire", label: "Fuego", Icon: Flame, bg: "bg-orange-950/60", border: "border-orange-800/40" },
+  { key: "candle", label: "Vela", Icon: Timer, bg: "bg-purple-950/60", border: "border-purple-800/40" },
+  { key: "ice", label: "Hielo", Icon: Snowflake, bg: "bg-blue-950/60", border: "border-blue-800/40" },
+  { key: "hourglass", label: "Reloj", Icon: Hourglass, bg: "bg-amber-950/60", border: "border-amber-800/40" },
 ];
 
 export default function DashboardHomePage() {
@@ -56,12 +54,20 @@ export default function DashboardHomePage() {
 
   async function toggleHabit(habitId: number) {
     try {
+      // Optimistic update
+      setTodayHabits(prev => prev.map(h => h.id === habitId ? { ...h, checked_today: !h.checked_today } : h));
       await toggleCheckin({ habit_id: habitId });
-      const [statsData, habitsData] = await Promise.all([fetchStatsSummary(), fetchTodayHabits()]);
-      setStats(statsData);
-      setTodayHabits(habitsData);
+      
+      // We don't block the UI while re-validating the server side details silently
+      Promise.all([fetchStatsSummary(), fetchTodayHabits()]).then(([statsData, habitsData]) => {
+        setStats(statsData);
+        setTodayHabits(habitsData);
+      }).catch(() => {
+        // Failing silently is better for optimistic UI on minor tracking updates
+      });
     } catch {
-      // silently fail
+      // Revert if failed
+      fetchData();
     }
   }
 
@@ -74,117 +80,121 @@ export default function DashboardHomePage() {
   }
 
   return (
-    <div className="py-6 space-y-6 max-w-lg mx-auto px-4">
+    <div className="py-6 space-y-8 max-w-lg mx-auto px-4 @container">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Streak Up</h1>
-        <p className="text-sm text-muted-foreground capitalize">{formatDate()}</p>
+        <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Streak Up</h1>
+        <p className="text-sm text-clay-frozen font-medium capitalize">{formatDate()}</p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-3">
         {/* Racha */}
-        <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-3 text-center space-y-1">
-          <div className="flex justify-center">
-            <Flame className="size-5 text-orange-400" />
+        <ClayMotionBox variant="primary" active={false} className="p-4 text-center space-y-1">
+          <div className="flex justify-center mb-1">
+            <Flame className="size-6 text-orange-400 drop-shadow-md" />
           </div>
-          <p className="text-xs text-muted-foreground">Racha</p>
-          <p className="text-lg font-bold text-white">{stats.streak} días</p>
-        </div>
+          <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Racha</p>
+          <p className="text-xl font-black text-foreground">{stats.streak}</p>
+        </ClayMotionBox>
 
         {/* Hoy */}
-        <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-3 text-center space-y-1">
-          <div className="flex justify-center">
-            <Clock className="size-5 text-[#5D5FEF]" />
+        <ClayMotionBox variant="primary" active={false} className="p-4 text-center space-y-1">
+          <div className="flex justify-center mb-1">
+            <Clock className="size-6 text-clay-blue drop-shadow-md" />
           </div>
-          <p className="text-xs text-muted-foreground">Hoy</p>
-          <p className="text-lg font-bold text-white">
+          <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Hoy</p>
+          <p className="text-xl font-black text-foreground">
             {stats.today_completed}/{stats.today_total}
           </p>
-        </div>
+        </ClayMotionBox>
 
         {/* Tasa */}
-        <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-3 text-center space-y-1">
-          <div className="flex justify-center">
-            <TrendingUp className="size-5 text-purple-400" />
+        <ClayMotionBox variant="primary" active={false} className="p-4 text-center space-y-1">
+          <div className="flex justify-center mb-1">
+            <TrendingUp className="size-6 text-clay-purple drop-shadow-md" />
           </div>
-          <p className="text-xs text-muted-foreground">Tasa</p>
-          <p className="text-lg font-bold text-white">{stats.completion_rate}%</p>
-        </div>
+          <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Tasa</p>
+          <p className="text-xl font-black text-foreground">{stats.completion_rate}%</p>
+        </ClayMotionBox>
       </div>
 
       {/* Modo Pomodoro */}
-      <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 space-y-3">
+      <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Clock className="size-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-white">Modo Pomodoro</h2>
+          <Clock className="size-5 text-clay-frozen" />
+          <h2 className="text-lg font-bold text-foreground">Modo Pomodoro</h2>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 @xs:grid-cols-4 gap-3">
           {POMODORO_THEMES.map((theme) => (
-            <Link
-              key={theme.key}
-              href={`/pomodoro?theme=${theme.key}`}
-              className={`flex flex-col items-center gap-2 rounded-xl ${theme.bg} border ${theme.border} p-4 transition-all hover:scale-[1.02] active:scale-95`}
-            >
-              <span className="text-2xl">{theme.emoji}</span>
-              <span className="text-xs font-medium text-white">{theme.label}</span>
+            <Link key={theme.key} href={`/pomodoro?theme=${theme.key}`}>
+              <ClayMotionBox variant="primary" className="flex flex-col items-center gap-2 p-5 text-center cursor-pointer">
+                <span className="flex items-center justify-center text-primary drop-shadow-lg"><theme.Icon className="size-8" /></span>
+                <span className="text-xs font-bold text-foreground">{theme.label}</span>
+              </ClayMotionBox>
             </Link>
           ))}
         </div>
       </div>
 
       {/* Hoy - Habits */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white">Hoy</h2>
+          <h2 className="text-lg font-bold text-foreground">Mis Hábitos</h2>
           <Link
             href="/habits/new"
-            className="text-muted-foreground hover:text-white transition-colors"
+            className="flex items-center justify-center p-2 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors"
           >
             <Plus className="size-5" />
           </Link>
         </div>
 
         {todayHabits.length === 0 ? (
-          <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              No tienes hábitos diarios aún.
-            </p>
+          <ClayMotionBox variant="frozen" active={false} className="text-center p-8 text-foreground/80">
+            <p className="text-sm mb-3">No tienes hábitos diarios aún.</p>
             <Link
               href="/habits/new"
-              className="mt-2 inline-block text-sm text-[#5D5FEF] hover:text-[#7B7DF7] font-medium"
+              className="inline-flex items-center px-4 py-2 rounded-xl bg-clay-blue text-white font-bold text-sm"
             >
-              Crear tu primer hábito →
+              Crear tu primer hábito
             </Link>
-          </div>
+          </ClayMotionBox>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 @md:grid-cols-3 gap-4">
             {todayHabits.map((habit) => (
-              <button
+              <ClayMotionBox
                 key={habit.id}
                 onClick={() => toggleHabit(habit.id)}
-                className={`w-full flex items-center gap-3 rounded-xl border p-4 transition-all active:scale-[0.98] ${
-                  habit.checked_today
-                    ? "border-[#5D5FEF]/30 bg-[#5D5FEF]/10"
-                    : "border-[#2A2A3E] bg-[#111127] hover:bg-[#1A1A2E]"
-                }`}
+                active={habit.checked_today}
+                variant={habit.checked_today ? "vibrant-orange" : "frozen"}
+                className="flex flex-col items-center justify-center gap-3 text-center cursor-pointer min-h-[140px]"
+                role="button"
               >
-                <span className="text-xl">{habit.icon}</span>
-                <div className="flex-1 text-left">
-                  <p className={`text-sm font-medium ${habit.checked_today ? "text-white" : "text-white"}`}>
+                <div className="flex items-center justify-center p-3 text-primary drop-shadow-xl">
+                  {(() => {
+                    let IconComp = icons.Circle;
+                    if (habit.icon && icons[habit.icon as keyof typeof icons]) {
+                      IconComp = icons[habit.icon as keyof typeof icons] as never;
+                    } else {
+                      const sectionKey = SECTION_ICONS[habit.section];
+                      if (sectionKey && icons[sectionKey as keyof typeof icons]) {
+                        IconComp = icons[sectionKey as keyof typeof icons] as never;
+                      }
+                    }
+                    return <IconComp className="size-10" />;
+                  })()}
+                </div>
+                <div>
+                  <p className="text-sm font-bold leading-tight">
                     {habit.name}
                   </p>
                 </div>
-                <div
-                  className={`size-6 rounded-full flex items-center justify-center transition-colors ${
-                    habit.checked_today
-                      ? "bg-[#5D5FEF] text-white"
-                      : "border-2 border-[#2A2A3E]"
-                  }`}
-                >
-                  {habit.checked_today && <Check className="size-3.5" />}
-                </div>
-              </button>
+                {habit.checked_today ? (
+                  <div className="absolute top-3 right-3 bg-white/20 rounded-full p-1 shadow-inner">
+                    <Check className="size-4 text-white drop-shadow" />
+                  </div>
+                ) : null}
+              </ClayMotionBox>
             ))}
           </div>
         )}
