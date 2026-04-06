@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Plus, Pencil, Trash2, X, Camera, icons } from "lucide-react";
 import { fetchHabits, deleteHabit } from "@/services/habits/habitService";
+import { isOfflineModeActive } from "@/services/config/runtime";
 import type { Habit } from "@/types/habits";
 import { SECTION_ICONS } from "@/types/habits";
 import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 
 export default function HabitsPage() {
+  const isOffline = isOfflineModeActive();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -20,8 +22,13 @@ export default function HabitsPage() {
       setLoading(true);
       const data = await fetchHabits();
       setHabits(data);
-    } catch {
-      setError("Error al cargar hábitos.");
+      setError("");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : "No se pudieron cargar los hábitos.",
+      );
     } finally {
       setLoading(false);
     }
@@ -38,8 +45,12 @@ export default function HabitsPage() {
       await deleteHabit(id);
       setHabits((prev) => prev.filter((h) => h.id !== id));
       setConfirmingDeleteId(null);
-    } catch {
-      setError("Error al eliminar hábito.");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : "No se pudo eliminar el hábito.",
+      );
     } finally {
       setDeleting(false);
     }
@@ -81,7 +92,7 @@ export default function HabitsPage() {
       {!loading && habits.length === 0 && !error && (
         <div className="text-center py-16 text-muted-foreground">
           <p className="text-lg mb-2">No tienes hábitos aún</p>
-          <p className="text-sm">Presiona + para crear tu primer hábito</p>
+          <p className="text-sm">Presiona + para agregar un hábito del catálogo</p>
         </div>
       )}
 
@@ -147,12 +158,15 @@ export default function HabitsPage() {
                   >
                     <Camera className="size-4" />
                   </Link>
-                  <Link
-                    href={`/habits/${habit.id}/edit`}
-                    className="flex items-center justify-center size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <Pencil className="size-4" />
-                  </Link>
+                  {isOffline ? (
+                    <Link
+                      href={`/habits/edit?id=${habit.id}`}
+                      className="flex items-center justify-center size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                      title="Editar hábito offline"
+                    >
+                      <Pencil className="size-4" />
+                    </Link>
+                  ) : null}
                   <button
                     onClick={() => setConfirmingDeleteId(habit.id)}
                     className="flex items-center justify-center size-9 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-500/10 transition-colors"
@@ -168,4 +182,3 @@ export default function HabitsPage() {
     </div>
   );
 }
-

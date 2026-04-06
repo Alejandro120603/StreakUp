@@ -1,0 +1,147 @@
+import assert from "node:assert/strict";
+import { afterEach, beforeEach, test } from "node:test";
+
+import { saveSession } from "@/services/auth/authService";
+import { validateHabit } from "@/services/validation/validationService";
+
+const originalFetch = globalThis.fetch;
+const originalWindow = globalThis.window;
+const originalDocument = globalThis.document;
+const originalOfflineMode = process.env.NEXT_PUBLIC_OFFLINE_MODE;
+const originalApiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+function buildJwt(payload: Record<string, unknown>): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${header}.${body}.signature`;
+}
+
+function createStorage(): Storage {
+  const store = new Map<string, string>();
+
+  return {
+    clear() {
+      store.clear();
+    },
+    getItem(key) {
+      return store.get(key) ?? null;
+    },
+    key(index) {
+      return Array.from(store.keys())[index] ?? null;
+    },
+    get length() {
+      return store.size;
+    },
+    removeItem(key) {
+      store.delete(key);
+    },
+    setItem(key, value) {
+      store.set(key, String(value));
+    },
+  };
+}
+
+function createWindow() {
+  return {
+    localStorage: createStorage(),
+    location: {
+      href: "",
+    },
+  };
+}
+
+function createDocument() {
+  let cookie = "";
+
+  return {
+    get cookie() {
+      return cookie;
+    },
+    set cookie(value: string) {
+      cookie = value;
+    },
+  };
+}
+
+beforeEach(() => {
+  process.env.NEXT_PUBLIC_OFFLINE_MODE = "";
+  process.env.NEXT_PUBLIC_API_URL = "";
+
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: createWindow(),
+  });
+
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: createDocument(),
+  });
+
+  saveSession({
+    access_token: buildJwt({ sub: "7", exp: Math.floor(Date.now() / 1000) + 3600 }),
+    refresh_token: "saved-refresh",
+    user: {
+      id: 7,
+      username: "alice",
+      email: "alice@example.com",
+      role: "user",
+      created_at: "2026-04-05T00:00:00Z",
+    },
+  });
+});
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: originalWindow,
+  });
+
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: originalDocument,
+  });
+
+  if (originalOfflineMode === undefined) {
+    delete process.env.NEXT_PUBLIC_OFFLINE_MODE;
+  } else {
+    process.env.NEXT_PUBLIC_OFFLINE_MODE = originalOfflineMode;
+  }
+
+  if (originalApiBaseUrl === undefined) {
+    delete process.env.NEXT_PUBLIC_API_URL;
+  } else {
+    process.env.NEXT_PUBLIC_API_URL = originalApiBaseUrl;
+  }
+});
+
+test("validation service maps provider-unavailable responses to a controlled message", async () => {
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        error: "La validación de fotos no está disponible temporalmente.",
+        code: "validation_provider_unavailable",
+      }),
+      {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+
+  await assert.rejects(
+    validateHabit(1, "image-base64"),
+    /La validación de fotos no está disponible temporalmente\. Inténtalo más tarde\./,
+  );
+});
+
+test("validation service maps backend-unreachable failures to a friendly network message", async () => {
+  globalThis.fetch = async () => {
+    throw new TypeError("Failed to fetch");
+  };
+
+  await assert.rejects(
+    validateHabit(1, "image-base64"),
+    /No se pudo contactar el servicio de validación/,
+  );
+});

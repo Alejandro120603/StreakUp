@@ -120,10 +120,12 @@ export default function ProfilePage() {
   const [records, setRecords] = useState({
     longest_streak: 0, best_day: 0, current_streak: 0, active_days: 0,
   });
+  const [totalCompleted, setTotalCompleted] = useState(0);
   const [validationStats, setValidationStats] = useState({
     total_successful: 0, total_attempts: 0, success_rate: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -150,9 +152,11 @@ export default function ProfilePage() {
         setStats(profileStats);
         setXpInfo(xp);
         setRecords(detailed.records);
+        setTotalCompleted(detailed.summary.total_completed);
         setValidationStats(detailed.validations);
-      } catch {
-        // silently fail — data will show defaults
+        setError("");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "No se pudieron cargar los datos del perfil.");
       } finally {
         setLoading(false);
       }
@@ -162,13 +166,13 @@ export default function ProfilePage() {
 
   const achievementData: AchievementData = useMemo(() => ({
     streak: records.current_streak,
-    totalCheckins: stats.today_completed, // simplified; detailed has total_completed
+    totalCheckins: totalCompleted,
     totalValidations: validationStats.total_successful,
     habitsCount: stats.habits_count,
     longestStreak: records.longest_streak,
     activeDays: records.active_days,
     level: xpInfo.level,
-  }), [records, stats, validationStats, xpInfo]);
+  }), [records, stats, totalCompleted, validationStats, xpInfo]);
 
   const unlockedCount = useMemo(() => {
     return ACHIEVEMENTS.filter((a) => a.check(achievementData)).length;
@@ -186,6 +190,32 @@ export default function ProfilePage() {
     clearSession();
     router.push("/login");
   };
+
+  if (error) {
+    return (
+      <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Perfil</h1>
+            <p className="text-sm text-muted-foreground">Tu progreso y logros</p>
+          </div>
+        </div>
+
+        <ClayMotionBox className="p-6 space-y-4 text-center">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-foreground">Perfil no disponible</h2>
+            <p className="text-sm text-muted-foreground">{error}</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Reintentar
+          </button>
+        </ClayMotionBox>
+      </div>
+    );
+  }
 
   return (
     <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">

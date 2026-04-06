@@ -25,7 +25,7 @@ export default function NewHabitPage() {
         setCatalog(habits);
         setSelectedHabitId(habits[0]?.id ?? null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error al cargar catálogo.");
+        setError(err instanceof Error ? err.message : "Error al cargar el catálogo.");
       } finally {
         setLoadingCatalog(false);
       }
@@ -51,7 +51,7 @@ export default function NewHabitPage() {
       await createHabit({ habito_id: selectedHabitId });
       router.push("/habits");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al crear hábito.");
+      setError(err instanceof Error ? err.message : "Error al asignar el hábito.");
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +67,7 @@ export default function NewHabitPage() {
           <ArrowLeft className="size-5" />
         </Link>
         <h1 className="text-xl font-bold text-foreground flex-1 text-center pr-10">
-          Nuevo hábito
+          Agregar hábito
         </h1>
       </div>
 
@@ -124,7 +124,7 @@ export default function NewHabitPage() {
             disabled={isLoading || loadingCatalog || !selectedHabitId}
             className="w-full h-12 rounded-xl text-primary-foreground font-semibold"
           >
-            {isLoading ? "Creando..." : "Agregar hábito"}
+            {isLoading ? "Asignando..." : "Agregar a mis hábitos"}
           </Button>
         </form>
       </ClayMotionBox>

@@ -17,17 +17,19 @@ const NAV_ITEMS = [
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [authed, setAuthed] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
+    // Middleware is the primary guard on the web. This client check keeps
+    // offline/mobile shells honest when request-time protection is unavailable.
     if (!hasSavedSession()) {
       router.replace("/login");
     } else {
-      setAuthed(true);
+      setSessionReady(true);
     }
   }, [router]);
 
-  if (!authed) {
+  if (!sessionReady) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -69,4 +71,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, memo } from "react";
+import Link from "next/link";
+import { useState, useEffect, memo } from "react";
 import {
   Flame,
   TrendingUp,
@@ -11,8 +12,8 @@ import {
   BarChart3,
   icons,
 } from "lucide-react";
-import { shouldUseOfflineFallback } from "@/services/api/client";
 import { fetchDetailedStats } from "@/services/stats/statsService";
+import { getStatsViewState } from "@/services/stats/statsViewState";
 import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 
 /* ── Types ────────────────────────────────────── */
@@ -174,100 +175,33 @@ const StreakCalendar = memo(function StreakCalendar({ data }: { data: CalendarDa
   );
 });
 
-/* ── Demo Data (datos ficticios) ─────────────── */
-
-function generateDemoData(): StatsData {
-  const today = new Date();
-  const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-  const weeklyCompleted = [3, 4, 2, 5, 4, 3, 1];
-
-  const weekly_history: WeekDay[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    weekly_history.push({
-      date: d.toISOString().split("T")[0],
-      label: dayNames[d.getDay()],
-      completed: weeklyCompleted[6 - i],
-      total: 5,
-    });
-  }
-
-  const per_habit: HabitStat[] = [
-    { id: 1, name: "Ejercicio", icon: "Dumbbell", completed: 6, total: 7, rate: 86 },
-    { id: 2, name: "Leer 30 min", icon: "BookOpen", completed: 5, total: 7, rate: 71 },
-    { id: 3, name: "Meditar", icon: "Activity", completed: 4, total: 7, rate: 57 },
-    { id: 4, name: "Beber agua", icon: "Droplet", completed: 7, total: 7, rate: 100 },
-    { id: 5, name: "Estudiar", icon: "Library", completed: 3, total: 7, rate: 43 },
-  ];
-
-  const calendar: CalendarDay[] = [];
-  const intensityPattern = [0,1,2,3,3,2,1,0,1,3,3,2,0,0,1,2,3,3,2,1,0,1,2,3,3,2,1,1,2,3];
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const intensity = intensityPattern[29 - i];
-    calendar.push({
-      date: d.toISOString().split("T")[0],
-      count: intensity * 2,
-      intensity,
-    });
-  }
-
-  return {
-    summary: {
-      streak: 12,
-      completion_rate: 73,
-      total_completed: 156,
-      total_habits: 5,
-    },
-    weekly_history,
-    per_habit,
-    calendar,
-    records: {
-      longest_streak: 21,
-      best_day: 5,
-      current_streak: 12,
-    },
-  };
-}
-
-const DEMO_DATA = generateDemoData();
-
 /* ── Main Page ────────────────────────────────── */
 
 export default function StatsPage() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [usingDemo, setUsingDemo] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const fetchStats = useCallback(async () => {
+  async function fetchStats() {
     try {
       const data = await fetchDetailedStats();
-
-      if (data.summary.total_habits > 0) {
-        setStats(data);
-        setUsingDemo(false);
-      } else {
-        setStats(DEMO_DATA);
-        setUsingDemo(true);
-      }
+      setStats(data);
+      setErrorMessage(null);
     } catch (error) {
-      if (shouldUseOfflineFallback(error)) {
-        setStats(DEMO_DATA);
-        setUsingDemo(true);
-      } else {
-        setStats(null);
-        setUsingDemo(false);
-      }
+      setStats(null);
+      setErrorMessage(
+        error instanceof Error && error.message.trim()
+          ? error.message
+          : "No se pudieron cargar tus estadísticas reales. Intenta de nuevo en unos momentos.",
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }
 
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    void fetchStats();
+  }, []);
 
   if (loading) {
     return (
@@ -277,11 +211,55 @@ export default function StatsPage() {
     );
   }
 
-  const summary = stats?.summary ?? DEMO_DATA.summary;
-  const weekly = stats?.weekly_history ?? DEMO_DATA.weekly_history;
-  const perHabit = stats?.per_habit ?? DEMO_DATA.per_habit;
-  const calendar = stats?.calendar ?? DEMO_DATA.calendar;
-  const records = stats?.records ?? DEMO_DATA.records;
+  const viewState = getStatsViewState(stats, errorMessage);
+
+  if (viewState.kind === "empty" || viewState.kind === "error") {
+    return (
+      <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Estadísticas</h1>
+          <p className="text-sm text-muted-foreground">Tu progreso en detalle</p>
+        </div>
+
+        <ClayMotionBox className="p-6 space-y-4 text-center">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-foreground">{viewState.title}</h2>
+            <p className="text-sm text-muted-foreground">{viewState.message}</p>
+          </div>
+
+          {viewState.kind === "empty" ? (
+            <Link
+              href="/habits/new"
+              className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Agregar hábito del catálogo
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                void fetchStats();
+              }}
+              className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Reintentar
+            </button>
+          )}
+        </ClayMotionBox>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return null;
+  }
+
+  const summary = stats.summary;
+  const weekly = stats.weekly_history;
+  const perHabit = stats.per_habit;
+  const calendar = stats.calendar;
+  const records = stats.records;
 
   return (
     <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
@@ -290,13 +268,6 @@ export default function StatsPage() {
         <h1 className="text-2xl font-bold text-foreground">Estadísticas</h1>
         <p className="text-sm text-muted-foreground">Tu progreso en detalle</p>
       </div>
-
-      {/* Demo data indicator */}
-      {usingDemo ? (
-        <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs text-[#8B8BFF]">
-          📊 Mostrando datos ficticios de ejemplo. Crea hábitos y complétalos para ver tus estadísticas reales.
-        </div>
-      ) : null}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">

@@ -24,7 +24,7 @@ XP_PER_LEVEL = 250
 
 def award_xp(user_id: int, amount: int, reason: str = "validation"):
     """Award XP to a user and handle leveling up."""
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         raise ValueError("User not found.")
 
@@ -46,7 +46,7 @@ def award_xp(user_id: int, amount: int, reason: str = "validation"):
 
 def revoke_xp(user_id: int, amount: int, reason: str = "revocation"):
     """Revoke XP from a user and handle leveling down."""
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         raise ValueError("User not found.")
 
@@ -70,7 +70,7 @@ def revoke_xp(user_id: int, amount: int, reason: str = "revocation"):
 
 def get_user_xp(user_id: int) -> dict:
     """Get current XP, level, and progress for a user."""
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user is None:
         raise ValueError("User not found.")
 

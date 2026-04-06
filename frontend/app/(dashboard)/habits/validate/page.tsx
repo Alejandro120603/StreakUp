@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -21,7 +21,7 @@ import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 
 type PageStatus = "idle" | "loading" | "success" | "error";
 
-export default function ValidateHabitPage() {
+function ValidateHabitPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,6 +30,7 @@ export default function ValidateHabitPage() {
 
   const [habit, setHabit] = useState<Habit | null>(null);
   const [loadingHabit, setLoadingHabit] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [status, setStatus] = useState<PageStatus>("idle");
@@ -42,8 +43,14 @@ export default function ValidateHabitPage() {
         const habits = await fetchHabits();
         const found = habits.find((item) => item.id === habitId);
         setHabit(found ?? null);
-      } catch {
+        setLoadError("");
+      } catch (err) {
         setHabit(null);
+        setLoadError(
+          err instanceof Error && err.message.trim()
+            ? err.message
+            : "No se pudo cargar el hábito para validarlo.",
+        );
       } finally {
         setLoadingHabit(false);
       }
@@ -100,6 +107,20 @@ export default function ValidateHabitPage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="pt-8 pb-4 max-w-lg mx-auto px-4 text-center">
+        <p className="text-muted-foreground mb-4">{loadError}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="text-primary hover:text-primary/80 font-medium text-sm"
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
   if (!habit) {
     return (
       <div className="pt-8 pb-4 max-w-lg mx-auto px-4 text-center">
@@ -126,7 +147,7 @@ export default function ValidateHabitPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Validar Hábito</h1>
           <p className="text-sm text-muted-foreground">
-            Sube una imagen como evidencia
+            Sube una foto como evidencia
           </p>
         </div>
       </div>
@@ -231,7 +252,7 @@ export default function ValidateHabitPage() {
             className="w-full py-3.5 rounded-xl font-semibold text-primary-foreground transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed bg-primary hover:bg-primary/90 shadow-[0_0_20px_rgba(93,95,239,0.3)] hover:shadow-[0_0_28px_rgba(93,95,239,0.5)] active:scale-[0.98]"
           >
             <Sparkles className="size-4 inline mr-2" />
-            Validar con IA
+            Validar foto con IA
           </button>
         </div>
       )}
@@ -345,5 +366,19 @@ export default function ValidateHabitPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ValidateHabitPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <ValidateHabitPageContent />
+    </Suspense>
   );
 }

@@ -4,6 +4,11 @@ import type { Habit, CreateHabitPayload, UpdateHabitPayload } from "@/types/habi
 import type { CreatePomodoroSessionPayload, PomodoroSession } from "@/types/pomodoro";
 import type { StatsSummary } from "@/types/stats";
 
+// This module serves two distinct purposes:
+// 1. cache successful server responses for later offline use
+// 2. emulate write flows only when offline mode is explicitly enabled
+// Connected mode must never call these write helpers after a network failure.
+
 interface StoredCheckin {
   user_id: number;
   habit_id: number;

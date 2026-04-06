@@ -17,6 +17,7 @@ export async function fetchTodayHabits(): Promise<TodayHabit[]> {
     const habits = await apiGet<TodayHabit[]>(API_ENDPOINTS.checkins.today);
     return cacheTodayHabits(habits);
   } catch (error) {
+    // Local today data is only valid when offline mode is explicitly enabled.
     if (shouldUseOfflineFallback(error)) {
       return getLocalTodayHabits();
     }
@@ -32,6 +33,7 @@ export async function toggleCheckin(payload: ToggleCheckinPayload): Promise<Chec
     );
     return syncLocalCheckinResult(result);
   } catch (error) {
+    // Connected mode must fail honestly for writes; only explicit offline mode can emulate them.
     if (shouldUseOfflineFallback(error)) {
       return toggleLocalCheckin(payload.habit_id, undefined, payload.date);
     }

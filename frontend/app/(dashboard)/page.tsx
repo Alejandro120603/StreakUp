@@ -10,6 +10,16 @@ import { SECTION_ICONS } from "@/types/habits";
 import type { TodayHabit } from "@/types/checkins";
 import type { StatsSummary } from "@/types/stats";
 
+const EMPTY_STATS: StatsSummary = {
+  streak: 0,
+  today_completed: 0,
+  today_total: 0,
+  completion_rate: 0,
+  total_xp: 0,
+  level: 1,
+  validations_today: 0,
+};
+
 function formatDate(): string {
   const now = new Date();
   const options: Intl.DateTimeFormatOptions = {
@@ -21,53 +31,80 @@ function formatDate(): string {
 }
 
 const POMODORO_THEMES = [
-  { key: "fire", label: "Fuego", Icon: Flame, bg: "bg-orange-950/60", border: "border-orange-800/40" },
-  { key: "candle", label: "Vela", Icon: Timer, bg: "bg-purple-950/60", border: "border-purple-800/40" },
-  { key: "ice", label: "Hielo", Icon: Snowflake, bg: "bg-blue-950/60", border: "border-blue-800/40" },
-  { key: "hourglass", label: "Reloj", Icon: Hourglass, bg: "bg-amber-950/60", border: "border-amber-800/40" },
+  { key: "fire", label: "Fuego", Icon: Flame },
+  { key: "candle", label: "Vela", Icon: Timer },
+  { key: "ice", label: "Hielo", Icon: Snowflake },
+  { key: "hourglass", label: "Reloj", Icon: Hourglass },
 ];
 
 export default function DashboardHomePage() {
-  const [stats, setStats] = useState<StatsSummary>({ streak: 0, today_completed: 0, today_total: 0, completion_rate: 0, total_xp: 0, level: 1, validations_today: 0 });
+  const [stats, setStats] = useState<StatsSummary>(EMPTY_STATS);
   const [todayHabits, setTodayHabits] = useState<TodayHabit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingHabitId, setUpdatingHabitId] = useState<number | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (showSpinner = false) => {
+    if (showSpinner) {
+      setLoading(true);
+    }
+
     try {
       const [statsData, habitsData] = await Promise.all([
         fetchStatsSummary(),
         fetchTodayHabits(),
       ]);
-      setStats(statsData as StatsSummary);
+
+      setStats(statsData);
       setTodayHabits(habitsData);
-    } catch {
-      setStats({ streak: 0, today_completed: 0, today_total: 0, completion_rate: 0, total_xp: 0, level: 1, validations_today: 0 });
-      setTodayHabits([]);
+      setError("");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : "No se pudieron cargar tus datos reales. Intenta de nuevo en unos momentos.",
+      );
     } finally {
-      setLoading(false);
+      if (showSpinner) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
+    void fetchData(true);
   }, [fetchData]);
 
-  async function toggleHabit(habitId: number) {
+  async function handleToggleHabit(habitId: number) {
+    setUpdatingHabitId(habitId);
+    setError("");
+
     try {
-      // Optimistic update
-      setTodayHabits(prev => prev.map(h => h.id === habitId ? { ...h, checked_today: !h.checked_today } : h));
-      await toggleCheckin({ habit_id: habitId });
-      
-      // We don't block the UI while re-validating the server side details silently
-      Promise.all([fetchStatsSummary(), fetchTodayHabits()]).then(([statsData, habitsData]) => {
-        setStats(statsData);
-        setTodayHabits(habitsData);
-      }).catch(() => {
-        // Failing silently is better for optimistic UI on minor tracking updates
-      });
-    } catch {
-      // Revert if failed
-      fetchData();
+      const result = await toggleCheckin({ habit_id: habitId });
+
+      setTodayHabits((currentHabits) =>
+        currentHabits.map((habit) =>
+          habit.id === result.habit_id ? { ...habit, checked_today: result.checked } : habit,
+        ),
+      );
+
+      try {
+        setStats(await fetchStatsSummary());
+      } catch (err) {
+        setError(
+          err instanceof Error && err.message.trim()
+            ? `${err.message} El check-in sí se guardó correctamente.`
+            : "El check-in se guardó, pero no se pudieron refrescar las estadísticas.",
+        );
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : "No se pudo actualizar el check-in.",
+      );
+    } finally {
+      setUpdatingHabitId(null);
     }
   }
 
@@ -79,17 +116,45 @@ export default function DashboardHomePage() {
     );
   }
 
+  if (error && todayHabits.length === 0 && stats === EMPTY_STATS) {
+    return (
+      <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
+        <div>
+          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Streak Up</h1>
+          <p className="text-sm text-clay-frozen font-medium capitalize">{formatDate()}</p>
+        </div>
+
+        <ClayMotionBox variant="frozen" active={false} className="p-6 space-y-4 text-center">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-foreground">Inicio no disponible</h2>
+            <p className="text-sm text-muted-foreground">{error}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void fetchData(true)}
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Reintentar
+          </button>
+        </ClayMotionBox>
+      </div>
+    );
+  }
+
   return (
     <div className="py-6 space-y-8 max-w-lg mx-auto px-4 @container">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Streak Up</h1>
         <p className="text-sm text-clay-frozen font-medium capitalize">{formatDate()}</p>
       </div>
 
-      {/* Stats Cards */}
+      {error ? (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-3 gap-3">
-        {/* Racha */}
         <ClayMotionBox variant="primary" active={false} className="p-4 text-center space-y-1">
           <div className="flex justify-center mb-1">
             <Flame className="size-6 text-orange-400 drop-shadow-md" />
@@ -98,7 +163,6 @@ export default function DashboardHomePage() {
           <p className="text-xl font-black text-foreground">{stats.streak}</p>
         </ClayMotionBox>
 
-        {/* Hoy */}
         <ClayMotionBox variant="primary" active={false} className="p-4 text-center space-y-1">
           <div className="flex justify-center mb-1">
             <Clock className="size-6 text-clay-blue drop-shadow-md" />
@@ -109,7 +173,6 @@ export default function DashboardHomePage() {
           </p>
         </ClayMotionBox>
 
-        {/* Tasa */}
         <ClayMotionBox variant="primary" active={false} className="p-4 text-center space-y-1">
           <div className="flex justify-center mb-1">
             <TrendingUp className="size-6 text-clay-purple drop-shadow-md" />
@@ -119,7 +182,6 @@ export default function DashboardHomePage() {
         </ClayMotionBox>
       </div>
 
-      {/* Modo Pomodoro */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Clock className="size-5 text-clay-frozen" />
@@ -137,7 +199,6 @@ export default function DashboardHomePage() {
         </div>
       </div>
 
-      {/* Hoy - Habits */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-foreground">Mis Hábitos</h2>
@@ -164,10 +225,16 @@ export default function DashboardHomePage() {
             {todayHabits.map((habit) => (
               <ClayMotionBox
                 key={habit.id}
-                onClick={() => toggleHabit(habit.id)}
+                onClick={() => {
+                  if (updatingHabitId === null) {
+                    void handleToggleHabit(habit.id);
+                  }
+                }}
                 active={habit.checked_today}
                 variant={habit.checked_today ? "vibrant-orange" : "frozen"}
-                className="flex flex-col items-center justify-center gap-3 text-center cursor-pointer min-h-[140px]"
+                className={`flex flex-col items-center justify-center gap-3 text-center min-h-[140px] ${
+                  updatingHabitId === habit.id ? "cursor-wait opacity-70" : "cursor-pointer"
+                }`}
                 role="button"
               >
                 <div className="flex items-center justify-center p-3 text-primary drop-shadow-xl">
@@ -185,9 +252,7 @@ export default function DashboardHomePage() {
                   })()}
                 </div>
                 <div>
-                  <p className="text-sm font-bold leading-tight">
-                    {habit.name}
-                  </p>
+                  <p className="text-sm font-bold leading-tight">{habit.name}</p>
                 </div>
                 {habit.checked_today ? (
                   <div className="absolute top-3 right-3 bg-white/20 rounded-full p-1 shadow-inner">

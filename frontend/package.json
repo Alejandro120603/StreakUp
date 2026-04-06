@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:mobile": "case \"$NEXT_PUBLIC_API_URL\" in https://*) NEXT_BUILD_TARGET=mobile next build ;; *) echo 'NEXT_PUBLIC_API_URL must use an https:// hosted backend for mobile builds.'; exit 1 ;; esac",
     "start": "next start",
     "lint": "next lint"
   },
