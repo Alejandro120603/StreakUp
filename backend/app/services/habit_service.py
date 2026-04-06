@@ -13,14 +13,28 @@ from app.models.user_habit import UserHabit
 
 
 _CATEGORY_PRESENTATION = {
-    1: {"section": "moon", "icon": "🌙"},
-    2: {"section": "plant", "icon": "🌱"},
-    3: {"section": "fire", "icon": "🔥"},
+    1: {"section": "moon", "icon": "Moon"},
+    2: {"section": "plant", "icon": "Sprout"},
+    3: {"section": "fire", "icon": "Flame"},
 }
 
+_HABIT_ICONS = {
+    1: "Droplets",
+    2: "Dumbbell",
+    3: "Apple",
+    4: "Brain",
+    5: "Smile",
+    6: "Laptop",
+    7: "Target",
+    8: "Sunrise",
+    9: "BookOpen",
+    10: "Globe",
+    11: "BedDouble",
+    12: "Moon",
+}
 
 def _get_presentation(category_id: int) -> dict[str, str]:
-    return _CATEGORY_PRESENTATION.get(category_id, {"section": "fire", "icon": "🔥"})
+    return _CATEGORY_PRESENTATION.get(category_id, {"section": "fire", "icon": "Flame"})
 
 
 def list_catalog_habits() -> list[dict]:
@@ -70,7 +84,7 @@ def serialize_user_habit(user_habit: UserHabit) -> dict:
         "active": bool(user_habit.activo),
         "start_date": user_habit.fecha_inicio.isoformat() if user_habit.fecha_inicio else None,
         "end_date": user_habit.fecha_fin.isoformat() if user_habit.fecha_fin else None,
-        "icon": presentation["icon"],
+        "icon": _HABIT_ICONS.get(catalog_habit.id, presentation["icon"]),
         "habit_type": "boolean",
         "frequency": "daily",
         "section": presentation["section"],

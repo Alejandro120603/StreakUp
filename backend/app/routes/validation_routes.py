@@ -9,6 +9,7 @@ Responsibility:
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.services.openai_service import ValidationUnavailableError
 from app.services.validation_service import validate_habit
 from app.utils.error_handler import error_response
 
@@ -38,5 +39,7 @@ def validate():
         return jsonify(result), 200
     except ValueError as exc:
         return error_response(str(exc), 400)
-    except Exception as exc:
-        return error_response(f"Error en la validación: {str(exc)}", 500)
+    except ValidationUnavailableError as exc:
+        return error_response(str(exc), 503, code=exc.code)
+    except Exception:
+        return error_response("Error interno en la validación.", 500)

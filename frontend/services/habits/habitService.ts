@@ -26,6 +26,7 @@ export async function fetchHabits(): Promise<Habit[]> {
     const habits = await apiGet<Habit[]>(API_ENDPOINTS.habits.list);
     return cacheHabits(habits);
   } catch (error) {
+    // Local habit reads are allowed only in explicit offline mode.
     if (shouldUseOfflineFallback(error)) {
       return getLocalHabits();
     }
@@ -38,6 +39,7 @@ export async function createHabit(payload: CreateHabitPayload): Promise<Habit> {
     const habit = await apiPost<Habit>(API_ENDPOINTS.habits.create, JSON.stringify(payload));
     return upsertLocalHabit(habit);
   } catch (error) {
+    // Connected mode must fail honestly for writes; only explicit offline mode can emulate them.
     if (shouldUseOfflineFallback(error)) {
       return createLocalHabit(payload);
     }
@@ -66,6 +68,7 @@ export async function deleteHabit(id: number): Promise<void> {
     await apiDelete<void>(API_ENDPOINTS.habits.delete(id));
     deleteLocalHabit(id);
   } catch (error) {
+    // Connected mode must fail honestly for writes; only explicit offline mode can emulate them.
     if (shouldUseOfflineFallback(error)) {
       deleteLocalHabit(id);
       return;

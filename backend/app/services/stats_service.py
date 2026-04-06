@@ -13,7 +13,7 @@ from app.extensions import db
 from app.models.checkin import CheckIn
 from app.models.user import User
 from app.models.validation_log import ValidationLog
-from app.services.habit_service import list_active_user_habits, _get_presentation
+from app.services.habit_service import list_active_user_habits, _get_presentation, _HABIT_ICONS
 
 
 def _user_habit_ids(user_id: int) -> list[int]:
@@ -115,7 +115,7 @@ def get_detailed_stats(user_id: int) -> dict:
         per_habit.append({
             "id": uh.id,
             "name": catalog.nombre,
-            "icon": presentation["icon"],
+            "icon": _HABIT_ICONS.get(catalog.id, presentation["icon"]),
             "completed": completed_days,
             "total": 7,
             "rate": round(completed_days / 7 * 100) if completed_days > 0 else 0,

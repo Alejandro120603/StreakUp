@@ -5,3 +5,4 @@ flask-migrate
 flask-cors
 python-dotenv
 openai
+gunicorn

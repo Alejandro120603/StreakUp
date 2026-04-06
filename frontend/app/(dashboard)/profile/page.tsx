@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
 import {
   Settings,
   Target,
@@ -12,15 +14,21 @@ import {
   Award,
   Crown,
   Gem,
+  Rocket,
   Sparkles,
   Bell,
   Moon,
+  Sun,
+  Monitor,
   Globe,
   ChevronRight,
   ImageIcon,
+  LogOut,
 } from "lucide-react";
 import { fetchProfileStats, fetchXpInfo, fetchDetailedStats } from "@/services/stats/statsService";
-import { getSession } from "@/services/auth/authService";
+import { getSession, clearSession } from "@/services/auth/authService";
+import { cn } from "@/lib/utils";
+import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 import type { ProfileStats, XpInfo } from "@/types/stats";
 
 interface AchievementDef {
@@ -112,10 +120,20 @@ export default function ProfilePage() {
   const [records, setRecords] = useState({
     longest_streak: 0, best_day: 0, current_streak: 0, active_days: 0,
   });
+  const [totalCompleted, setTotalCompleted] = useState(0);
   const [validationStats, setValidationStats] = useState({
     total_successful: 0, total_attempts: 0, success_rate: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -134,9 +152,11 @@ export default function ProfilePage() {
         setStats(profileStats);
         setXpInfo(xp);
         setRecords(detailed.records);
+        setTotalCompleted(detailed.summary.total_completed);
         setValidationStats(detailed.validations);
-      } catch {
-        // silently fail — data will show defaults
+        setError("");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "No se pudieron cargar los datos del perfil.");
       } finally {
         setLoading(false);
       }
@@ -144,20 +164,21 @@ export default function ProfilePage() {
     fetchData();
   }, []);
 
-  // Achievement data for checking unlock status
-  const achievementData: AchievementData = {
+  const achievementData: AchievementData = useMemo(() => ({
     streak: records.current_streak,
-    totalCheckins: stats.today_completed, // simplified; detailed has total_completed
+    totalCheckins: totalCompleted,
     totalValidations: validationStats.total_successful,
     habitsCount: stats.habits_count,
     longestStreak: records.longest_streak,
     activeDays: records.active_days,
     level: xpInfo.level,
-  };
+  }), [records, stats, totalCompleted, validationStats, xpInfo]);
 
-  const unlockedCount = ACHIEVEMENTS.filter((a) => a.check(achievementData)).length;
+  const unlockedCount = useMemo(() => {
+    return ACHIEVEMENTS.filter((a) => a.check(achievementData)).length;
+  }, [achievementData]);
 
-  if (loading) {
+  if (loading || !mounted) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="size-8 border-2 border-[#5D5FEF] border-t-transparent rounded-full animate-spin" />
@@ -165,34 +186,64 @@ export default function ProfilePage() {
     );
   }
 
+  const handleLogout = () => {
+    clearSession();
+    router.push("/login");
+  };
+
+  if (error) {
+    return (
+      <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Perfil</h1>
+            <p className="text-sm text-muted-foreground">Tu progreso y logros</p>
+          </div>
+        </div>
+
+        <ClayMotionBox className="p-6 space-y-4 text-center">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-foreground">Perfil no disponible</h2>
+            <p className="text-sm text-muted-foreground">{error}</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Reintentar
+          </button>
+        </ClayMotionBox>
+      </div>
+    );
+  }
+
   return (
-    <div className="py-6 space-y-6 max-w-lg mx-auto px-4">
+    <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Perfil</h1>
+          <h1 className="text-2xl font-bold text-foreground">Perfil</h1>
           <p className="text-sm text-muted-foreground">Tu progreso y logros</p>
         </div>
-        <button className="text-muted-foreground hover:text-white transition-colors">
+        <button className="text-muted-foreground hover:text-foreground transition-colors">
           <Settings className="size-5" />
         </button>
       </div>
 
       {/* User Card */}
-      <div className="rounded-xl bg-gradient-to-r from-[#5D5FEF] via-purple-500 to-pink-500 p-[1px]">
-        <div className="rounded-xl bg-[#111127] p-4 flex items-center gap-4">
-          <div className="size-14 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-2xl">
-            🚀
+      <ClayMotionBox className="p-4 flex items-center gap-4">
+          <div className="size-14 rounded-2xl bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-2xl shadow-inner">
+            <Rocket className="size-8 text-white drop-shadow-md" />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-white text-lg">{user?.username ?? "Usuario"}</span>
-              <span className="text-[10px] font-bold bg-[#5D5FEF] text-white px-2 py-0.5 rounded-full">
-                🏆 Nivel {xpInfo.level}
+              <span className="font-bold text-foreground text-lg">{user?.username ?? "Usuario"}</span>
+              <span className="text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                <Trophy className="size-3 inline mr-1" /> Nivel {xpInfo.level}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Racha actual: {records.current_streak} días 🔥
+              Racha actual: {records.current_streak} días <Flame className="size-3 inline text-orange-400" />
             </p>
             {/* XP Bar */}
             <div className="mt-2">
@@ -200,7 +251,7 @@ export default function ProfilePage() {
                 <span>Experiencia</span>
                 <span>{xpInfo.xp_in_level} / {xpInfo.xp_for_next_level} XP</span>
               </div>
-              <div className="h-2 rounded-full bg-[#2A2A3E] overflow-hidden">
+              <div className="h-2 rounded-full bg-secondary overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-500 transition-all duration-500"
                   style={{ width: `${xpInfo.progress_pct}%` }}
@@ -208,147 +259,173 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
+      </ClayMotionBox>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 space-y-1">
-          <Target className="size-5 text-[#5D5FEF]" />
-          <p className="text-2xl font-bold text-white">{stats.habits_count}</p>
+      <div className="grid grid-cols-2 @sm:grid-cols-4 gap-3">
+        <ClayMotionBox className="p-4 space-y-1 !rounded-2xl">
+          <Target className="size-5 text-primary" />
+          <p className="text-2xl font-bold text-foreground">{stats.habits_count}</p>
           <p className="text-xs text-muted-foreground">Hábitos creados</p>
-        </div>
-        <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 space-y-1">
+        </ClayMotionBox>
+        <ClayMotionBox className="p-4 space-y-1 !rounded-2xl">
           <Star className="size-5 text-purple-400" />
-          <p className="text-2xl font-bold text-white">{records.active_days}</p>
+          <p className="text-2xl font-bold text-foreground">{records.active_days}</p>
           <p className="text-xs text-muted-foreground">Días activos</p>
-        </div>
-        <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 space-y-1">
+        </ClayMotionBox>
+        <ClayMotionBox className="p-4 space-y-1 !rounded-2xl">
           <Flame className="size-5 text-orange-400" />
-          <p className="text-2xl font-bold text-white">{records.longest_streak}</p>
+          <p className="text-2xl font-bold text-foreground">{records.longest_streak}</p>
           <p className="text-xs text-muted-foreground">Racha más larga</p>
-        </div>
-        <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 space-y-1">
+        </ClayMotionBox>
+        <ClayMotionBox className="p-4 space-y-1 !rounded-2xl">
           <Trophy className="size-5 text-yellow-400" />
-          <p className="text-2xl font-bold text-white">{unlockedCount}/{ACHIEVEMENTS.length}</p>
+          <p className="text-2xl font-bold text-foreground">{unlockedCount}/{ACHIEVEMENTS.length}</p>
           <p className="text-xs text-muted-foreground">Total logros</p>
-        </div>
+        </ClayMotionBox>
       </div>
 
       {/* Logros */}
-      <div className="space-y-3">
+      <ClayMotionBox className="p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white">Logros</h2>
+          <h2 className="text-sm font-semibold text-foreground">Logros</h2>
           <span className="text-xs text-muted-foreground">{unlockedCount} de {ACHIEVEMENTS.length}</span>
         </div>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 @xs:grid-cols-4 gap-3">
           {ACHIEVEMENTS.map((ach) => {
             const unlocked = ach.check(achievementData);
             return (
               <div
                 key={ach.name}
-                className={`flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all ${
+                className={cn("flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all",
                   unlocked
-                    ? `${ach.color} border border-white/10`
-                    : "bg-[#111127] border border-[#2A2A3E] opacity-50"
-                }`}
+                    ? `${ach.color} text-white shadow-inner`
+                    : "bg-secondary text-muted-foreground opacity-50"
+                )}
                 title={ach.description}
               >
-                <ach.icon className={`size-5 ${unlocked ? "text-white" : "text-muted-foreground"}`} />
-                <span className={`text-[9px] font-medium text-center leading-tight ${unlocked ? "text-white" : "text-muted-foreground"}`}>
+                <ach.icon className="size-5" />
+                <span className="text-[9px] font-medium text-center leading-tight">
                   {ach.name}
                 </span>
               </div>
             );
           })}
         </div>
-      </div>
+      </ClayMotionBox>
 
       {/* Récords */}
       <div className="space-y-3">
-        <h2 className="text-base font-semibold text-white">Récords</h2>
-        <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] divide-y divide-[#2A2A3E]">
+        <h2 className="text-sm font-semibold text-foreground px-1">Récords Históricos</h2>
+        <ClayMotionBox className="p-0 overflow-hidden divide-y divide-border">
           <div className="flex items-center gap-3 p-4">
             <Flame className="size-5 text-orange-400" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">Racha más larga</p>
+              <p className="text-sm font-medium text-foreground">Racha más larga</p>
               <p className="text-xs text-muted-foreground">Tu mejor marca</p>
             </div>
-            <span className="text-lg font-bold text-white">{records.longest_streak} días</span>
+            <span className="text-lg font-bold text-foreground">{records.longest_streak} días</span>
           </div>
           <div className="flex items-center gap-3 p-4">
             <Calendar className="size-5 text-green-400" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">Días activos</p>
+              <p className="text-sm font-medium text-foreground">Días activos</p>
               <p className="text-xs text-muted-foreground">Total histórico</p>
             </div>
-            <span className="text-lg font-bold text-white">{records.active_days}</span>
+            <span className="text-lg font-bold text-foreground">{records.active_days}</span>
           </div>
           <div className="flex items-center gap-3 p-4">
-            <Zap className="size-5 text-[#5D5FEF]" />
+            <Zap className="size-5 text-primary" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">Mejor día</p>
+              <p className="text-sm font-medium text-foreground">Mejor día</p>
               <p className="text-xs text-muted-foreground">Más hábitos en un día</p>
             </div>
-            <span className="text-lg font-bold text-white">{records.best_day}</span>
+            <span className="text-lg font-bold text-foreground">{records.best_day}</span>
           </div>
           <div className="flex items-center gap-3 p-4">
             <ImageIcon className="size-5 text-emerald-400" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">Validaciones exitosas</p>
+              <p className="text-sm font-medium text-foreground">Validaciones exitosas</p>
               <p className="text-xs text-muted-foreground">
                 {validationStats.success_rate}% tasa de éxito
               </p>
             </div>
-            <span className="text-lg font-bold text-white">{validationStats.total_successful}</span>
+            <span className="text-lg font-bold text-foreground">{validationStats.total_successful}</span>
           </div>
-        </div>
+        </ClayMotionBox>
       </div>
 
       {/* XP Total */}
-      <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 flex items-center gap-4">
-        <div className="size-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
-          <Sparkles className="size-6 text-white" />
+      <ClayMotionBox className="p-4 flex items-center gap-4">
+        <div className="size-12 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+          <Sparkles className="size-6 text-yellow-950" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-medium text-white">XP Total</p>
+          <p className="text-sm font-medium text-foreground">XP Total</p>
           <p className="text-xs text-muted-foreground">Nivel {xpInfo.level}</p>
         </div>
-        <span className="text-2xl font-bold text-white">{xpInfo.total_xp}</span>
-      </div>
+        <span className="text-2xl font-bold text-foreground">{xpInfo.total_xp}</span>
+      </ClayMotionBox>
 
       {/* Settings */}
-      <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] divide-y divide-[#2A2A3E]">
+      <ClayMotionBox className="p-0 overflow-hidden divide-y divide-border">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
             <Bell className="size-4 text-muted-foreground" />
-            <span className="text-sm text-white">Notificaciones</span>
+            <span className="text-sm text-foreground">Notificaciones</span>
           </div>
-          <div className="w-10 h-6 bg-[#5D5FEF] rounded-full flex items-center p-0.5">
+          <div className="w-10 h-6 bg-primary rounded-full flex items-center p-0.5">
             <div className="size-5 bg-white rounded-full ml-auto" />
           </div>
         </div>
+
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
-            <Moon className="size-4 text-muted-foreground" />
-            <span className="text-sm text-white">Tema</span>
+            {theme === "dark" ? (
+              <Moon className="size-4 text-muted-foreground" />
+            ) : theme === "light" ? (
+              <Sun className="size-4 text-muted-foreground" />
+            ) : (
+              <Monitor className="size-4 text-muted-foreground" />
+            )}
+            <span className="text-sm text-foreground">Tema</span>
           </div>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <span>Oscuro</span>
-            <ChevronRight className="size-4" />
+          <div className="flex items-center gap-2">
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              className="bg-transparent text-sm text-muted-foreground outline-none appearance-none cursor-pointer"
+            >
+              <option value="system">Sistema</option>
+              <option value="light">Claro</option>
+              <option value="dark">Oscuro</option>
+            </select>
+            <ChevronRight className="size-4 text-muted-foreground pointer-events-none" />
           </div>
         </div>
+
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
             <Globe className="size-4 text-muted-foreground" />
-            <span className="text-sm text-white">Idioma</span>
+            <span className="text-sm text-foreground">Idioma</span>
           </div>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <span>Español</span>
             <ChevronRight className="size-4" />
           </div>
         </div>
-      </div>
+
+        <button 
+          onClick={handleLogout}
+          className="w-full flex items-center justify-between p-4 hover:bg-secondary transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <LogOut className="size-4 text-destructive" />
+            <span className="text-sm text-destructive font-medium">Cerrar Sesión</span>
+          </div>
+          <ChevronRight className="size-4 text-muted-foreground" />
+        </button>
+      </ClayMotionBox>
     </div>
   );
 }

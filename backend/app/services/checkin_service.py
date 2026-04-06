@@ -12,6 +12,7 @@ from app.extensions import db
 from app.models.checkin import CheckIn
 from app.models.user_habit import UserHabit
 from app.services.habit_service import serialize_user_habit, list_active_user_habits
+from app.services.xp_service import award_xp, revoke_xp
 
 
 def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = None) -> dict:
@@ -36,18 +37,25 @@ def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = 
     ).first()
 
     if existing:
+        xp_to_revoke = existing.xp_ganado
         db.session.delete(existing)
         db.session.commit()
+        if xp_to_revoke > 0:
+            revoke_xp(user_id, xp_to_revoke, "uncheck")
         return {"checked": False, "habit_id": habit_id, "date": target_date.isoformat()}
     else:
+        xp_base = user_habit.habit.xp_base if user_habit.habit else 10
         checkin = CheckIn(
             habitousuario_id=user_habit.id,
             fecha=target_date,
             completado=True,
-            xp_ganado=0,
+            xp_ganado=xp_base,
         )
         db.session.add(checkin)
         db.session.commit()
+        
+        award_xp(user_id, xp_base, "checkin")
+        
         return {"checked": True, "habit_id": habit_id, "date": target_date.isoformat()}
 
 

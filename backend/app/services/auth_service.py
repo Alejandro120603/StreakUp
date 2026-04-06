@@ -7,7 +7,6 @@ Responsibility:
 """
 
 from flask_jwt_extended import create_access_token, create_refresh_token
-from werkzeug.security import check_password_hash
 
 from app.extensions import db
 from app.models.user import User
@@ -50,13 +49,10 @@ def login_user(email: str, password: str) -> dict:
         ValueError: if credentials are invalid.
     """
     email = email.strip().lower()
-    print("LOGIN ATTEMPT:", email)
 
     user = User.query.filter_by(email=email).first()
-    print("USER FOUND:", user)
-    print("HASH:", user.password_hash if user else None)
 
-    if user is None or not check_password_hash(user.password_hash, password):
+    if user is None or not user.check_password(password):
         raise ValueError("Invalid email or password.")
 
     access_token = create_access_token(

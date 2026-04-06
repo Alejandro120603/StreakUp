@@ -55,9 +55,9 @@ export const SECTION_LABELS: Record<string, string> = {
 };
 
 export const SECTION_ICONS: Record<string, string> = {
-  fire: "🔥",
-  plant: "🌱",
-  moon: "🌙",
+  fire: "Flame",
+  plant: "Sprout",
+  moon: "Moon",
 };
 
 export interface ValidationResult {

@@ -191,6 +191,10 @@ El proyecto incluye un **Makefile** para simplificar tareas.
 
 make db-init
 
+### Crear / reiniciar base de datos con usuarios demo locales
+
+make db-init-demo
+
 ### Abrir consola SQLite
 
 make db-open
@@ -202,6 +206,61 @@ make db-clean
 ### Crear backup
 
 make db-backup
+
+# Hosted deployment
+
+Para un despliegue MVP hosteado en una sola instancia con SQLite persistente:
+
+1. Ejecuta migraciones:
+
+   `cd backend && ./.venv/bin/flask --app run.py db upgrade`
+
+2. Ejecuta bootstrap idempotente del catálogo:
+
+   `cd backend && ./.venv/bin/flask --app run.py seed-catalog`
+
+3. Inicia el backend con Gunicorn usando el puerto del entorno:
+
+   `cd backend && PORT=8000 ./.venv/bin/gunicorn --bind 0.0.0.0:$PORT run:app`
+
+Endpoints operativos mínimos:
+
+- `GET /healthz`
+- `GET /readyz`
+
+`/readyz` solo responde `200` cuando la base está accesible y el catálogo requerido ya fue cargado.
+
+# Frontend hosteado y APK
+
+Build web contra backend hosteado:
+
+`cd frontend && NEXT_PUBLIC_API_URL=https://api.example.com NEXT_PUBLIC_OFFLINE_MODE=false npm run build`
+
+Build móvil exportado para Capacitor:
+
+`cd frontend && NEXT_PUBLIC_API_URL=https://api.example.com NEXT_PUBLIC_OFFLINE_MODE=false npm run build:mobile`
+
+Sincronizar Android con el export:
+
+`cd frontend && npx cap sync android`
+
+Generar APK debug:
+
+`cd android && GRADLE_USER_HOME=/tmp/streakup-gradle ./gradlew assembleDebug`
+
+Variables mínimas para un deploy conectado:
+
+- Backend:
+  - `SECRET_KEY`
+  - `JWT_SECRET_KEY`
+  - `DATABASE_URL`
+  - `PORT`
+  - `OPENAI_API_KEY` solo si quieres validación por foto
+- Frontend:
+  - `NEXT_PUBLIC_API_URL`
+  - `NEXT_PUBLIC_OFFLINE_MODE=false`
+
+En modo conectado, el frontend ya no inventa respuestas locales cuando el backend falla. El modo offline solo se activa de forma explícita con `NEXT_PUBLIC_OFFLINE_MODE=true`.
 
 # Sistema de módulos
 

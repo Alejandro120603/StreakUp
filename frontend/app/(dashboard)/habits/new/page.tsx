@@ -7,6 +7,7 @@ import Link from "next/link";
 import { createHabit, fetchHabitCatalog } from "@/services/habits/habitService";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 import type { HabitCatalogItem } from "@/types/habits";
 
 export default function NewHabitPage() {
@@ -24,7 +25,7 @@ export default function NewHabitPage() {
         setCatalog(habits);
         setSelectedHabitId(habits[0]?.id ?? null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error al cargar catálogo.");
+        setError(err instanceof Error ? err.message : "Error al cargar el catálogo.");
       } finally {
         setLoadingCatalog(false);
       }
@@ -50,7 +51,7 @@ export default function NewHabitPage() {
       await createHabit({ habito_id: selectedHabitId });
       router.push("/habits");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al crear hábito.");
+      setError(err instanceof Error ? err.message : "Error al asignar el hábito.");
     } finally {
       setIsLoading(false);
     }
@@ -61,16 +62,14 @@ export default function NewHabitPage() {
       <div className="flex items-center gap-4 mb-6">
         <Link
           href="/habits"
-          className="flex items-center justify-center size-10 rounded-lg text-white hover:bg-[#1A1A2E] transition-colors"
+          className="flex items-center justify-center size-10 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
         >
           <ArrowLeft className="size-5" />
         </Link>
-        <h1 className="text-xl font-bold text-white flex-1 text-center pr-10">
-          Nuevo hábito
+        <h1 className="text-xl font-bold text-foreground flex-1 text-center pr-10">
+          Agregar hábito
         </h1>
       </div>
-
-      <div className="border-t border-[#2A2A3E] mb-6" />
 
       {error && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400 mb-4">
@@ -78,55 +77,57 @@ export default function NewHabitPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold text-white">Hábito del catálogo</Label>
-          <select
-            value={selectedHabitId ?? ""}
-            onChange={(e) => setSelectedHabitId(Number(e.target.value))}
-            required
-            disabled={loadingCatalog || catalog.length === 0}
-            className="w-full h-12 px-4 bg-[#1A1A2E] border border-[#2A2A3E] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5D5FEF]/50 focus:border-[#5D5FEF] transition-colors appearance-none cursor-pointer"
-          >
-            {catalog.map((habit) => (
-              <option key={habit.id} value={habit.id} className="bg-[#1A1A2E] text-white">
-                {habit.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {loadingCatalog && (
-          <div className="flex justify-center py-6">
-            <div className="size-8 border-2 border-[#5D5FEF] border-t-transparent rounded-full animate-spin" />
+      <ClayMotionBox className="p-6 mt-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-foreground">Hábito del catálogo</Label>
+            <select
+              value={selectedHabitId ?? ""}
+              onChange={(e) => setSelectedHabitId(Number(e.target.value))}
+              required
+              disabled={loadingCatalog || catalog.length === 0}
+              className="w-full h-12 px-4 bg-background border border-border text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors appearance-none cursor-pointer"
+            >
+              {catalog.map((habit) => (
+                <option key={habit.id} value={habit.id} className="bg-background text-foreground">
+                  {habit.name}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
 
-        {!loadingCatalog && selectedHabit && (
-          <div className="rounded-xl border border-[#2A2A3E] bg-[#111127] p-4 space-y-2">
-            <p className="text-white font-semibold">{selectedHabit.name}</p>
-            {selectedHabit.description && (
-              <p className="text-sm text-muted-foreground">{selectedHabit.description}</p>
-            )}
-            <div className="flex gap-2 text-xs">
-              <span className="rounded-full bg-[#1A1A2E] px-3 py-1 text-white/80">
-                Dificultad: {selectedHabit.difficulty}
-              </span>
-              <span className="rounded-full bg-[#1A1A2E] px-3 py-1 text-white/80">
-                XP base: {selectedHabit.xp_base}
-              </span>
+          {loadingCatalog && (
+            <div className="flex justify-center py-6">
+              <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
-          </div>
-        )}
+          )}
 
-        <Button
-          type="submit"
-          disabled={isLoading || loadingCatalog || !selectedHabitId}
-          className="w-full h-12 rounded-xl bg-[#5D5FEF] hover:bg-[#4B4DDC] text-white font-semibold shadow-[0_0_16px_rgba(93,95,239,0.3)]"
-        >
-          {isLoading ? "Creando..." : "Agregar hábito"}
-        </Button>
-      </form>
+          {!loadingCatalog && selectedHabit && (
+            <div className="rounded-xl border border-border bg-secondary/50 p-4 space-y-2">
+              <p className="text-foreground font-semibold">{selectedHabit.name}</p>
+              {selectedHabit.description && (
+                <p className="text-sm text-muted-foreground">{selectedHabit.description}</p>
+              )}
+              <div className="flex gap-2 text-xs">
+                <span className="rounded-full bg-primary/10 text-primary px-3 py-1">
+                  Dificultad: {selectedHabit.difficulty}
+                </span>
+                <span className="rounded-full bg-green-500/10 text-green-600 px-3 py-1">
+                  XP base: {selectedHabit.xp_base}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={isLoading || loadingCatalog || !selectedHabitId}
+            className="w-full h-12 rounded-xl text-primary-foreground font-semibold"
+          >
+            {isLoading ? "Asignando..." : "Agregar a mis hábitos"}
+          </Button>
+        </form>
+      </ClayMotionBox>
     </div>
   );
 }

@@ -6,9 +6,22 @@ Responsibility:
 """
 
 import json
-import os
 
+from flask import current_app
 from openai import OpenAI
+
+from app.config import is_openai_configured
+
+VALIDATION_NOT_CONFIGURED_CODE = "validation_not_configured"
+VALIDATION_PROVIDER_UNAVAILABLE_CODE = "validation_provider_unavailable"
+
+
+class ValidationUnavailableError(RuntimeError):
+    """Raised when photo validation is unavailable for operational reasons."""
+
+    def __init__(self, message: str, code: str):
+        super().__init__(message)
+        self.code = code
 
 
 def analyze_habit_image(habit_name: str, image_base64: str) -> dict:
@@ -21,7 +34,13 @@ def analyze_habit_image(habit_name: str, image_base64: str) -> dict:
     Returns:
         dict with keys: valido (bool), razon (str), confianza (float).
     """
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    if not is_openai_configured(current_app.config):
+        raise ValidationUnavailableError(
+            "La validación de fotos no está disponible en este entorno.",
+            VALIDATION_NOT_CONFIGURED_CODE,
+        )
+
+    api_key = str(current_app.config.get("OPENAI_API_KEY") or "").strip()
 
     prompt = (
         "Eres un sistema que valida evidencia visual de hábitos.\n\n"
@@ -39,26 +58,33 @@ def analyze_habit_image(habit_name: str, image_base64: str) -> dict:
         "- Responde ÚNICAMENTE con el JSON, sin texto adicional."
     )
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{image_base64}",
-                            "detail": "low",
+    try:
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}",
+                                "detail": "low",
+                            },
                         },
-                    },
-                ],
-            }
-        ],
-        max_tokens=300,
-        temperature=0.2,
-    )
+                    ],
+                }
+            ],
+            max_tokens=300,
+            temperature=0.2,
+        )
+    except Exception as exc:
+        raise ValidationUnavailableError(
+            "La validación de fotos no está disponible temporalmente.",
+            VALIDATION_PROVIDER_UNAVAILABLE_CODE,
+        ) from exc
 
     raw = response.choices[0].message.content.strip()
 

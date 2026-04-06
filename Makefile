@@ -11,6 +11,8 @@ PYTHON_BIN := $(VENV_DIR)/bin/python
 DB_PATH := data/app.db
 SCHEMA_PATH := data/db/schema.sql
 SEED_PATH := data/db/seed.sql
+DEV_USER_SEED_PATH := data/db/dev_users_seed.sql
+DB_URI := sqlite:////$(abspath $(DB_PATH))
 
 CAP := npx cap
 CAP_CONFIG := $(FRONTEND_DIR)/capacitor.config.json
@@ -20,9 +22,9 @@ APK_DEBUG_PATH := $(ANDROID_DIR)/app/build/outputs/apk/debug/app-debug.apk
 GRADLE_USER_HOME ?= /tmp/streakup-gradle
 OFFLINE_MODE ?= false
 
-.PHONY: help venv install_requirements run_backend run_frontend run_local dev \
+.PHONY: help venv install_requirements run_backend run_backend_prod run_frontend run_local dev \
 	build_frontend sync_android open_android build_apk update-apk-auto \
-	db-init db-open db-clean db-reset db-dump db-backup
+	db-init db-init-demo db-bootstrap-catalog db-open db-clean db-reset db-dump db-backup
 
 # ================================
 # HELP
@@ -54,6 +56,11 @@ run_backend:
 	@test -x "$(PYTHON_BIN)" || (echo "Run: make venv" && exit 1)
 	@echo "Starting backend..."
 	$(PYTHON_BIN) $(BACKEND_DIR)/run.py
+
+run_backend_prod:
+	@test -x "$(BACKEND_DIR)/.venv/bin/gunicorn" || (echo "Run: make install_requirements" && exit 1)
+	@echo "Starting backend with Gunicorn..."
+	cd $(BACKEND_DIR) && PORT=$${PORT:-5000} ./.venv/bin/gunicorn --bind 0.0.0.0:$${PORT:-5000} run:app
 
 run_frontend:
 	@echo "Starting frontend..."
@@ -99,15 +106,25 @@ update-apk-auto:
 # DATABASE 🔥
 # ================================
 
-db-init: ## Crear DB desde cero con schema + seed
+db-init: ## Crear DB local desde cero con schema + catálogo
 	@echo "Initializing DB..."
 	@mkdir -p data
+	@test -x "$(PYTHON_BIN)" || (echo "Run: make venv" && exit 1)
 	@test -f $(SCHEMA_PATH) || (echo "❌ schema.sql not found at $(SCHEMA_PATH)" && exit 1)
-	@test -f $(SEED_PATH) || (echo "❌ seed.sql not found at $(SEED_PATH)" && exit 1)
 	@rm -f $(DB_PATH)
 	sqlite3 $(DB_PATH) < $(SCHEMA_PATH)
-	sqlite3 $(DB_PATH) < $(SEED_PATH)
+	@$(MAKE) db-bootstrap-catalog
 	@echo "✅ DB ready at $(DB_PATH)"
+
+db-init-demo: ## Crear DB local con catálogo + usuarios demo
+	@$(MAKE) db-init
+	@test -f $(DEV_USER_SEED_PATH) || (echo "❌ dev_users_seed.sql not found at $(DEV_USER_SEED_PATH)" && exit 1)
+	sqlite3 $(DB_PATH) < $(DEV_USER_SEED_PATH)
+	@echo "✅ Demo users seeded at $(DB_PATH)"
+
+db-bootstrap-catalog: ## Ejecutar bootstrap idempotente del catálogo
+	@test -x "$(PYTHON_BIN)" || (echo "Run: make venv" && exit 1)
+	cd $(BACKEND_DIR) && FLASK_ENV=development DATABASE_URL="$(DB_URI)" ./.venv/bin/flask --app run.py seed-catalog
 
 db-reset: ## Reset DB (alias)
 	$(MAKE) db-init

@@ -145,6 +145,34 @@ CREATE TABLE IF NOT EXISTS validaciones (
 
 
 -- =====================================================
+-- POMODORO_SESSIONS
+-- =====================================================
+CREATE TABLE IF NOT EXISTS pomodoro_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    habit_id INTEGER,
+    theme TEXT NOT NULL DEFAULT 'fire',
+    study_minutes INTEGER NOT NULL DEFAULT 25 CHECK (study_minutes > 0),
+    break_minutes INTEGER NOT NULL DEFAULT 5 CHECK (break_minutes >= 0),
+    cycles INTEGER NOT NULL DEFAULT 4 CHECK (cycles > 0),
+    completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0,1)),
+    started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME,
+
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (habit_id)
+        REFERENCES habitos_usuario(id)
+        ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_user_started
+ON pomodoro_sessions(user_id, started_at);
+
+
+-- =====================================================
 -- NIVELES
 -- =====================================================
 CREATE TABLE IF NOT EXISTS niveles (

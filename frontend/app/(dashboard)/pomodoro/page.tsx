@@ -161,6 +161,7 @@ function PomodoroContent() {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [recentSessions, setRecentSessions] = useState<PomodoroSession[]>([]);
   const [sessionError, setSessionError] = useState("");
+  const [recentSessionsError, setRecentSessionsError] = useState("");
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const completingSessionRef = useRef(false);
@@ -175,8 +176,13 @@ function PomodoroContent() {
   const loadRecentSessions = useCallback(async () => {
     try {
       setRecentSessions(await fetchPomodoroSessions(5));
-    } catch {
-      setRecentSessions([]);
+      setRecentSessionsError("");
+    } catch (error) {
+      setRecentSessionsError(
+        error instanceof Error && error.message.trim()
+          ? error.message
+          : "No se pudieron cargar las sesiones recientes reales.",
+      );
     }
   }, []);
 
@@ -443,9 +449,15 @@ function PomodoroContent() {
             </button>
           </div>
 
-          {recentSessions.length === 0 ? (
+          {recentSessionsError ? (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {recentSessionsError}
+            </div>
+          ) : null}
+
+          {!recentSessionsError && recentSessions.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aún no hay sesiones guardadas.</p>
-          ) : (
+          ) : recentSessions.length > 0 ? (
             <div className="space-y-2">
               {recentSessions.map((session) => (
                 <div
@@ -470,7 +482,7 @@ function PomodoroContent() {
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -488,4 +500,3 @@ export default function PomodoroPage() {
     </Suspense>
   );
 }
-

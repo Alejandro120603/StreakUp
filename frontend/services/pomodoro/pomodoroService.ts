@@ -19,6 +19,7 @@ export async function fetchPomodoroSessions(limit = 10): Promise<PomodoroSession
     const sessions = await apiGet<PomodoroSession[]>(API_ENDPOINTS.pomodoro.sessions);
     return cachePomodoroSessions(sessions).slice(0, limit);
   } catch (error) {
+    // Local pomodoro reads are allowed only in explicit offline mode.
     if (shouldUseOfflineFallback(error)) {
       return getLocalPomodoroSessions(undefined, limit);
     }
@@ -36,6 +37,7 @@ export async function createPomodoroSession(
     );
     return upsertLocalPomodoroSession(session);
   } catch (error) {
+    // Connected mode must fail honestly for writes; only explicit offline mode can emulate them.
     if (shouldUseOfflineFallback(error)) {
       return createLocalPomodoroSession(payload);
     }
@@ -48,6 +50,7 @@ export async function completePomodoroSession(sessionId: number): Promise<Pomodo
     const session = await apiPut<PomodoroSession>(API_ENDPOINTS.pomodoro.complete(sessionId));
     return upsertLocalPomodoroSession(session);
   } catch (error) {
+    // Connected mode must fail honestly for writes; only explicit offline mode can emulate them.
     if (shouldUseOfflineFallback(error)) {
       return completeLocalPomodoroSession(sessionId);
     }

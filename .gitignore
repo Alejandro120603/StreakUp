@@ -123,3 +123,6 @@ pnpm-debug.log*
 android/build/
 android/app/build/
 ios/DerivedData/
+
+# .gitignore
+.antigravity/skills/

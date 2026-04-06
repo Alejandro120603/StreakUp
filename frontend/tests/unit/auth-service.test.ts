@@ -9,11 +9,27 @@ import {
   saveSession,
   clearSession,
 } from "@/services/auth/authService";
+import { AUTH_COOKIE_NAME } from "@/services/auth/session";
 
 const originalFetch = globalThis.fetch;
 const originalNavigator = globalThis.navigator;
 const originalWindow = globalThis.window;
+const originalDocument = globalThis.document;
 const originalOfflineMode = process.env.NEXT_PUBLIC_OFFLINE_MODE;
+
+function buildJwt(payload: Record<string, unknown>): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${header}.${body}.signature`;
+}
+
+function createValidAccessToken(overrides: Record<string, unknown> = {}): string {
+  return buildJwt({
+    sub: "7",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    ...overrides,
+  });
+}
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -49,12 +65,30 @@ function createWindow() {
   };
 }
 
+function createDocument() {
+  let cookie = "";
+
+  return {
+    get cookie() {
+      return cookie;
+    },
+    set cookie(value: string) {
+      cookie = value;
+    },
+  };
+}
+
 beforeEach(() => {
   process.env.NEXT_PUBLIC_OFFLINE_MODE = "";
 
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: createWindow(),
+  });
+
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: createDocument(),
   });
 });
 
@@ -71,6 +105,11 @@ afterEach(() => {
     value: originalWindow,
   });
 
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: originalDocument,
+  });
+
   if (originalOfflineMode === undefined) {
     delete process.env.NEXT_PUBLIC_OFFLINE_MODE;
   } else {
@@ -83,8 +122,9 @@ const TEST_EMAIL = "test@example.com";
 const TEST_PASSWORD = "test_password";
 
 test("saveSession and getSession round-trip", () => {
+  const accessToken = createValidAccessToken();
   saveSession({
-    access_token: "saved-access",
+    access_token: accessToken,
     refresh_token: "saved-refresh",
     user: {
       id: 7,
@@ -97,13 +137,14 @@ test("saveSession and getSession round-trip", () => {
 
   const session = getSession();
   assert.notEqual(session, null);
-  assert.equal(session?.accessToken, "saved-access");
+  assert.equal(session?.accessToken, accessToken);
   assert.equal(session?.user.email, TEST_EMAIL);
+  assert.match(document.cookie, new RegExp(`^${AUTH_COOKIE_NAME}=`));
 });
 
 test("clearSession removes all stored auth data", () => {
   saveSession({
-    access_token: "saved-access",
+    access_token: createValidAccessToken(),
     refresh_token: "saved-refresh",
     user: {
       id: 7,
@@ -120,6 +161,7 @@ test("clearSession removes all stored auth data", () => {
   assert.equal(window.localStorage.getItem("access_token"), null);
   assert.equal(window.localStorage.getItem("refresh_token"), null);
   assert.equal(window.localStorage.getItem("user"), null);
+  assert.match(document.cookie, new RegExp(`^${AUTH_COOKIE_NAME}=;`));
 });
 
 test("hasSavedSession returns false when no session exists", () => {
@@ -128,7 +170,7 @@ test("hasSavedSession returns false when no session exists", () => {
 
 test("hasSavedSession returns true when session exists", () => {
   saveSession({
-    access_token: "saved-access",
+    access_token: createValidAccessToken(),
     refresh_token: "saved-refresh",
     user: {
       id: 7,
@@ -140,6 +182,41 @@ test("hasSavedSession returns true when session exists", () => {
   });
 
   assert.equal(hasSavedSession(), true);
+});
+
+test("hasSavedSession returns false for malformed tokens and clears storage", () => {
+  window.localStorage.setItem("access_token", "not-a-jwt");
+  window.localStorage.setItem(
+    "user",
+    JSON.stringify({
+      id: 7,
+      username: "user_test",
+      email: TEST_EMAIL,
+      role: "user",
+    }),
+  );
+
+  assert.equal(hasSavedSession(), false);
+  assert.equal(window.localStorage.getItem("access_token"), null);
+  assert.equal(window.localStorage.getItem("user"), null);
+});
+
+test("hasSavedSession returns false for expired tokens", () => {
+  window.localStorage.setItem(
+    "access_token",
+    createValidAccessToken({ exp: Math.floor(Date.now() / 1000) - 60 }),
+  );
+  window.localStorage.setItem(
+    "user",
+    JSON.stringify({
+      id: 7,
+      username: "user_test",
+      email: TEST_EMAIL,
+      role: "user",
+    }),
+  );
+
+  assert.equal(hasSavedSession(), false);
 });
 
 test("register does not block when navigator.onLine is false", async () => {
