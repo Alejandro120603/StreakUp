@@ -23,7 +23,7 @@ GRADLE_USER_HOME ?= /tmp/streakup-gradle
 OFFLINE_MODE ?= false
 
 .PHONY: help venv install_requirements run_backend run_backend_prod run_frontend run_local dev \
-	build_frontend sync_android open_android build_apk update-apk-auto \
+	build_frontend build_frontend_mobile sync_android open_android build_apk update-apk-auto \
 	db-init db-init-demo db-bootstrap-catalog db-open db-clean db-reset db-dump db-backup db-psql
 
 # ================================
@@ -84,11 +84,15 @@ build_frontend:
 	@echo "Building frontend..."
 	cd $(FRONTEND_DIR) && NEXT_PUBLIC_OFFLINE_MODE="$(OFFLINE_MODE)" $(NPM) run build
 
+build_frontend_mobile:
+	@echo "Building frontend for Capacitor..."
+	cd $(FRONTEND_DIR) && NEXT_PUBLIC_OFFLINE_MODE="$(OFFLINE_MODE)" $(NPM) run build:mobile
+
 # ================================
 # ANDROID
 # ================================
 sync_android:
-	cd $(FRONTEND_DIR) && $(CAP) sync android
+	cd $(FRONTEND_DIR) && NEXT_PUBLIC_OFFLINE_MODE="$(OFFLINE_MODE)" $(NPM) run sync:android
 
 open_android:
 	cd $(FRONTEND_DIR) && $(CAP) open android
@@ -98,7 +102,6 @@ build_apk:
 	@echo "APK ready at $(APK_DEBUG_PATH)"
 
 update-apk-auto:
-	@$(MAKE) build_frontend
 	@$(MAKE) sync_android
 	@$(MAKE) build_apk
 
