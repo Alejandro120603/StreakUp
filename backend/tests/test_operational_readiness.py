@@ -227,6 +227,50 @@ class OperationalReadinessTestCase(unittest.TestCase):
         self.assertTrue(completed["completed"])
         self.assertIsNotNone(completed["completed_at"])
 
+    def test_pomodoro_rejects_invalid_payloads_and_foreign_habit_ids(self) -> None:
+        self._seed_catalog()
+        user = self._create_user()
+        headers = self._login_headers()
+
+        other_user = User(username="Other", email="other@correo.com", role="user")
+        other_user.set_password("other-password")
+        db.session.add(other_user)
+        db.session.commit()
+
+        habit = db.session.get(Habit, 1)
+        self.assertIsNotNone(habit)
+
+        foreign_assignment = UserHabit(
+            usuario_id=other_user.id,
+            habito_id=habit.id,
+            fecha_inicio=date.today(),
+            activo=True,
+        )
+        db.session.add(foreign_assignment)
+        db.session.commit()
+
+        invalid_minutes = self.client.post(
+            "/api/pomodoro/sessions",
+            json={"study_minutes": 0, "break_minutes": 5, "cycles": 4},
+            headers=headers,
+        )
+        self.assertEqual(invalid_minutes.status_code, 400)
+        self.assertEqual(
+            invalid_minutes.get_json(),
+            {"error": "study_minutes must be greater than 0."},
+        )
+
+        foreign_habit = self.client.post(
+            "/api/pomodoro/sessions",
+            json={"habit_id": foreign_assignment.id, "study_minutes": 25, "break_minutes": 5, "cycles": 4},
+            headers=headers,
+        )
+        self.assertEqual(foreign_habit.status_code, 400)
+        self.assertEqual(
+            foreign_habit.get_json(),
+            {"error": "habit_id must reference an active habit owned by the user."},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

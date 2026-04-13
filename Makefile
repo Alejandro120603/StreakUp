@@ -24,7 +24,7 @@ OFFLINE_MODE ?= false
 
 .PHONY: help venv install_requirements run_backend run_backend_prod run_frontend run_local dev \
 	build_frontend sync_android open_android build_apk update-apk-auto \
-	db-init db-init-demo db-bootstrap-catalog db-open db-clean db-reset db-dump db-backup
+	db-init db-init-demo db-bootstrap-catalog db-open db-clean db-reset db-dump db-backup db-psql
 
 # ================================
 # HELP
@@ -132,6 +132,16 @@ db-reset: ## Reset DB (alias)
 db-open:
 	@test -f $(DB_PATH) || (echo "Run: make db-init" && exit 1)
 	sqlite3 $(DB_PATH)
+
+db-psql: ## Open psql using DATABASE_URL from backend/.env.local
+	@command -v psql >/dev/null 2>&1 || { echo "psql is not installed. Install the PostgreSQL client and try again."; exit 1; }
+	@test -f $(BACKEND_DIR)/.env.local || (echo "Missing $(BACKEND_DIR)/.env.local" && exit 1)
+	@set -a; \
+	. $(BACKEND_DIR)/.env.local; \
+	set +a; \
+	test -n "$$DATABASE_URL" || { echo "DATABASE_URL is not set in $(BACKEND_DIR)/.env.local"; exit 1; }; \
+	echo "Opening psql session using DATABASE_URL from $(BACKEND_DIR)/.env.local..."; \
+	exec psql "$$DATABASE_URL"
 
 db-clean:
 	@rm -f $(DB_PATH)

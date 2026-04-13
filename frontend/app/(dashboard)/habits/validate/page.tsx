@@ -14,6 +14,8 @@ import {
   icons,
 } from "lucide-react";
 import { fetchHabits } from "@/services/habits/habitService";
+import { fetchTodayHabits } from "@/services/checkins/checkinService";
+import { fetchStatsSummary } from "@/services/stats/statsService";
 import { validateHabit } from "@/services/validation/validationService";
 import type { Habit, ValidationResult } from "@/types/habits";
 import { SECTION_ICONS } from "@/types/habits";
@@ -33,6 +35,7 @@ function ValidateHabitPageContent() {
   const [loadError, setLoadError] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageMimeType, setImageMimeType] = useState<string | null>(null);
   const [status, setStatus] = useState<PageStatus>("idle");
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -79,20 +82,24 @@ function ValidateHabitPageContent() {
       const dataUrl = ev.target?.result as string;
       setImagePreview(dataUrl);
       setImageBase64(dataUrl.split(",")[1]);
+      setImageMimeType(file.type);
     };
     reader.readAsDataURL(file);
   }
 
   async function handleValidate() {
-    if (!imageBase64 || !habit) return;
+    if (!imageBase64 || !imageMimeType || !habit) return;
 
     setStatus("loading");
     setErrorMsg("");
 
     try {
-      const res = await validateHabit(habit.id, imageBase64);
+      const res = await validateHabit(habit.id, imageBase64, imageMimeType);
       setResult(res);
       setStatus(res.valido ? "success" : "error");
+      if (res.valido) {
+        void Promise.allSettled([fetchTodayHabits(), fetchStatsSummary()]);
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Error al validar");
       setStatus("error");
@@ -223,6 +230,7 @@ function ValidateHabitPageContent() {
                   onClick={() => {
                     setImagePreview(null);
                     setImageBase64(null);
+                    setImageMimeType(null);
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
                   className="absolute top-3 right-3 size-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/80 transition-colors"

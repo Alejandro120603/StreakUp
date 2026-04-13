@@ -16,6 +16,7 @@ class CheckIn(db.Model):
     __tablename__ = "registro_habitos"
     __table_args__ = (
         db.UniqueConstraint("habitousuario_id", "fecha", name="uq_registro_habitos_fecha"),
+        db.CheckConstraint("xp_ganado >= 0", name="ck_registro_habitos_xp_non_negative"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
