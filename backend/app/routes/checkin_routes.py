@@ -26,6 +26,11 @@ def toggle():
     if not data or "habit_id" not in data:
         return error_response("habit_id is required.", 400)
 
+    try:
+        habit_id = int(data["habit_id"])
+    except (TypeError, ValueError):
+        return error_response("habit_id must be an integer.", 400)
+
     target_date = None
     if "date" in data:
         try:
@@ -34,7 +39,7 @@ def toggle():
             return error_response("Invalid date format. Use YYYY-MM-DD.", 400)
 
     try:
-        result = toggle_checkin(user_id, data["habit_id"], target_date)
+        result = toggle_checkin(user_id, habit_id, target_date)
         return jsonify(result), 200
     except ValueError as exc:
         return error_response(str(exc), 404)

@@ -227,12 +227,12 @@ class AuthFlowTestCase(unittest.TestCase):
         )
 
     def test_award_xp_saves_log_correctly(self) -> None:
-        award_xp(self.daniel_user.id, 50, "test_reason")
+        award_xp(self.daniel_user.id, 50, "validation")
         
         log_entry = XpLog.query.filter_by(user_id=self.daniel_user.id).first()
         self.assertIsNotNone(log_entry)
         self.assertEqual(log_entry.cantidad, 50)
-        self.assertEqual(log_entry.razon, "test_reason")
+        self.assertEqual(log_entry.razon, "validation")
 
     def test_update_habit_returns_501(self) -> None:
         login = self._login("daniel@correo.com", "daniel-password").get_json()

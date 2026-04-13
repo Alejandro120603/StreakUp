@@ -82,11 +82,13 @@ class XpConsistencyTestCase(unittest.TestCase):
 
         db.session.refresh(self.user)
         checkin = CheckIn.query.filter_by(habitousuario_id=self.user_habit.id).one()
+        validation = ValidationLog.query.one()
 
         self.assertEqual(result["xp_ganado"], 15)
         self.assertEqual(checkin.xp_ganado, 15)
         self.assertEqual(self.user.total_xp, 15)
         self.assertEqual(sum(log.cantidad for log in XpLog.query.all()), 15)
+        self.assertEqual(validation.evidencia, None)
         self.assertEqual(ValidationLog.query.count(), 1)
 
     def test_validation_after_checkin_awards_only_missing_bonus_delta(self) -> None:
@@ -109,6 +111,50 @@ class XpConsistencyTestCase(unittest.TestCase):
         self.assertEqual(self.user.total_xp, 15)
         self.assertEqual(log_amounts, [10, 5])
         self.assertEqual(ValidationLog.query.count(), 1)
+
+    def test_uncheck_uses_checkin_undo_reason_and_restores_user_xp(self) -> None:
+        toggle_checkin(self.user.id, self.user_habit.id)
+        toggle_checkin(self.user.id, self.user_habit.id)
+
+        db.session.refresh(self.user)
+        logs = XpLog.query.order_by(XpLog.id).all()
+
+        self.assertEqual([log.razon for log in logs], ["checkin", "checkin_undo"])
+        self.assertEqual([log.cantidad for log in logs], [10, -10])
+        self.assertEqual(self.user.total_xp, 0)
+        self.assertEqual(self.user.level, 1)
+        self.assertEqual(self.user.xp_in_level, 0)
+        self.assertEqual(CheckIn.query.count(), 0)
+
+    def test_checkin_rolls_back_when_xp_award_fails(self) -> None:
+        with patch(
+            "app.services.checkin_service.award_xp",
+            side_effect=RuntimeError("xp write failed"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "xp write failed"):
+                toggle_checkin(self.user.id, self.user_habit.id)
+
+        db.session.refresh(self.user)
+        self.assertEqual(self.user.total_xp, 0)
+        self.assertEqual(CheckIn.query.count(), 0)
+        self.assertEqual(XpLog.query.count(), 0)
+
+    def test_validation_rolls_back_when_xp_award_fails(self) -> None:
+        with patch(
+            "app.services.validation_service.analyze_habit_image",
+            return_value={"valido": True, "razon": "evidencia valida", "confianza": 0.9},
+        ), patch(
+            "app.services.validation_service.award_xp",
+            side_effect=RuntimeError("xp write failed"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "xp write failed"):
+                validate_habit(self.user.id, self.user_habit.id, "image-base64")
+
+        db.session.refresh(self.user)
+        self.assertEqual(self.user.total_xp, 0)
+        self.assertEqual(CheckIn.query.count(), 0)
+        self.assertEqual(ValidationLog.query.count(), 0)
+        self.assertEqual(XpLog.query.count(), 0)
 
 
 if __name__ == "__main__":

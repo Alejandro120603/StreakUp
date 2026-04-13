@@ -39,11 +39,12 @@ function mapValidationError(error: unknown): Error {
 export async function validateHabit(
   habitId: number,
   imageBase64: string,
+  mimeType = "image/jpeg",
 ): Promise<ValidationResult> {
   try {
     return await apiPost<ValidationResult>(
       API_ENDPOINTS.habits.validate,
-      JSON.stringify({ habit_id: habitId, image: imageBase64 }),
+      JSON.stringify({ habit_id: habitId, image_base64: imageBase64, mime_type: mimeType }),
     );
   } catch (error) {
     throw mapValidationError(error);

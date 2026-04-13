@@ -14,25 +14,36 @@ class PomodoroSession(db.Model):
     """A Pomodoro timer session."""
 
     __tablename__ = "pomodoro_sessions"
+    __table_args__ = (
+        db.CheckConstraint("study_minutes > 0", name="ck_pomodoro_study_minutes_positive"),
+        db.CheckConstraint("break_minutes >= 0", name="ck_pomodoro_break_minutes_non_negative"),
+        db.CheckConstraint("cycles > 0", name="ck_pomodoro_cycles_positive"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(
-        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     habit_id = db.Column(
-        db.Integer, db.ForeignKey("habitos_usuario.id", ondelete="SET NULL"), nullable=True
+        db.Integer,
+        db.ForeignKey("habitos_usuario.id", ondelete="SET NULL"),
+        nullable=True,
     )
-    theme = db.Column(db.String(20), nullable=False, default="fire")  # fire | candle | ice | hourglass
+    theme = db.Column(db.String(20), nullable=False, default="fire")
     study_minutes = db.Column(db.Integer, nullable=False, default=25)
     break_minutes = db.Column(db.Integer, nullable=False, default=5)
     cycles = db.Column(db.Integer, nullable=False, default=4)
     completed = db.Column(db.Boolean, nullable=False, default=False)
     started_at = db.Column(
-        db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
     completed_at = db.Column(db.DateTime, nullable=True)
 
-    # Relationships
     user = db.relationship("User", backref=db.backref("pomodoro_sessions", lazy=True))
     habit = db.relationship("UserHabit", backref=db.backref("pomodoro_sessions", lazy=True))
 

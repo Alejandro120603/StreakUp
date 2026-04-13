@@ -7,7 +7,7 @@ Responsibility:
 
 from datetime import date as date_type, timedelta
 
-from sqlalchemy import func
+from sqlalchemy import Date, cast, func
 
 from app.extensions import db
 from app.models.checkin import CheckIn
@@ -52,19 +52,20 @@ def get_summary(user_id: int) -> dict:
     streak = _compute_current_streak(uh_ids, today)
 
     # XP and level from user record
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     total_xp = user.total_xp if user else 0
     level = user.level if user else 1
 
     # Validations done today
     validations_today = 0
     if uh_ids:
+        validation_day = cast(ValidationLog.fecha, Date)
         validations_today = (
             ValidationLog.query
             .filter(
                 ValidationLog.habitousuario_id.in_(uh_ids),
                 ValidationLog.validado.is_(True),
-                func.date(ValidationLog.fecha) == today.isoformat(),
+                validation_day == today,
             )
             .count()
         )
@@ -83,6 +84,7 @@ def get_summary(user_id: int) -> dict:
 def get_detailed_stats(user_id: int) -> dict:
     """Return detailed statistics for the stats dashboard."""
     today = date_type.today()
+    user = db.session.get(User, user_id)
 
     user_habits = list_active_user_habits(user_id)
     uh_ids = [uh.id for uh in user_habits]
@@ -202,6 +204,8 @@ def get_detailed_stats(user_id: int) -> dict:
             "completion_rate": completion_rate,
             "total_completed": total_checkins,
             "total_habits": total_habits,
+            "total_xp": user.total_xp if user else 0,
+            "level": user.level if user else 1,
         },
         "weekly_history": weekly_history,
         "per_habit": per_habit,

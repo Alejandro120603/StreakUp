@@ -209,19 +209,56 @@ make db-backup
 
 # Hosted deployment
 
-Para un despliegue MVP hosteado en una sola instancia con SQLite persistente:
+Para un despliegue en Render con PostgreSQL administrado:
 
-1. Ejecuta migraciones:
+1. Instala dependencias backend, incluyendo el driver de PostgreSQL:
+
+   `cd backend && ./.venv/bin/pip install -r requirements.txt`
+
+2. Configura variables de entorno en Render:
+
+   - `SECRET_KEY`
+   - `JWT_SECRET_KEY`
+   - `DATABASE_URL`
+   - `PORT`
+   - `CORS_ALLOWED_ORIGINS=https://tu-frontend.example.com`
+   - `OPENAI_API_KEY` solo si quieres validacion por foto
+
+3. Ejecuta migraciones sobre la base administrada:
 
    `cd backend && ./.venv/bin/flask --app run.py db upgrade`
 
-2. Ejecuta bootstrap idempotente del catálogo:
+4. Si el deploy arranca limpio, ejecuta bootstrap idempotente del catalogo:
 
    `cd backend && ./.venv/bin/flask --app run.py seed-catalog`
 
-3. Inicia el backend con Gunicorn usando el puerto del entorno:
+5. Inicia el backend con Gunicorn usando el puerto del entorno:
 
    `cd backend && PORT=8000 ./.venv/bin/gunicorn --bind 0.0.0.0:$PORT run:app`
+
+Ruta para conservar `data/app.db` antes del primer cutover a Render/PostgreSQL:
+
+1. Audita la SQLite legada:
+
+   `cd backend && ./.venv/bin/flask --app run.py audit-legacy-sqlite --path ../data/app.db`
+
+2. Provisiona una base Postgres vacia y ejecuta solo Alembic:
+
+   `cd backend && ./.venv/bin/flask --app run.py db upgrade`
+
+3. Importa la SQLite legada sobre ese target vacio:
+
+   `cd backend && ./.venv/bin/flask --app run.py migrate-sqlite-to-postgres --path ../data/app.db`
+
+4. Verifica `GET /healthz`, `GET /readyz`, auth, catalogo, check-ins y stats antes de repoint del frontend.
+
+Notas operativas:
+
+- El backend acepta `postgres://...` y `postgresql://...` y los normaliza a `postgresql+psycopg://...` para SQLAlchemy.
+- `schema.sql` queda como bootstrap local SQLite; el despliegue hosteado debe usar Alembic.
+- `seed.sql` sigue siendo solo una conveniencia local SQLite; en produccion la ruta recomendada es `flask seed-catalog`.
+- El importador legado recalcula `users.total_xp`, `level` y `xp_in_level` desde `xp_logs`.
+- El importador exige que la base target este vacia antes de cargar datos.
 
 Endpoints operativos mínimos:
 
@@ -255,6 +292,7 @@ Variables mínimas para un deploy conectado:
   - `JWT_SECRET_KEY`
   - `DATABASE_URL`
   - `PORT`
+  - `CORS_ALLOWED_ORIGINS`
   - `OPENAI_API_KEY` solo si quieres validación por foto
 - Frontend:
   - `NEXT_PUBLIC_API_URL`
