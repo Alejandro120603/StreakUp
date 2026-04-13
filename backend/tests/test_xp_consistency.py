@@ -1,8 +1,13 @@
+import hashlib
+import json
 import os
 import tempfile
 import unittest
 from datetime import date
 from unittest.mock import patch
+
+from sqlalchemy import func
+from sqlalchemy.dialects import postgresql
 
 from app import create_app
 from app.extensions import db
@@ -88,8 +93,30 @@ class XpConsistencyTestCase(unittest.TestCase):
         self.assertEqual(checkin.xp_ganado, 15)
         self.assertEqual(self.user.total_xp, 15)
         self.assertEqual(sum(log.cantidad for log in XpLog.query.all()), 15)
-        self.assertEqual(validation.evidencia, None)
+        self.assertIsNotNone(validation.evidencia)
+        evidence = json.loads(validation.evidencia)
+        self.assertEqual(
+            evidence,
+            {
+                "confidence": 0.9,
+                "image_sha256": hashlib.sha256("image-base64".encode("utf-8")).hexdigest(),
+                "mime_type": "image/jpeg",
+                "provider": "openai",
+                "reason": "evidencia valida",
+                "xp_awarded": 15,
+            },
+        )
         self.assertEqual(ValidationLog.query.count(), 1)
+
+    def test_validation_day_filter_binds_postgres_date_param(self) -> None:
+        statement = ValidationLog.query.filter(
+            ValidationLog.habitousuario_id == self.user_habit.id,
+            func.date(ValidationLog.fecha) == date.today(),
+        ).statement
+        compiled = statement.compile(dialect=postgresql.dialect())
+
+        self.assertIn("date(validaciones.fecha) = %(date_1)s", str(compiled))
+        self.assertEqual(compiled.binds["date_1"].type.python_type, date)
 
     def test_validation_after_checkin_awards_only_missing_bonus_delta(self) -> None:
         toggle_checkin(self.user.id, self.user_habit.id)

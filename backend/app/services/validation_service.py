@@ -10,6 +10,7 @@ import hashlib
 import json
 from datetime import date as date_type
 
+from flask import current_app
 from sqlalchemy import func
 
 from app.extensions import db
@@ -37,7 +38,7 @@ def validate_habit(
     existing = (
         ValidationLog.query.filter(
             ValidationLog.habitousuario_id == user_habit.id,
-            func.date(ValidationLog.fecha) == today.isoformat(),
+            func.date(ValidationLog.fecha) == today,
         ).first()
     )
     if existing:
@@ -102,6 +103,11 @@ def validate_habit(
             "nueva_racha": nueva_racha,
         }
     except Exception:
+        current_app.logger.exception(
+            "Validation transaction failed for user_id=%s habit_id=%s",
+            user_id,
+            habit_id,
+        )
         db.session.rollback()
         raise
 
