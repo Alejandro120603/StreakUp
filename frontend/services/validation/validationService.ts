@@ -27,9 +27,15 @@ function mapValidationError(error: unknown): Error {
     return new Error("Tu sesión expiró. Inicia sesión de nuevo para validar tu hábito.");
   }
 
-  if (isAppErrorCode(error, "network_unavailable") || isAppErrorCode(error, "backend_unavailable")) {
+  if (isAppErrorCode(error, "network_unavailable")) {
     return new Error(
-      "No se pudo contactar el servicio de validación. Verifica tu conexión e inténtalo de nuevo.",
+      "Error de red o CORS: No se pudo conectar con el servidor. Verifica tu configuración.",
+    );
+  }
+
+  if (isAppErrorCode(error, "backend_unavailable")) {
+    return new Error(
+      "El servidor de validación reportó un error interno o está caído. Inténtalo más tarde.",
     );
   }
 
