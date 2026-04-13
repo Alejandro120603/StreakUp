@@ -14,6 +14,12 @@ class ValidationLog(db.Model):
     """Stores the result of an AI-powered habit validation."""
 
     __tablename__ = "validaciones"
+    __table_args__ = (
+        db.CheckConstraint(
+            "tipo_validacion IN ('foto','tiempo','manual')",
+            name="ck_validaciones_tipo_validacion",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     habitousuario_id = db.Column(

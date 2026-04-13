@@ -38,7 +38,12 @@ def assign():
         return error_response("habito_id is required.", 400)
 
     try:
-        habit = assign_habit_to_user(user_id, int(data["habito_id"]))
+        habito_id = int(data["habito_id"])
+    except (TypeError, ValueError):
+        return error_response("habito_id must be an integer.", 400)
+
+    try:
+        habit = assign_habit_to_user(user_id, habito_id)
         return jsonify(habit), 201
     except ValueError as exc:
         return error_response(str(exc), 409)
@@ -90,7 +95,12 @@ def assign_compatible():
         return error_response("habito_id is required.", 400)
 
     try:
-        habit = assign_habit_to_user(user_id, int(data["habito_id"]))
+        habito_id = int(data["habito_id"])
+    except (TypeError, ValueError):
+        return error_response("habito_id must be an integer.", 400)
+
+    try:
+        habit = assign_habit_to_user(user_id, habito_id)
         return jsonify(habit), 201
     except ValueError as exc:
         return error_response(str(exc), 409)

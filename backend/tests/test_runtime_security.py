@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app import create_app
+from app.config import normalize_database_url
 from app.extensions import db
 from app.models.user import User
 
@@ -59,7 +60,7 @@ class RuntimeSecurityTestCase(unittest.TestCase):
                 text(
                     """
                     INSERT INTO xp_logs (usuario_id, cantidad, fuente)
-                    VALUES (9999, 10, 'test')
+                    VALUES (9999, 10, 'checkin')
                     """
                 )
             )
@@ -131,11 +132,59 @@ class RuntimeSecurityTestCase(unittest.TestCase):
                 "DEBUG": False,
                 "TESTING": False,
                 "ENVIRONMENT": "production",
+                "CORS_ALLOWED_ORIGINS": "https://app.example.com",
             },
         )
 
         app = create_app(prod_config)
         self.assertEqual(app.config["ENVIRONMENT"], "production")
+
+    def test_render_postgres_url_is_normalized_for_sqlalchemy(self) -> None:
+        self.assertEqual(
+            normalize_database_url("postgres://user:pass@host:5432/streakup"),
+            "postgresql+psycopg://user:pass@host:5432/streakup",
+        )
+        self.assertEqual(
+            normalize_database_url("postgresql://user:pass@host:5432/streakup"),
+            "postgresql+psycopg://user:pass@host:5432/streakup",
+        )
+
+    def test_prod_cors_only_allows_configured_origin(self) -> None:
+        prod_config = type(
+            "ProdCorsConfig",
+            (),
+            {
+                "SECRET_KEY": "prod-secret-key-with-32-characters!!",
+                "JWT_SECRET_KEY": "prod-jwt-secret-key-with-32-characters!!",
+                "SQLALCHEMY_DATABASE_URI": f"sqlite:///{self.database_path}",
+                "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+                "DEBUG": False,
+                "TESTING": False,
+                "ENVIRONMENT": "production",
+                "CORS_ALLOWED_ORIGINS": "https://app.example.com",
+            },
+        )
+
+        app = create_app(prod_config)
+        client = app.test_client()
+
+        allowed = client.options(
+            "/api/auth/login",
+            headers={
+                "Origin": "https://app.example.com",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+        blocked = client.options(
+            "/api/auth/login",
+            headers={
+                "Origin": "https://evil.example.com",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+
+        self.assertEqual(allowed.headers.get("Access-Control-Allow-Origin"), "https://app.example.com")
+        self.assertIsNone(blocked.headers.get("Access-Control-Allow-Origin"))
 
 
 if __name__ == "__main__":

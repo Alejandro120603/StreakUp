@@ -6,6 +6,7 @@ Create Date: 2026-04-05
 """
 
 from alembic import op
+import sqlalchemy as sa
 
 
 revision = "0002_add_pomodoro_sessions"
@@ -15,35 +16,27 @@ depends_on = None
 
 
 def upgrade() -> None:
-    statements = [
-        """
-        CREATE TABLE pomodoro_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            habit_id INTEGER,
-            theme TEXT NOT NULL DEFAULT 'fire',
-            study_minutes INTEGER NOT NULL DEFAULT 25 CHECK (study_minutes > 0),
-            break_minutes INTEGER NOT NULL DEFAULT 5 CHECK (break_minutes >= 0),
-            cycles INTEGER NOT NULL DEFAULT 4 CHECK (cycles > 0),
-            completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0,1)),
-            started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            completed_at DATETIME,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (habit_id) REFERENCES habitos_usuario(id) ON DELETE SET NULL
-        )
-        """,
-        "CREATE INDEX idx_pomodoro_sessions_user_started ON pomodoro_sessions(user_id, started_at)",
-    ]
-
-    for statement in statements:
-        op.execute(statement)
+    op.create_table(
+        "pomodoro_sessions",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("habit_id", sa.Integer(), nullable=True),
+        sa.Column("theme", sa.String(length=20), nullable=False, server_default=sa.text("'fire'")),
+        sa.Column("study_minutes", sa.Integer(), nullable=False, server_default=sa.text("25")),
+        sa.Column("break_minutes", sa.Integer(), nullable=False, server_default=sa.text("5")),
+        sa.Column("cycles", sa.Integer(), nullable=False, server_default=sa.text("4")),
+        sa.Column("completed", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("started_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("completed_at", sa.DateTime(), nullable=True),
+        sa.CheckConstraint("study_minutes > 0", name="ck_pomodoro_study_minutes_positive"),
+        sa.CheckConstraint("break_minutes >= 0", name="ck_pomodoro_break_minutes_non_negative"),
+        sa.CheckConstraint("cycles > 0", name="ck_pomodoro_cycles_positive"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["habit_id"], ["habitos_usuario.id"], ondelete="SET NULL"),
+    )
+    op.create_index("idx_pomodoro_sessions_user_started", "pomodoro_sessions", ["user_id", "started_at"], unique=False)
 
 
 def downgrade() -> None:
-    statements = [
-        "DROP INDEX IF EXISTS idx_pomodoro_sessions_user_started",
-        "DROP TABLE IF EXISTS pomodoro_sessions",
-    ]
-
-    for statement in statements:
-        op.execute(statement)
+    op.drop_index("idx_pomodoro_sessions_user_started", table_name="pomodoro_sessions")
+    op.drop_table("pomodoro_sessions")

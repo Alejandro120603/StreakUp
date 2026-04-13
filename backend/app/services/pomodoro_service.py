@@ -9,9 +9,17 @@ from datetime import datetime, timezone
 
 from app.extensions import db
 from app.models.pomodoro_session import PomodoroSession
+from app.models.user_habit import UserHabit
 
 
 VALID_THEMES = {"fire", "candle", "ice", "hourglass"}
+
+
+def _require_int(value, field_name: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must be an integer.") from exc
 
 
 def create_session(user_id: int, data: dict) -> dict:
@@ -20,13 +28,31 @@ def create_session(user_id: int, data: dict) -> dict:
     if theme not in VALID_THEMES:
         raise ValueError(f"Invalid theme. Must be one of: {', '.join(VALID_THEMES)}")
 
+    study_minutes = _require_int(data.get("study_minutes", 25), "study_minutes")
+    break_minutes = _require_int(data.get("break_minutes", 5), "break_minutes")
+    cycles = _require_int(data.get("cycles", 4), "cycles")
+
+    if study_minutes <= 0:
+        raise ValueError("study_minutes must be greater than 0.")
+    if break_minutes < 0:
+        raise ValueError("break_minutes must be greater than or equal to 0.")
+    if cycles <= 0:
+        raise ValueError("cycles must be greater than 0.")
+
+    habit_id = data.get("habit_id")
+    if habit_id is not None:
+        habit_id = _require_int(habit_id, "habit_id")
+        user_habit = UserHabit.query.filter_by(id=habit_id, usuario_id=user_id, activo=True).first()
+        if user_habit is None:
+            raise ValueError("habit_id must reference an active habit owned by the user.")
+
     session = PomodoroSession(
         user_id=user_id,
-        habit_id=data.get("habit_id"),
+        habit_id=habit_id,
         theme=theme,
-        study_minutes=data.get("study_minutes", 25),
-        break_minutes=data.get("break_minutes", 5),
-        cycles=data.get("cycles", 4),
+        study_minutes=study_minutes,
+        break_minutes=break_minutes,
+        cycles=cycles,
     )
     db.session.add(session)
     db.session.commit()
