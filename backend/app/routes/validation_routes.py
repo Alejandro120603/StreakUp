@@ -64,5 +64,7 @@ def validate():
         return error_response(str(exc), 400)
     except ValidationUnavailableError as exc:
         return error_response(str(exc), 503, code=exc.code)
-    except Exception:
+    except Exception as exc:
+        from flask import current_app
+        current_app.logger.exception("Unhandled exception in validation route")
         return error_response("Error interno en la validación.", 500)
