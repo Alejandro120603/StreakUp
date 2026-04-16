@@ -195,6 +195,7 @@ export function updateLocalHabit(
     description: payload.description ?? allHabits[index].description ?? null,
     custom_description: payload.description ?? allHabits[index].custom_description ?? null,
     validation_type: payload.validation_type ?? allHabits[index].validation_type ?? "foto",
+    frequency: payload.frequency ?? allHabits[index].frequency,
     pomodoro_enabled:
       (payload.validation_type ?? allHabits[index].validation_type ?? "foto") === "tiempo",
     habit_type:

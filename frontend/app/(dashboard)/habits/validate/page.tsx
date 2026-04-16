@@ -11,6 +11,7 @@ import {
   Sparkles,
   Flame,
   ImageIcon,
+  Info,
   icons,
 } from "lucide-react";
 import { fetchHabit } from "@/services/habits/habitService";
@@ -163,8 +164,8 @@ function ValidateHabitPageContent() {
         </div>
       </div>
 
-      <ClayMotionBox className="p-4 flex items-center gap-4">
-        <div className="flex items-center justify-center size-14 rounded-xl bg-secondary text-primary text-3xl shrink-0">
+      <ClayMotionBox className="p-4 flex items-start gap-4">
+        <div className="flex items-center justify-center size-14 rounded-xl bg-secondary text-primary text-3xl shrink-0 mt-0.5">
           {(() => {
             let IconComp = icons.Circle;
             if (habit.icon && icons[habit.icon as keyof typeof icons]) {
@@ -178,17 +179,51 @@ function ValidateHabitPageContent() {
             return <IconComp className="size-8" />;
           })()}
         </div>
-        <div>
-          <p className="text-foreground font-semibold text-lg">{habit.name}</p>
-          <p className="text-muted-foreground text-sm capitalize">
-            {VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"]} ·{" "}
-            {habit.frequency === "daily" ? "Diario" : "Semanal"}
-          </p>
-          {targetSummary ? (
-            <p className="text-muted-foreground text-xs mt-1">{targetSummary}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-foreground font-semibold text-lg leading-tight">{habit.name}</p>
+          {habit.description ? (
+            <p className="text-muted-foreground text-sm mt-1 line-clamp-2">{habit.description}</p>
           ) : null}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-medium">
+              {VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"]}
+            </span>
+            <span className="inline-flex items-center rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[11px]">
+              {habit.frequency === "daily" ? "Diario" : "Semanal"}
+            </span>
+            {targetSummary ? (
+              <span className="inline-flex items-center rounded-full bg-secondary text-foreground px-2 py-0.5 text-[11px] font-medium">
+                🎯 {targetSummary}
+              </span>
+            ) : null}
+            {habit.xp_base != null ? (
+              <span className="inline-flex items-center rounded-full bg-violet-500/10 text-violet-400 px-2 py-0.5 text-[11px] font-medium">
+                {habit.xp_base} XP base
+              </span>
+            ) : null}
+          </div>
         </div>
       </ClayMotionBox>
+
+      {/* Evidence guidance card — shown only in idle state */}
+      {status === "idle" && isPhotoValidation && (
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 flex gap-3">
+          <Info className="size-4 text-blue-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-blue-300 text-xs font-semibold uppercase tracking-wider">Evidencia esperada</p>
+            <p className="text-sm text-foreground/90">
+              {habit.description
+                ? habit.description
+                : `Sube una foto que demuestre claramente que completaste "${habit.name}".`}
+            </p>
+            {targetSummary ? (
+              <p className="text-xs text-muted-foreground mt-1">
+                Objetivo del hábito: <span className="font-medium text-foreground">{targetSummary}</span>
+              </p>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {status === "idle" && isPhotoValidation && (
         <div className="space-y-4">

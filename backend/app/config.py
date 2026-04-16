@@ -52,13 +52,13 @@ def normalize_database_url(raw_value: str | None) -> str:
 
     normalized = str(raw_value).strip()
     if normalized.startswith("postgres://"):
-        return "postgresql+psycopg://" + normalized[len("postgres://") :]
+        return "postgresql+psycopg2://" + normalized[len("postgres://") :]
 
     split_url = urlsplit(normalized)
     if split_url.scheme == "postgresql":
         return urlunsplit(
             (
-                "postgresql+psycopg",
+                "postgresql+psycopg2",
                 split_url.netloc,
                 split_url.path,
                 split_url.query,

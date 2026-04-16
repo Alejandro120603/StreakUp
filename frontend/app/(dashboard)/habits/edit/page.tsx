@@ -160,7 +160,17 @@ function EditHabitPageContent() {
           </span>
           {getHabitTargetSummary(habit) ? (
             <span className="rounded-full bg-secondary text-foreground px-3 py-1">
-              {getHabitTargetSummary(habit)}
+              🎯 {getHabitTargetSummary(habit)}
+            </span>
+          ) : null}
+          {habit.difficulty ? (
+            <span className="rounded-full bg-secondary text-muted-foreground px-3 py-1 capitalize">
+              {habit.difficulty === "facil" ? "Fácil" : habit.difficulty === "media" ? "Media" : "Difícil"}
+            </span>
+          ) : null}
+          {habit.xp_base != null ? (
+            <span className="rounded-full bg-violet-500/10 text-violet-400 px-3 py-1">
+              {habit.xp_base} XP
             </span>
           ) : null}
         </div>
@@ -174,10 +184,11 @@ function EditHabitPageContent() {
               value={customName}
               onChange={(event) => setCustomName(event.target.value)}
               placeholder={habit.name}
+              maxLength={120}
               className="h-12 bg-background border-border text-foreground rounded-xl focus-visible:ring-primary/50 focus-visible:border-primary"
             />
             <p className="text-xs text-muted-foreground">
-              Déjalo vacío para usar nombre del catálogo.
+              Déjalo vacío para usar el nombre del catálogo: <span className="italic">{habit.name}</span>.
             </p>
           </div>
 
@@ -186,10 +197,14 @@ function EditHabitPageContent() {
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder={habit.description ?? "Describe qué cuenta como progreso"}
+              placeholder={habit.description ?? "Describe qué evidencia contará como completado (ej: foto con vaso de agua lleno)"}
               rows={4}
+              maxLength={2000}
               className="w-full px-4 py-3 bg-background border border-border text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors resize-none"
             />
+            <p className="text-xs text-muted-foreground">
+              Esta descripción guía la validación con IA. Sé específico sobre qué evidencia se espera.
+            </p>
           </div>
 
           <div className="space-y-2">

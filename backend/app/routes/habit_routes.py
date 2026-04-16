@@ -140,3 +140,23 @@ def update_compatible(habit_id: int):
         return jsonify(habit), 200
     except LookupError as exc:
         return error_response(str(exc), 404)
+
+
+@habits_bp.route("/habitos_usuario/<int:habit_id>", methods=["PATCH"])
+@jwt_required()
+def patch_user_habit(habit_id: int):
+    """Personalize an assigned habit (name, targets, frequency, validation type).
+
+    Accepts partial updates — only fields present in the payload are modified.
+    """
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True)
+    normalized, errors = normalize_update_habit_payload(data)
+    if errors:
+        return error_response(errors, 400)
+
+    try:
+        habit = update_user_habit(habit_id, user_id, normalized)
+        return jsonify(habit), 200
+    except LookupError as exc:
+        return error_response(str(exc), 404)

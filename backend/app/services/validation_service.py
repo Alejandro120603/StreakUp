@@ -16,6 +16,7 @@ from app.extensions import db
 from app.models.checkin import CheckIn
 from app.models.user_habit import UserHabit
 from app.models.validation_log import ValidationLog
+from app.services.achievement_service import evaluate_and_award
 from app.services.habit_service import get_user_habit
 from app.services.openai_service import analyze_habit_image
 from app.services.streak_service import compute_current_streak
@@ -120,6 +121,10 @@ def validate_habit(
         ]
         
         nueva_racha = compute_current_streak(active_user_habit_ids, today)
+
+        # Evaluate achievements after streak is computed but before final commit
+        new_achievements = evaluate_and_award(user_id, current_streak=nueva_racha)
+
         db.session.commit()
 
         return {
@@ -129,6 +134,7 @@ def validate_habit(
             "confianza": confidence,
             "xp_ganado": xp_awarded,
             "nueva_racha": nueva_racha,
+            "new_achievements": new_achievements,
         }
     except Exception:
         current_app.logger.exception(
