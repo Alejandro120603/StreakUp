@@ -16,8 +16,12 @@ class ValidationLog(db.Model):
     __tablename__ = "validaciones"
     __table_args__ = (
         db.CheckConstraint(
-            "tipo_validacion IN ('foto','tiempo','manual')",
+            "tipo_validacion IN ('foto','texto','tiempo','manual')",
             name="ck_validaciones_tipo_validacion",
+        ),
+        db.CheckConstraint(
+            "status IN ('pending','approved','rejected')",
+            name="ck_validaciones_status",
         ),
     )
 
@@ -31,6 +35,12 @@ class ValidationLog(db.Model):
     tipo_validacion = db.Column(db.String(20), nullable=False, default="foto")
     evidencia = db.Column(db.Text, nullable=True)
     tiempo_segundos = db.Column(db.Integer, nullable=True)
+    status = db.Column(
+        db.String(20),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+    )
     validado = db.Column(db.Boolean, nullable=False, default=False)
     fecha = db.Column(
         db.DateTime,
@@ -48,6 +58,7 @@ class ValidationLog(db.Model):
         return {
             "id": self.id,
             "habit_id": self.habitousuario_id,
+            "status": self.status,
             "valid": self.validado,
             "created_at": self.fecha.isoformat() if self.fecha else None,
         }

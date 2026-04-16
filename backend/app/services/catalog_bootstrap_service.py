@@ -24,6 +24,11 @@ DEFAULT_HABITS = (
         "descripcion": "Mantener hidratación diaria",
         "dificultad": "facil",
         "xp_base": 10,
+        "tipo_validacion": "foto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": 2,
+        "unidad_objetivo": "litros",
+        "duracion_objetivo_minutos": None,
     },
     {
         "id": 2,
@@ -32,6 +37,11 @@ DEFAULT_HABITS = (
         "descripcion": "Actividad física diaria",
         "dificultad": "media",
         "xp_base": 20,
+        "tipo_validacion": "foto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": None,
+        "unidad_objetivo": None,
+        "duracion_objetivo_minutos": 30,
     },
     {
         "id": 3,
@@ -40,6 +50,11 @@ DEFAULT_HABITS = (
         "descripcion": "Alimentación balanceada",
         "dificultad": "media",
         "xp_base": 15,
+        "tipo_validacion": "foto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": None,
+        "unidad_objetivo": None,
+        "duracion_objetivo_minutos": None,
     },
     {
         "id": 4,
@@ -48,6 +63,11 @@ DEFAULT_HABITS = (
         "descripcion": "Relajación mental",
         "dificultad": "facil",
         "xp_base": 10,
+        "tipo_validacion": "texto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": None,
+        "unidad_objetivo": None,
+        "duracion_objetivo_minutos": 10,
     },
     {
         "id": 5,
@@ -56,6 +76,11 @@ DEFAULT_HABITS = (
         "descripcion": "Control emocional",
         "dificultad": "dificil",
         "xp_base": 25,
+        "tipo_validacion": "texto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": None,
+        "unidad_objetivo": None,
+        "duracion_objetivo_minutos": None,
     },
     {
         "id": 6,
@@ -64,6 +89,11 @@ DEFAULT_HABITS = (
         "descripcion": "Sesión sin distracciones",
         "dificultad": "dificil",
         "xp_base": 30,
+        "tipo_validacion": "tiempo",
+        "frecuencia": "daily",
+        "cantidad_objetivo": None,
+        "unidad_objetivo": None,
+        "duracion_objetivo_minutos": 60,
     },
     {
         "id": 7,
@@ -72,6 +102,11 @@ DEFAULT_HABITS = (
         "descripcion": "Tarea importante del día",
         "dificultad": "media",
         "xp_base": 20,
+        "tipo_validacion": "texto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": 1,
+        "unidad_objetivo": "tarea",
+        "duracion_objetivo_minutos": None,
     },
     {
         "id": 8,
@@ -80,6 +115,11 @@ DEFAULT_HABITS = (
         "descripcion": "Disciplina matutina",
         "dificultad": "media",
         "xp_base": 15,
+        "tipo_validacion": "foto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": None,
+        "unidad_objetivo": None,
+        "duracion_objetivo_minutos": None,
     },
     {
         "id": 9,
@@ -88,6 +128,11 @@ DEFAULT_HABITS = (
         "descripcion": "Lectura diaria",
         "dificultad": "facil",
         "xp_base": 10,
+        "tipo_validacion": "texto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": None,
+        "unidad_objetivo": "minutos",
+        "duracion_objetivo_minutos": 20,
     },
     {
         "id": 10,
@@ -96,6 +141,11 @@ DEFAULT_HABITS = (
         "descripcion": "Aprendizaje lingüístico",
         "dificultad": "media",
         "xp_base": 15,
+        "tipo_validacion": "texto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": None,
+        "unidad_objetivo": "minutos",
+        "duracion_objetivo_minutos": 15,
     },
     {
         "id": 11,
@@ -104,6 +154,11 @@ DEFAULT_HABITS = (
         "descripcion": "Orden básico diario",
         "dificultad": "facil",
         "xp_base": 5,
+        "tipo_validacion": "foto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": None,
+        "unidad_objetivo": None,
+        "duracion_objetivo_minutos": None,
     },
     {
         "id": 12,
@@ -112,6 +167,11 @@ DEFAULT_HABITS = (
         "descripcion": "Orden básico diario",
         "dificultad": "facil",
         "xp_base": 5,
+        "tipo_validacion": "texto",
+        "frecuencia": "daily",
+        "cantidad_objetivo": 8,
+        "unidad_objetivo": "horas",
+        "duracion_objetivo_minutos": None,
     },
 )
 
@@ -143,6 +203,11 @@ def seed_catalog() -> dict[str, int]:
         habit.descripcion = row["descripcion"]
         habit.dificultad = row["dificultad"]
         habit.xp_base = row["xp_base"]
+        habit.tipo_validacion = row["tipo_validacion"]
+        habit.frecuencia = row["frecuencia"]
+        habit.cantidad_objetivo = row["cantidad_objetivo"]
+        habit.unidad_objetivo = row["unidad_objetivo"]
+        habit.duracion_objetivo_minutos = row["duracion_objetivo_minutos"]
 
     db.session.commit()
 

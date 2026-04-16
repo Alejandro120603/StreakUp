@@ -28,9 +28,7 @@ function mapValidationError(error: unknown): Error {
   }
 
   if (isAppErrorCode(error, "network_unavailable")) {
-    return new Error(
-      "Error de red o CORS: No se pudo conectar con el servidor. Verifica tu configuración.",
-    );
+    return new Error("No se pudo contactar el servicio de validación. Verifica tu conexión.");
   }
 
   if (isAppErrorCode(error, "backend_unavailable")) {

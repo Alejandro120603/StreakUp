@@ -221,6 +221,7 @@ def migrate_legacy_sqlite(sqlite_path: str | Path) -> dict[str, Any]:
                     tipo_validacion=row[2],
                     evidencia=row[3],
                     tiempo_segundos=row[4],
+                    status="approved" if bool(row[5]) else "rejected",
                     validado=bool(row[5]),
                     fecha=_parse_datetime(row[6]),
                 )

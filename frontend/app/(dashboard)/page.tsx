@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Flame, Clock, TrendingUp, Plus, Check, Timer, Snowflake, Hourglass, icons } from "lucide-react";
 import { fetchTodayHabits, toggleCheckin } from "@/services/checkins/checkinService";
 import { fetchStatsSummary } from "@/services/stats/statsService";
 import { ClayMotionBox } from "@/components/ui/clay-motion-box";
-import { SECTION_ICONS } from "@/types/habits";
+import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/types/habits";
 import type { TodayHabit } from "@/types/checkins";
 import type { StatsSummary } from "@/types/stats";
 
@@ -38,6 +39,7 @@ const POMODORO_THEMES = [
 ];
 
 export default function DashboardHomePage() {
+  const router = useRouter();
   const [stats, setStats] = useState<StatsSummary>(EMPTY_STATS);
   const [todayHabits, setTodayHabits] = useState<TodayHabit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +108,19 @@ export default function DashboardHomePage() {
     } finally {
       setUpdatingHabitId(null);
     }
+  }
+
+  function handleHabitAction(habit: TodayHabit) {
+    if (updatingHabitId !== null) {
+      return;
+    }
+
+    if (habit.validation_type) {
+      router.push(`/habits/validate?id=${habit.id}`);
+      return;
+    }
+
+    void handleToggleHabit(habit.id);
   }
 
   if (loading) {
@@ -225,11 +240,7 @@ export default function DashboardHomePage() {
             {todayHabits.map((habit) => (
               <ClayMotionBox
                 key={habit.id}
-                onClick={() => {
-                  if (updatingHabitId === null) {
-                    void handleToggleHabit(habit.id);
-                  }
-                }}
+                onClick={() => handleHabitAction(habit)}
                 active={habit.checked_today}
                 variant={habit.checked_today ? "vibrant-orange" : "frozen"}
                 className={`flex flex-col items-center justify-center gap-3 text-center min-h-[140px] ${
@@ -253,6 +264,10 @@ export default function DashboardHomePage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold leading-tight">{habit.name}</p>
+                  <p className="text-[11px] text-foreground/70 mt-1">
+                    {VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"]}
+                    {getHabitTargetSummary(habit) ? ` · ${getHabitTargetSummary(habit)}` : ""}
+                  </p>
                 </div>
                 {habit.checked_today ? (
                   <div className="absolute top-3 right-3 bg-white/20 rounded-full p-1 shadow-inner">
