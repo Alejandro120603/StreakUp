@@ -13,12 +13,12 @@ import {
   ImageIcon,
   icons,
 } from "lucide-react";
-import { fetchHabits } from "@/services/habits/habitService";
+import { fetchHabit } from "@/services/habits/habitService";
 import { fetchTodayHabits } from "@/services/checkins/checkinService";
 import { fetchStatsSummary } from "@/services/stats/statsService";
 import { validateHabit } from "@/services/validation/validationService";
 import type { Habit, ValidationResult } from "@/types/habits";
-import { SECTION_ICONS } from "@/types/habits";
+import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/types/habits";
 import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 
 type PageStatus = "idle" | "loading" | "success" | "error";
@@ -43,9 +43,8 @@ function ValidateHabitPageContent() {
   useEffect(() => {
     async function loadHabit() {
       try {
-        const habits = await fetchHabits();
-        const found = habits.find((item) => item.id === habitId);
-        setHabit(found ?? null);
+        const found = await fetchHabit(habitId);
+        setHabit(found);
         setLoadError("");
       } catch (err) {
         setHabit(null);
@@ -106,6 +105,9 @@ function ValidateHabitPageContent() {
     }
   }
 
+  const targetSummary = habit ? getHabitTargetSummary(habit) : null;
+  const isPhotoValidation = habit?.validation_type === "foto";
+
   if (loadingHabit) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -154,7 +156,9 @@ function ValidateHabitPageContent() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Validar Hábito</h1>
           <p className="text-sm text-muted-foreground">
-            Sube una foto como evidencia
+            {isPhotoValidation
+              ? "Sube una foto como evidencia"
+              : `Validación ${VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"].toLowerCase()} próximamente`}
           </p>
         </div>
       </div>
@@ -177,17 +181,16 @@ function ValidateHabitPageContent() {
         <div>
           <p className="text-foreground font-semibold text-lg">{habit.name}</p>
           <p className="text-muted-foreground text-sm capitalize">
-            {habit.frequency === "daily" ? "Diario" : "Semanal"} ·{" "}
-            {habit.habit_type === "boolean"
-              ? "Completar"
-              : habit.habit_type === "time"
-              ? "Tiempo"
-              : "Cantidad"}
+            {VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"]} ·{" "}
+            {habit.frequency === "daily" ? "Diario" : "Semanal"}
           </p>
+          {targetSummary ? (
+            <p className="text-muted-foreground text-xs mt-1">{targetSummary}</p>
+          ) : null}
         </div>
       </ClayMotionBox>
 
-      {status === "idle" && (
+      {status === "idle" && isPhotoValidation && (
         <div className="space-y-4">
           <input
             ref={fileInputRef}
@@ -263,6 +266,31 @@ function ValidateHabitPageContent() {
             Validar foto con IA
           </button>
         </div>
+      )}
+
+      {status === "idle" && !isPhotoValidation && (
+        <ClayMotionBox className="p-6 space-y-4">
+          <div className="space-y-2">
+            <p className="text-foreground font-semibold">
+              Validación por {VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"].toLowerCase()}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Esta pantalla ya reconoce configuración real del hábito, pero envío de evidencia por{" "}
+              {habit.validation_type === "texto" ? "texto" : "tiempo"} se implementa en siguiente fase.
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-secondary/40 p-4 text-sm text-muted-foreground">
+            {habit.validation_type === "texto"
+              ? "Próximo paso: campo de texto + verificación AI."
+              : "Próximo paso: sesión de tiempo/pomodoro conectada a validación."}
+          </div>
+          <button
+            onClick={() => router.push("/habits")}
+            className="w-full py-3 rounded-xl font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors"
+          >
+            Volver a hábitos
+          </button>
+        </ClayMotionBox>
       )}
 
       {status === "loading" && (

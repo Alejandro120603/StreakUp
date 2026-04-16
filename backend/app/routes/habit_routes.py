@@ -9,11 +9,17 @@ Responsibility:
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.schemas.habit_validations import (
+    normalize_create_habit_payload,
+    normalize_update_habit_payload,
+)
 from app.services.habit_service import (
     assign_habit_to_user,
     deactivate_user_habit,
     get_habits,
+    get_user_habit_payload,
     list_catalog_habits,
+    update_user_habit,
 )
 from app.utils.error_handler import error_response
 
@@ -33,17 +39,13 @@ def assign():
     """Assign a catalog habit to the authenticated user."""
     user_id = int(get_jwt_identity())
     data = request.get_json(silent=True)
-
-    if not data or "habito_id" not in data:
-        return error_response("habito_id is required.", 400)
-
-    try:
-        habito_id = int(data["habito_id"])
-    except (TypeError, ValueError):
-        return error_response("habito_id must be an integer.", 400)
+    normalized, errors = normalize_create_habit_payload(data)
+    if errors:
+        return error_response(errors, 400)
 
     try:
-        habit = assign_habit_to_user(user_id, habito_id)
+        habito_id = int(normalized.pop("habito_id"))
+        habit = assign_habit_to_user(user_id, habito_id, normalized)
         return jsonify(habit), 201
     except ValueError as exc:
         return error_response(str(exc), 409)
@@ -77,6 +79,17 @@ def list_habits():
     return jsonify(get_habits(user_id)), 200
 
 
+@habits_bp.route("/habits/<int:habit_id>", methods=["GET"])
+@jwt_required()
+def get_habit_detail(habit_id: int):
+    """Return one assigned habit for the authenticated user."""
+    user_id = int(get_jwt_identity())
+    habit = get_user_habit_payload(habit_id, user_id)
+    if habit is None:
+        return error_response("Habit not found.", 404)
+    return jsonify(habit), 200
+
+
 @habits_bp.route("/habits/catalog", methods=["GET"])
 @jwt_required()
 def list_catalog_compatible():
@@ -90,17 +103,13 @@ def assign_compatible():
     """Compatibility endpoint for assigning a habit."""
     user_id = int(get_jwt_identity())
     data = request.get_json(silent=True)
-
-    if not data or "habito_id" not in data:
-        return error_response("habito_id is required.", 400)
-
-    try:
-        habito_id = int(data["habito_id"])
-    except (TypeError, ValueError):
-        return error_response("habito_id must be an integer.", 400)
+    normalized, errors = normalize_create_habit_payload(data)
+    if errors:
+        return error_response(errors, 400)
 
     try:
-        habit = assign_habit_to_user(user_id, habito_id)
+        habito_id = int(normalized.pop("habito_id"))
+        habit = assign_habit_to_user(user_id, habito_id, normalized)
         return jsonify(habit), 201
     except ValueError as exc:
         return error_response(str(exc), 409)
@@ -119,8 +128,15 @@ def delete(habit_id: int):
 @habits_bp.route("/habits/<int:habit_id>", methods=["PUT"])
 @jwt_required()
 def update_compatible(habit_id: int):
-    """
-    Compatibility endpoint for updating an assigned habit.
-    Currently returns 501 Not Implemented because the schema does not support persisting edit form fields yet.
-    """
-    return error_response("La edición de hábitos en la nube se implementará próximamente.", 501)
+    """Compatibility endpoint for updating an assigned habit."""
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True)
+    normalized, errors = normalize_update_habit_payload(data)
+    if errors:
+        return error_response(errors, 400)
+
+    try:
+        habit = update_user_habit(habit_id, user_id, normalized)
+        return jsonify(habit), 200
+    except LookupError as exc:
+        return error_response(str(exc), 404)

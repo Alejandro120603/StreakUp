@@ -41,8 +41,10 @@ def toggle():
     try:
         result = toggle_checkin(user_id, habit_id, target_date)
         return jsonify(result), 200
-    except ValueError as exc:
+    except LookupError as exc:
         return error_response(str(exc), 404)
+    except ValueError as exc:
+        return error_response(str(exc), 409)
 
 
 @checkins_bp.route("/today", methods=["GET"])

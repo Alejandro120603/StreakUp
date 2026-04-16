@@ -4,13 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Plus, Pencil, Trash2, X, Camera, icons } from "lucide-react";
 import { fetchHabits, deleteHabit } from "@/services/habits/habitService";
-import { isOfflineModeActive } from "@/services/config/runtime";
 import type { Habit } from "@/types/habits";
-import { SECTION_ICONS } from "@/types/habits";
+import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/types/habits";
 import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 
 export default function HabitsPage() {
-  const isOffline = isOfflineModeActive();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -120,14 +118,27 @@ export default function HabitsPage() {
                 })()}
               </div>
 
-              {/* Name & Frequency */}
+              {/* Name & Metadata */}
               <div className="flex-1 min-w-0">
                 <p className="text-foreground font-semibold text-sm truncate">
                   {habit.name}
                 </p>
-                <p className="text-muted-foreground text-xs capitalize">
-                  {habit.frequency === "daily" ? "Diario" : "Semanal"}
-                </p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  <span className="text-muted-foreground text-xs capitalize">
+                    {VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"]} ·{" "}
+                    {habit.frequency === "daily" ? "Diario" : "Semanal"}
+                  </span>
+                  {getHabitTargetSummary(habit) ? (
+                    <span className="text-muted-foreground text-xs">
+                      · {getHabitTargetSummary(habit)}
+                    </span>
+                  ) : null}
+                </div>
+                {habit.description ? (
+                  <p className="text-muted-foreground text-xs mt-1 line-clamp-2">
+                    {habit.description}
+                  </p>
+                ) : null}
               </div>
 
               {/* Actions */}
@@ -154,19 +165,17 @@ export default function HabitsPage() {
                   <Link
                     href={`/habits/validate?id=${habit.id}`}
                     className="flex items-center justify-center size-9 rounded-xl text-primary hover:text-primary hover:bg-primary/10 transition-colors"
-                    title="Validar hábito con IA"
+                    title={`Abrir validación ${VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"].toLowerCase()}`}
                   >
                     <Camera className="size-4" />
                   </Link>
-                  {isOffline ? (
-                    <Link
-                      href={`/habits/edit?id=${habit.id}`}
-                      className="flex items-center justify-center size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                      title="Editar hábito offline"
-                    >
-                      <Pencil className="size-4" />
-                    </Link>
-                  ) : null}
+                  <Link
+                    href={`/habits/edit?id=${habit.id}`}
+                    className="flex items-center justify-center size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    title="Editar configuración"
+                  >
+                    <Pencil className="size-4" />
+                  </Link>
                   <button
                     onClick={() => setConfirmingDeleteId(habit.id)}
                     className="flex items-center justify-center size-9 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-500/10 transition-colors"

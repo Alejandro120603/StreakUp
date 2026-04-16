@@ -46,6 +46,11 @@ CREATE TABLE IF NOT EXISTS habitos (
     descripcion TEXT,
     dificultad TEXT NOT NULL CHECK (dificultad IN ('facil','media','dificil')),
     xp_base INTEGER NOT NULL CHECK (xp_base >= 0),
+    tipo_validacion TEXT NOT NULL DEFAULT 'foto' CHECK (tipo_validacion IN ('foto','texto','tiempo')),
+    frecuencia TEXT NOT NULL DEFAULT 'daily' CHECK (frecuencia IN ('daily','weekly')),
+    cantidad_objetivo INTEGER CHECK (cantidad_objetivo IS NULL OR cantidad_objetivo >= 0),
+    unidad_objetivo TEXT,
+    duracion_objetivo_minutos INTEGER CHECK (duracion_objetivo_minutos IS NULL OR duracion_objetivo_minutos >= 0),
     FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE CASCADE
 );
 
@@ -61,7 +66,15 @@ CREATE TABLE IF NOT EXISTS habitos_usuario (
     fecha_inicio DATE NOT NULL,
     fecha_fin DATE,
     activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+    nombre_personalizado TEXT,
+    descripcion_personalizada TEXT,
+    tipo_validacion TEXT CHECK (tipo_validacion IS NULL OR tipo_validacion IN ('foto','texto','tiempo')),
+    frecuencia TEXT CHECK (frecuencia IS NULL OR frecuencia IN ('daily','weekly')),
+    cantidad_objetivo INTEGER CHECK (cantidad_objetivo IS NULL OR cantidad_objetivo >= 0),
+    unidad_objetivo TEXT,
+    duracion_objetivo_minutos INTEGER CHECK (duracion_objetivo_minutos IS NULL OR duracion_objetivo_minutos >= 0),
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (habito_id) REFERENCES habitos(id) ON DELETE CASCADE,
     UNIQUE (usuario_id, habito_id, activo)
@@ -91,9 +104,10 @@ CREATE INDEX IF NOT EXISTS idx_registro_fecha ON registro_habitos(fecha);
 CREATE TABLE IF NOT EXISTS validaciones (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     habitousuario_id INTEGER NOT NULL,
-    tipo_validacion TEXT NOT NULL CHECK (tipo_validacion IN ('foto','tiempo','manual')),
+    tipo_validacion TEXT NOT NULL CHECK (tipo_validacion IN ('foto','texto','tiempo','manual')),
     evidencia TEXT,
     tiempo_segundos INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
     validado INTEGER NOT NULL DEFAULT 0 CHECK (validado IN (0,1)),
     fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (habitousuario_id) REFERENCES habitos_usuario(id) ON DELETE CASCADE

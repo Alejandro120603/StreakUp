@@ -15,6 +15,11 @@ from app.services.habit_service import list_active_user_habits, serialize_user_h
 from app.services.xp_service import award_xp, revoke_xp
 
 
+def _is_validation_driven(user_habit: UserHabit) -> bool:
+    validation_type = user_habit.tipo_validacion or user_habit.habit.tipo_validacion
+    return validation_type in {"foto", "texto", "tiempo"}
+
+
 def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = None) -> dict:
     """Toggle a check-in for a habit on a given date."""
     if target_date is None:
@@ -26,7 +31,9 @@ def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = 
         activo=True,
     ).first()
     if user_habit is None:
-        raise ValueError("Habit not found.")
+        raise LookupError("Habit not found.")
+    if _is_validation_driven(user_habit):
+        raise ValueError("This habit requires validation before progress can be granted.")
 
     try:
         existing = CheckIn.query.filter_by(
