@@ -5,15 +5,26 @@ Responsibility:
 - Compute user statistics: streak, today's progress, completion rate.
 """
 
-from datetime import date as date_type, timedelta
+from datetime import date as date_type, datetime, timedelta, timezone
 
-from sqlalchemy import Date, cast, func
+from sqlalchemy import func
 
 from app.extensions import db
 from app.models.checkin import CheckIn
 from app.models.user import User
 from app.models.validation_log import ValidationLog
 from app.services.habit_service import list_active_user_habits, _get_presentation, _HABIT_ICONS
+from app.services.streak_service import compute_current_streak, compute_longest_streak
+
+_LOCAL_TIMEZONE = datetime.now().astimezone().tzinfo or timezone.utc
+
+
+def _to_local_date(value: datetime | None) -> date_type | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(_LOCAL_TIMEZONE).date()
 
 
 def _user_habit_ids(user_id: int) -> list[int]:
@@ -49,7 +60,7 @@ def get_summary(user_id: int) -> dict:
     completion_rate = round((week_checkins / week_possible * 100)) if week_possible > 0 else 0
 
     # Current streak
-    streak = _compute_current_streak(uh_ids, today)
+    streak = compute_current_streak(uh_ids, today)
 
     # XP and level from user record
     user = db.session.get(User, user_id)
@@ -59,15 +70,14 @@ def get_summary(user_id: int) -> dict:
     # Validations done today
     validations_today = 0
     if uh_ids:
-        validation_day = cast(ValidationLog.fecha, Date)
-        validations_today = (
-            ValidationLog.query
-            .filter(
-                ValidationLog.habitousuario_id.in_(uh_ids),
-                ValidationLog.validado.is_(True),
-                validation_day == today,
-            )
-            .count()
+        approved_validations = ValidationLog.query.filter(
+            ValidationLog.habitousuario_id.in_(uh_ids),
+            ValidationLog.status == "approved",
+        ).all()
+        validations_today = sum(
+            1
+            for validation in approved_validations
+            if _to_local_date(validation.fecha) == today
         )
 
     return {
@@ -161,8 +171,8 @@ def get_detailed_stats(user_id: int) -> dict:
         })
 
     # --- Records ---
-    current_streak = _compute_current_streak(uh_ids, today)
-    longest_streak = _compute_longest_streak(uh_ids)
+    current_streak = compute_current_streak(uh_ids, today)
+    longest_streak = compute_longest_streak(uh_ids)
 
     # Best day
     if uh_ids:
@@ -218,55 +228,6 @@ def get_detailed_stats(user_id: int) -> dict:
         },
         "validations": _get_validation_stats(uh_ids),
     }
-
-
-def _compute_current_streak(uh_ids: list[int], today: date_type) -> int:
-    """Compute consecutive days with at least 1 check-in."""
-    if not uh_ids:
-        return 0
-
-    streak = 0
-    check_date = today
-    while True:
-        day_checkins = _count_checkins_for_date(uh_ids, check_date)
-        if day_checkins > 0:
-            streak += 1
-            check_date -= timedelta(days=1)
-        else:
-            if check_date == today and streak == 0:
-                check_date -= timedelta(days=1)
-                continue
-            break
-    return streak
-
-
-def _compute_longest_streak(uh_ids: list[int]) -> int:
-    """Compute the longest streak ever for a user."""
-    if not uh_ids:
-        return 0
-
-    dates = (
-        db.session.query(CheckIn.fecha)
-        .filter(CheckIn.habitousuario_id.in_(uh_ids))
-        .distinct()
-        .order_by(CheckIn.fecha)
-        .all()
-    )
-    if not dates:
-        return 0
-
-    longest = 1
-    current = 1
-    sorted_dates = [d[0] for d in dates]
-    for i in range(1, len(sorted_dates)):
-        if sorted_dates[i] - sorted_dates[i - 1] == timedelta(days=1):
-            current += 1
-            longest = max(longest, current)
-        else:
-            current = 1
-    return longest
-
-
 def _get_validation_stats(uh_ids: list[int]) -> dict:
     """Return validation counts and success rate for a user's habits."""
     if not uh_ids:
@@ -278,7 +239,7 @@ def _get_validation_stats(uh_ids: list[int]) -> dict:
 
     total_successful = ValidationLog.query.filter(
         ValidationLog.habitousuario_id.in_(uh_ids),
-        ValidationLog.validado.is_(True),
+        ValidationLog.status == "approved",
     ).count()
 
     success_rate = round(total_successful / total_attempts * 100) if total_attempts > 0 else 0

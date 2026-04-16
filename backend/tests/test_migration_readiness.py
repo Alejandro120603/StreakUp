@@ -200,6 +200,40 @@ class MigrationReadinessTestCase(unittest.TestCase):
         )
         self.assertIn("checkin_undo", xp_checks)
 
+        habit_columns = {column["name"] for column in inspector.get_columns("habitos")}
+        self.assertTrue(
+            {
+                "tipo_validacion",
+                "frecuencia",
+                "cantidad_objetivo",
+                "unidad_objetivo",
+                "duracion_objetivo_minutos",
+            }.issubset(habit_columns)
+        )
+
+        user_habit_columns = {column["name"] for column in inspector.get_columns("habitos_usuario")}
+        self.assertTrue(
+            {
+                "nombre_personalizado",
+                "descripcion_personalizada",
+                "tipo_validacion",
+                "frecuencia",
+                "cantidad_objetivo",
+                "unidad_objetivo",
+                "duracion_objetivo_minutos",
+                "fecha_actualizacion",
+            }.issubset(user_habit_columns)
+        )
+
+        validation_checks = " ".join(
+            constraint.get("sqltext", "") for constraint in inspector.get_check_constraints("validaciones")
+        )
+        self.assertIn("texto", validation_checks)
+        self.assertIn("pending", validation_checks)
+
+        validation_columns = {column["name"] for column in inspector.get_columns("validaciones")}
+        self.assertIn("status", validation_columns)
+
     def test_seed_sql_is_idempotent_on_sqlite(self) -> None:
         schema_path = Path(__file__).resolve().parents[2] / "data" / "db" / "schema.sql"
         seed_path = Path(__file__).resolve().parents[2] / "data" / "db" / "seed.sql"

@@ -129,18 +129,33 @@ export function getLocalHabitById(id: number, userId = getCurrentUserId()): Habi
 export function createLocalHabit(payload: CreateHabitPayload, userId = getCurrentUserId()): Habit {
   const allHabits = readAllHabits();
   const now = getNowIso();
+  const validationType = payload.validation_type ?? "foto";
+  const targetDuration = payload.target_duration ?? null;
+  const targetQuantity = payload.target_quantity ?? null;
+  const targetUnit = payload.target_unit ?? null;
+  const habitType =
+    validationType === "tiempo" || targetDuration !== null
+      ? "time"
+      : targetQuantity !== null
+      ? "quantity"
+      : "boolean";
   const habit: Habit = {
     id: nextNegativeId(allHabits.map((existingHabit) => existingHabit.id)),
     user_id: userId,
-    name: (payload as any).name?.trim() ?? "Hábito Offline",
-    icon: (payload as any).icon ?? "🔥",
-    habit_type: (payload as any).habit_type ?? "boolean",
-    frequency: (payload as any).frequency ?? "daily",
-    section: (payload as any).section ?? "fire",
-    target_duration: (payload as any).target_duration ?? null,
-    pomodoro_enabled: (payload as any).pomodoro_enabled ?? false,
-    target_quantity: (payload as any).target_quantity ?? null,
-    target_unit: (payload as any).target_unit ?? null,
+    catalog_habit_id: payload.habito_id,
+    name: payload.custom_name?.trim() || "Hábito Offline",
+    custom_name: payload.custom_name?.trim() || null,
+    description: payload.description?.trim() || null,
+    custom_description: payload.description?.trim() || null,
+    icon: "Flame",
+    validation_type: validationType,
+    habit_type: habitType,
+    frequency: payload.frequency ?? "daily",
+    section: "fire",
+    target_duration: targetDuration,
+    pomodoro_enabled: validationType === "tiempo",
+    target_quantity: targetQuantity,
+    target_unit: targetUnit,
     created_at: now,
     updated_at: now,
   };
@@ -175,7 +190,21 @@ export function updateLocalHabit(
   const updatedHabit: Habit = {
     ...allHabits[index],
     ...payload,
-    name: payload.name?.trim() ?? allHabits[index].name,
+    name: payload.custom_name?.trim() ?? payload.name?.trim() ?? allHabits[index].name,
+    custom_name: payload.custom_name ?? allHabits[index].custom_name ?? null,
+    description: payload.description ?? allHabits[index].description ?? null,
+    custom_description: payload.description ?? allHabits[index].custom_description ?? null,
+    validation_type: payload.validation_type ?? allHabits[index].validation_type ?? "foto",
+    frequency: payload.frequency ?? allHabits[index].frequency,
+    pomodoro_enabled:
+      (payload.validation_type ?? allHabits[index].validation_type ?? "foto") === "tiempo",
+    habit_type:
+      (payload.validation_type ?? allHabits[index].validation_type ?? "foto") === "tiempo" ||
+      (payload.target_duration ?? allHabits[index].target_duration) !== null
+        ? "time"
+        : (payload.target_quantity ?? allHabits[index].target_quantity) !== null
+        ? "quantity"
+        : "boolean",
     updated_at: getNowIso(),
   };
 
