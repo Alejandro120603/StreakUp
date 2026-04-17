@@ -27,7 +27,7 @@ class UserHabit(db.Model):
             name="ck_habitos_usuario_tipo_validacion",
         ),
         db.CheckConstraint(
-            "frecuencia IS NULL OR frecuencia IN ('daily','weekly')",
+            "frecuencia IS NULL OR frecuencia IN ('daily','weekly','custom')",
             name="ck_habitos_usuario_frecuencia",
         ),
         db.CheckConstraint(
@@ -57,6 +57,7 @@ class UserHabit(db.Model):
     cantidad_objetivo = db.Column(db.Integer, nullable=True)
     unidad_objetivo = db.Column(db.String(40), nullable=True)
     duracion_objetivo_minutos = db.Column(db.Integer, nullable=True)
+    min_text_length = db.Column(db.Integer, nullable=True)
     fecha_creacion = db.Column(
         db.DateTime,
         nullable=False,
@@ -77,4 +78,11 @@ class UserHabit(db.Model):
     habit = db.relationship(
         "Habit",
         backref=db.backref("user_assignments", lazy=True, cascade="all, delete-orphan"),
+    )
+    schedule_days = db.relationship(
+        "UserHabitScheduleDay",
+        backref=db.backref("user_habit", lazy=True),
+        cascade="all, delete-orphan",
+        order_by="UserHabitScheduleDay.weekday",
+        lazy="select",
     )

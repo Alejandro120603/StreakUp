@@ -1,6 +1,6 @@
 export type HabitDifficulty = "facil" | "media" | "dificil";
 export type ValidationType = "foto" | "texto" | "tiempo";
-export type HabitFrequency = "daily" | "weekly";
+export type HabitFrequency = "daily" | "weekly" | "custom";
 
 export interface Habit {
   id: number;
@@ -24,6 +24,8 @@ export interface Habit {
   pomodoro_enabled: boolean;
   target_quantity: number | null;
   target_unit: string | null;
+  min_text_length?: number | null;
+  schedule_days?: number[];
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +53,8 @@ export interface CreateHabitPayload {
   target_duration?: number | null;
   target_quantity?: number | null;
   target_unit?: string | null;
+  min_text_length?: number | null;
+  schedule_days?: number[];
 }
 
 export interface UpdateHabitPayload {
@@ -67,6 +71,8 @@ export interface UpdateHabitPayload {
   target_quantity?: number | null;
   target_unit?: string | null;
   pomodoro_enabled?: boolean;
+  min_text_length?: number | null;
+  schedule_days?: number[];
 }
 
 export const SECTION_LABELS: Record<string, string> = {

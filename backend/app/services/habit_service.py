@@ -10,6 +10,7 @@ from datetime import date as date_type, datetime, timezone
 from app.extensions import db
 from app.models.habit import Habit
 from app.models.user_habit import UserHabit
+from app.models.user_habit_schedule import UserHabitScheduleDay
 
 
 _CATEGORY_PRESENTATION = {
@@ -169,6 +170,13 @@ def serialize_user_habit(user_habit: UserHabit) -> dict:
         "pomodoro_enabled": validation_type == "tiempo",
         "target_quantity": target_quantity,
         "target_unit": target_unit,
+        "min_text_length": user_habit.min_text_length,
+        "schedule_days": [
+            row.weekday
+            for row in UserHabitScheduleDay.query.filter_by(
+                habitousuario_id=user_habit.id
+            ).order_by(UserHabitScheduleDay.weekday).all()
+        ],
         "created_at": created_at,
         "updated_at": updated_at,
     }
@@ -202,6 +210,21 @@ def _apply_user_habit_overrides(user_habit: UserHabit, overrides: dict[str, obje
         user_habit.unidad_objetivo = overrides["target_unit"]
     if "target_duration" in overrides:
         user_habit.duracion_objetivo_minutos = overrides["target_duration"]
+    if "min_text_length" in overrides:
+        user_habit.min_text_length = overrides["min_text_length"]
+    if "schedule_days" in overrides:
+        # Replace all existing schedule rows for this habit in-place
+        UserHabitScheduleDay.query.filter_by(
+            habitousuario_id=user_habit.id
+        ).delete(synchronize_session=False)
+        new_days: list[int] = overrides["schedule_days"] or []
+        for weekday in new_days:
+            db.session.add(
+                UserHabitScheduleDay(
+                    habitousuario_id=user_habit.id,
+                    weekday=weekday,
+                )
+            )
 
     user_habit.fecha_actualizacion = datetime.now(timezone.utc)
 
@@ -226,9 +249,11 @@ def assign_habit_to_user(user_id: int, habito_id: int, overrides: dict[str, obje
         fecha_inicio=date_type.today(),
         activo=True,
     )
+    db.session.add(user_habit)
+    # Flush to get the PK so schedule_days can reference user_habit.id
+    db.session.flush()
     if overrides:
         _apply_user_habit_overrides(user_habit, overrides)
-    db.session.add(user_habit)
     db.session.commit()
     return serialize_user_habit(user_habit)
 
