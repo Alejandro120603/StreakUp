@@ -31,6 +31,17 @@ const VALIDATION_TYPES: Array<{
 const FREQUENCIES: Array<{ value: HabitFrequency; label: string }> = [
   { value: "daily", label: "Diaria" },
   { value: "weekly", label: "Semanal" },
+  { value: "custom", label: "Personalizada" },
+];
+
+const WEEKDAYS = [
+  { value: 0, label: "L" },
+  { value: 1, label: "M" },
+  { value: 2, label: "X" },
+  { value: 3, label: "J" },
+  { value: 4, label: "V" },
+  { value: 5, label: "S" },
+  { value: 6, label: "D" },
 ];
 
 function EditHabitPageContent() {
@@ -46,6 +57,8 @@ function EditHabitPageContent() {
   const [targetDuration, setTargetDuration] = useState<string>("");
   const [targetQuantity, setTargetQuantity] = useState<string>("");
   const [targetUnit, setTargetUnit] = useState("");
+  const [minTextLength, setMinTextLength] = useState<string>("");
+  const [scheduleDays, setScheduleDays] = useState<number[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [loadingHabit, setLoadingHabit] = useState(true);
@@ -72,6 +85,10 @@ function EditHabitPageContent() {
           loadedHabit.target_quantity !== null ? String(loadedHabit.target_quantity) : "",
         );
         setTargetUnit(loadedHabit.target_unit ?? "");
+        setMinTextLength(
+          loadedHabit.min_text_length !== null && loadedHabit.min_text_length !== undefined ? String(loadedHabit.min_text_length) : "",
+        );
+        setScheduleDays(loadedHabit.schedule_days ?? []);
         setError("");
       } catch (err) {
         setError(
@@ -92,15 +109,22 @@ function EditHabitPageContent() {
     setError("");
     setIsLoading(true);
 
+    if (frequency === "custom" && scheduleDays.length === 0) {
+      setError("Debes seleccionar al menos un día para la frecuencia personalizada.");
+      return;
+    }
+
     try {
       await updateHabit(habitId, {
         custom_name: customName.trim() || null,
         description: description.trim() || null,
         validation_type: validationType,
         frequency,
-        target_duration: targetDuration.trim() ? Number(targetDuration) : null,
-        target_quantity: targetQuantity.trim() ? Number(targetQuantity) : null,
-        target_unit: targetUnit.trim() || null,
+        target_duration: validationType === "tiempo" && targetDuration.trim() ? Number(targetDuration) : null,
+        target_quantity: validationType !== "tiempo" && targetQuantity.trim() ? Number(targetQuantity) : null,
+        target_unit: validationType !== "tiempo" && targetUnit.trim() ? targetUnit.trim() : null,
+        min_text_length: validationType === "texto" && minTextLength.trim() ? Number(minTextLength) : null,
+        schedule_days: frequency === "custom" ? scheduleDays : undefined,
       });
       router.push("/habits");
     } catch (err) {
@@ -230,7 +254,7 @@ function EditHabitPageContent() {
 
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-foreground">Frecuencia</Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {FREQUENCIES.map((option) => (
                 <button
                   key={option.value}
@@ -248,40 +272,92 @@ function EditHabitPageContent() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-foreground">Duración objetivo</Label>
-            <div className="flex items-center gap-3">
-              <Input
-                type="number"
-                min={0}
-                value={targetDuration}
-                onChange={(event) => setTargetDuration(event.target.value)}
-                placeholder="0"
-                className="h-12 w-28 bg-background border-border text-foreground rounded-xl text-center focus-visible:ring-primary/50 focus-visible:border-primary"
-              />
-              <span className="text-muted-foreground text-sm">minutos</span>
+          {frequency === "custom" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-foreground">Días de la semana</Label>
+              <div className="flex flex-wrap gap-2">
+                {WEEKDAYS.map((day) => {
+                  const isSelected = scheduleDays.includes(day.value);
+                  return (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setScheduleDays((prev) => prev.filter((d) => d !== day.value));
+                        } else {
+                          setScheduleDays((prev) => [...prev, day.value].sort());
+                        }
+                      }}
+                      className={`size-10 rounded-full text-sm font-semibold border transition-all duration-200 ${
+                        isSelected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-foreground">Meta de cantidad</Label>
-            <div className="flex items-center gap-3">
-              <Input
-                type="number"
-                min={0}
-                value={targetQuantity}
-                onChange={(event) => setTargetQuantity(event.target.value)}
-                placeholder="0"
-                className="h-12 w-28 bg-background border-border text-foreground rounded-xl text-center focus-visible:ring-primary/50 focus-visible:border-primary"
-              />
-              <Input
-                value={targetUnit}
-                onChange={(event) => setTargetUnit(event.target.value)}
-                placeholder="vasos, pasos, páginas..."
-                className="h-12 flex-1 bg-background border-border text-foreground rounded-xl focus-visible:ring-primary/50 focus-visible:border-primary"
-              />
+          {validationType === "tiempo" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-foreground">Duración objetivo</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  min={1}
+                  value={targetDuration}
+                  onChange={(event) => setTargetDuration(event.target.value)}
+                  placeholder="e.g. 15"
+                  className="h-12 w-28 bg-background border-border text-foreground rounded-xl text-center focus-visible:ring-primary/50 focus-visible:border-primary"
+                />
+                <span className="text-muted-foreground text-sm">minutos</span>
+              </div>
             </div>
-          </div>
+          )}
+
+          {validationType !== "tiempo" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-foreground">Meta de cantidad (Opcional)</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  min={1}
+                  value={targetQuantity}
+                  onChange={(event) => setTargetQuantity(event.target.value)}
+                  placeholder="e.g. 3"
+                  className="h-12 w-28 bg-background border-border text-foreground rounded-xl text-center focus-visible:ring-primary/50 focus-visible:border-primary"
+                />
+                <Input
+                  value={targetUnit}
+                  onChange={(event) => setTargetUnit(event.target.value)}
+                  placeholder="vasos, pasos..."
+                  className="h-12 flex-1 bg-background border-border text-foreground rounded-xl focus-visible:ring-primary/50 focus-visible:border-primary"
+                />
+              </div>
+            </div>
+          )}
+
+          {validationType === "texto" && (
+            <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+              <Label className="text-sm font-semibold text-foreground">Longitud mínima de texto (Opcional)</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  min={1}
+                  value={minTextLength}
+                  onChange={(event) => setMinTextLength(event.target.value)}
+                  placeholder="e.g. 50"
+                  className="h-12 w-28 bg-background border-border text-foreground rounded-xl text-center focus-visible:ring-primary/50 focus-visible:border-primary"
+                />
+                <span className="text-muted-foreground text-sm">caracteres</span>
+              </div>
+            </div>
+          )}
 
           <Button
             type="submit"

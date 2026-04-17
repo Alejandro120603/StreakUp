@@ -17,12 +17,96 @@ import {
 import { fetchHabit } from "@/services/habits/habitService";
 import { fetchTodayHabits } from "@/services/checkins/checkinService";
 import { fetchStatsSummary } from "@/services/stats/statsService";
-import { validateHabit } from "@/services/validation/validationService";
+import { validateHabit, type ValidatePayload } from "@/services/validation/validationService";
 import type { Habit, ValidationResult } from "@/types/habits";
 import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/types/habits";
 import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 
 type PageStatus = "idle" | "loading" | "success" | "error";
+
+function TimerValidation({ habit, onComplete }: { habit: Habit, onComplete: (minutes: number) => void }) {
+  const [timerState, setTimerState] = useState<"idle" | "running" | "paused">("idle");
+  const [secondsLeft, setSecondsLeft] = useState((habit.target_duration || 5) * 60);
+  const totalSeconds = (habit.target_duration || 5) * 60;
+  
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerState === "running") {
+      interval = setInterval(() => {
+        setSecondsLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setTimerState("idle");
+            onComplete(habit.target_duration || 5);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerState, habit.target_duration, onComplete]);
+
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = secondsLeft % 60;
+  const progress = totalSeconds > 0 ? secondsLeft / totalSeconds : 1;
+
+  const radius = 60;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference * (1 - progress);
+
+  return (
+    <div className="flex flex-col items-center py-6 space-y-6">
+      <div className="relative w-40 h-40">
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 140 140">
+          <circle cx="70" cy="70" r={radius} fill="none" stroke="currentColor" className="text-secondary" strokeWidth="6" />
+          <circle
+            cx="70" cy="70" r={radius} fill="none" stroke="currentColor" className="text-primary transition-all duration-1000 ease-linear"
+            strokeWidth="6" strokeLinecap="round"
+            strokeDasharray={circumference} strokeDashoffset={dashOffset}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-bold text-foreground tabular-nums">
+            {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+          </span>
+          <span className="text-xs text-muted-foreground mt-1">
+            {timerState === "running" ? "En curso" : timerState === "paused" ? "Pausado" : "Listo"}
+          </span>
+        </div>
+      </div>
+      
+      <div className="flex w-full gap-3">
+        {timerState === "idle" ? (
+          <button 
+            onClick={() => setTimerState("running")}
+            className="flex-1 py-3.5 rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md active:scale-[0.98]"
+          >
+            Comenzar {habit.target_duration} min
+          </button>
+        ) : (
+          <>
+            <button 
+              onClick={() => setTimerState(timerState === "running" ? "paused" : "running")}
+              className="flex-1 py-3.5 rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md active:scale-[0.98]"
+            >
+              {timerState === "running" ? "Pausar" : "Reanudar"}
+            </button>
+            <button 
+              onClick={() => {
+                setTimerState("idle");
+                setSecondsLeft(totalSeconds);
+              }}
+              className="flex-1 py-3.5 rounded-xl font-semibold bg-secondary text-foreground hover:bg-secondary/80 border border-border transition-all active:scale-[0.98]"
+            >
+              Cancelar
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function ValidateHabitPageContent() {
   const searchParams = useSearchParams();
@@ -37,6 +121,7 @@ function ValidateHabitPageContent() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState("");
   const [status, setStatus] = useState<PageStatus>("idle");
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -87,14 +172,42 @@ function ValidateHabitPageContent() {
     reader.readAsDataURL(file);
   }
 
-  async function handleValidate() {
-    if (!imageBase64 || !imageMimeType || !habit) return;
+  async function handleValidate(timerMinutes?: number) {
+    if (!habit) return;
 
     setStatus("loading");
     setErrorMsg("");
 
+    const validationType = habit.validation_type ?? "foto";
+    const payload: ValidatePayload = { habit_id: habit.id };
+
+    if (validationType === "foto") {
+      if (!imageBase64 || !imageMimeType) {
+        setErrorMsg("Sube una foto como evidencia.");
+        setStatus("idle");
+        return;
+      }
+      payload.image_base64 = imageBase64;
+      payload.mime_type = imageMimeType;
+    } else if (validationType === "texto") {
+      if (!textContent.trim()) {
+        setErrorMsg("Escribe tu evidencia textual.");
+        setStatus("idle");
+        return;
+      }
+      payload.text_content = textContent;
+    } else if (validationType === "tiempo") {
+      const minutesToLog = typeof timerMinutes === "number" ? timerMinutes : habit.target_duration || 5;
+      if (!minutesToLog) {
+        setErrorMsg("El temporizador no completó los minutos requeridos.");
+        setStatus("idle");
+        return;
+      }
+      payload.duration_minutes = minutesToLog;
+    }
+
     try {
-      const res = await validateHabit(habit.id, imageBase64, imageMimeType);
+      const res = await validateHabit(payload);
       setResult(res);
       setStatus(res.valido ? "success" : "error");
       if (res.valido) {
@@ -107,7 +220,7 @@ function ValidateHabitPageContent() {
   }
 
   const targetSummary = habit ? getHabitTargetSummary(habit) : null;
-  const isPhotoValidation = habit?.validation_type === "foto";
+  const validationType = habit?.validation_type ?? "foto";
 
   if (loadingHabit) {
     return (
@@ -157,9 +270,9 @@ function ValidateHabitPageContent() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Validar Hábito</h1>
           <p className="text-sm text-muted-foreground">
-            {isPhotoValidation
-              ? "Sube una foto como evidencia"
-              : `Validación ${VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"].toLowerCase()} próximamente`}
+            {validationType === "foto" && "Sube una foto como evidencia"}
+            {validationType === "texto" && "Escribe tu bitácora de progreso"}
+            {validationType === "tiempo" && "Registra el tiempo completado"}
           </p>
         </div>
       </div>
@@ -206,15 +319,15 @@ function ValidateHabitPageContent() {
       </ClayMotionBox>
 
       {/* Evidence guidance card — shown only in idle state */}
-      {status === "idle" && isPhotoValidation && (
+      {status === "idle" && (
         <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 flex gap-3">
           <Info className="size-4 text-blue-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="text-blue-300 text-xs font-semibold uppercase tracking-wider">Evidencia esperada</p>
             <p className="text-sm text-foreground/90">
-              {habit.description
-                ? habit.description
-                : `Sube una foto que demuestre claramente que completaste "${habit.name}".`}
+              {validationType === "foto" && (habit.description || `Sube una foto que demuestre que completaste "${habit.name}".`)}
+              {validationType === "texto" && (habit.description || `Escribe una breve recapitulación sobre "${habit.name}".`)}
+              {validationType === "tiempo" && (habit.description || `Ingresa el total de minutos que dedicaste a "${habit.name}".`)}
             </p>
             {targetSummary ? (
               <p className="text-xs text-muted-foreground mt-1">
@@ -225,7 +338,7 @@ function ValidateHabitPageContent() {
         </div>
       )}
 
-      {status === "idle" && isPhotoValidation && (
+      {status === "idle" && validationType === "foto" && (
         <div className="space-y-4">
           <input
             ref={fileInputRef}
@@ -293,7 +406,7 @@ function ValidateHabitPageContent() {
           )}
 
           <button
-            onClick={handleValidate}
+            onClick={() => handleValidate()}
             disabled={!imageBase64}
             className="w-full py-3.5 rounded-xl font-semibold text-primary-foreground transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed bg-primary hover:bg-primary/90 shadow-[0_0_20px_rgba(93,95,239,0.3)] hover:shadow-[0_0_28px_rgba(93,95,239,0.5)] active:scale-[0.98]"
           >
@@ -303,29 +416,40 @@ function ValidateHabitPageContent() {
         </div>
       )}
 
-      {status === "idle" && !isPhotoValidation && (
-        <ClayMotionBox className="p-6 space-y-4">
-          <div className="space-y-2">
-            <p className="text-foreground font-semibold">
-              Validación por {VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"].toLowerCase()}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Esta pantalla ya reconoce configuración real del hábito, pero envío de evidencia por{" "}
-              {habit.validation_type === "texto" ? "texto" : "tiempo"} se implementa en siguiente fase.
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-secondary/40 p-4 text-sm text-muted-foreground">
-            {habit.validation_type === "texto"
-              ? "Próximo paso: campo de texto + verificación AI."
-              : "Próximo paso: sesión de tiempo/pomodoro conectada a validación."}
-          </div>
+      {status === "idle" && validationType === "texto" && (
+        <div className="space-y-4">
+          <textarea
+            value={textContent}
+            onChange={(e) => setTextContent(e.target.value)}
+            placeholder="Escribe tu progreso aquí..."
+            rows={5}
+            maxLength={1000}
+            className="w-full px-4 py-3 bg-background border border-border text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors resize-none"
+          />
+          {errorMsg && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {errorMsg}
+            </div>
+          )}
           <button
-            onClick={() => router.push("/habits")}
-            className="w-full py-3 rounded-xl font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors"
+            onClick={() => handleValidate()}
+            disabled={!textContent.trim()}
+            className="w-full py-3.5 rounded-xl font-semibold text-primary-foreground transition-all duration-300 disabled:opacity-30 border bg-primary hover:bg-primary/90"
           >
-            Volver a hábitos
+            Validar texto
           </button>
-        </ClayMotionBox>
+        </div>
+      )}
+
+      {status === "idle" && validationType === "tiempo" && (
+        <div className="space-y-4">
+          <TimerValidation habit={habit} onComplete={handleValidate} />
+          {errorMsg && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400 mt-4">
+              {errorMsg}
+            </div>
+          )}
+        </div>
       )}
 
       {status === "loading" && (
@@ -337,9 +461,9 @@ function ValidateHabitPageContent() {
             <div className="absolute inset-0 size-16 rounded-full border-2 border-primary/20 animate-ping" />
           </div>
           <div className="text-center">
-            <p className="text-foreground font-semibold">Analizando imagen...</p>
+            <p className="text-foreground font-semibold">Validando...</p>
             <p className="text-muted-foreground text-sm mt-1">
-              La IA está verificando tu evidencia
+              {validationType === "foto" ? "La IA está verificando tu evidencia fotográfica" : "Procesando tu evidencia"}
             </p>
           </div>
         </ClayMotionBox>

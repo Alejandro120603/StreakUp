@@ -21,6 +21,7 @@ from app.services.habit_service import get_user_habit
 from app.services.openai_service import analyze_habit_image
 from app.services.streak_service import compute_current_streak
 from app.services.xp_service import award_xp
+from app.services.checkin_service import is_eligible_today
 
 _LOCAL_TIMEZONE = datetime.now().astimezone().tzinfo or timezone.utc
 
@@ -33,12 +34,32 @@ def _to_local_date(value: datetime | None) -> date_type | None:
     return value.astimezone(_LOCAL_TIMEZONE).date()
 
 
+from collections.abc import Mapping
+
+def _extract_image_payload(data: Mapping[str, object]) -> tuple[str | None, str | None]:
+    """Support both legacy and current validation payload shapes."""
+    image_value = data.get("image_base64") or data.get("image")
+    mime_type = data.get("mime_type")
+
+    if not isinstance(image_value, str):
+        return None, None
+
+    image_value = image_value.strip()
+    normalized_mime_type = mime_type.strip() if isinstance(mime_type, str) else None
+
+    if image_value.startswith("data:") and "," in image_value:
+        metadata, encoded = image_value.split(",", 1)
+        image_value = encoded.strip()
+
+        if normalized_mime_type is None and ";base64" in metadata:
+            normalized_mime_type = metadata[len("data:") :].split(";", 1)[0].strip() or None
+
+    return image_value or None, normalized_mime_type
+
 def validate_habit(
     user_id: int,
     habit_id: int,
-    image_base64: str,
-    *,
-    mime_type: str | None = None,
+    payload: Mapping[str, object],
 ) -> dict:
     """Validate a habit with photo evidence and award progress only on approval."""
     user_habit = get_user_habit(habit_id, user_id, active_only=True)
@@ -46,6 +67,9 @@ def validate_habit(
         raise ValueError("Habito no encontrado.")
 
     today = date_type.today()
+
+    if not is_eligible_today(user_habit, today):
+        raise ValueError("Este hábito no está programado para hoy.")
 
     existing = next(
         (
@@ -62,46 +86,110 @@ def validate_habit(
     if existing:
         raise ValueError("Ya validaste este habito hoy.")
 
+    val_type = user_habit.habit.tipo_validacion if not user_habit.tipo_validacion else user_habit.tipo_validacion
+    
+    if not val_type:
+        val_type = "foto"
+
     try:
         evidence_metadata = {
-            "provider": "openai",
-            "mime_type": mime_type or "image/jpeg",
-            "image_sha256": hashlib.sha256(image_base64.encode("utf-8")).hexdigest(),
+            "validation_type": val_type,
         }
-        # 1. Validation attempt is recorded as pending
-        log = ValidationLog(
-            habitousuario_id=user_habit.id,
-            tipo_validacion="foto",
-            evidencia=json.dumps(evidence_metadata, ensure_ascii=True, sort_keys=True),
-            status="pending",
-            validado=False,
-        )
-        db.session.add(log)
-        db.session.commit()  # Commit to record the attempt even if AI fails
+        
+        is_approved = False
+        reason = ""
+        confidence = 1.0
 
-        # 2. Validation result is determined
-        try:
-            habit_name = user_habit.nombre_personalizado or user_habit.habit.nombre
-            ai_result = analyze_habit_image(habit_name, image_base64, mime_type=mime_type)
-            is_approved = bool(ai_result["valido"])
-            status = "approved" if is_approved else "rejected"
-            reason = ai_result["razon"]
-            confidence = ai_result["confianza"]
-        except Exception as ai_exc:
-            current_app.logger.error(f"AI validation failed for log_id={log.id}: {str(ai_exc)}")
-            # In case of AI failure, log it but don't grant progress
-            # We keep it as pending or mark as error? 
-            # The task says "pending grants nothing", so we can leave it or mark as rejected.
-            # Let's mark as rejected/error to be safe, or just re-raise if we want to bubble up 500.
-            # However, the user request asks for "validation attempt is recorded".
-            # If we re-raise, the user gets 500. If we catch, we can return a friendly error.
-            raise
+        if val_type == "foto":
+            image_base64, mime_type = _extract_image_payload(payload)
+            if not image_base64:
+                raise ValueError("image (base64) is required for photo validation.")
+                
+            evidence_metadata["provider"] = "openai"
+            evidence_metadata["mime_type"] = mime_type or "image/jpeg"
+            evidence_metadata["image_sha256"] = hashlib.sha256(image_base64.encode("utf-8")).hexdigest()
+            
+            log = ValidationLog(
+                habitousuario_id=user_habit.id,
+                tipo_validacion="foto",
+                evidencia=json.dumps(evidence_metadata, ensure_ascii=True, sort_keys=True),
+                status="pending",
+                validado=False,
+            )
+            db.session.add(log)
+            db.session.commit()
 
-        # 3. Only then are streak/XP/progress effects applied
+            try:
+                habit_name = user_habit.nombre_personalizado or user_habit.habit.nombre
+                ai_result = analyze_habit_image(habit_name, image_base64, mime_type=mime_type)
+                is_approved = bool(ai_result["valido"])
+                reason = ai_result["razon"]
+                confidence = ai_result["confianza"]
+            except Exception as ai_exc:
+                current_app.logger.error(f"AI validation failed for log_id={log.id}: {str(ai_exc)}")
+                raise
+
+        elif val_type == "texto":
+            text_content = payload.get("text_content", "")
+            if not isinstance(text_content, str):
+                text_content = str(text_content)
+            text_content = text_content.strip()
+            
+            if not text_content:
+                raise ValueError("Se requiere texto para validar este hábito.")
+                
+            min_length = user_habit.min_text_length or 0
+            if len(text_content) < min_length:
+                raise ValueError(f"El texto debe tener al menos {min_length} caracteres. Actualmente tiene {len(text_content)}.")
+
+            evidence_metadata["text_content"] = text_content
+            evidence_metadata["text_length"] = len(text_content)
+            is_approved = True
+            reason = "Texto validado correctamente."
+            
+            log = ValidationLog(
+                habitousuario_id=user_habit.id,
+                tipo_validacion="texto",
+                evidencia=json.dumps(evidence_metadata, ensure_ascii=True, sort_keys=True),
+                status="pending",
+                validado=False,
+            )
+            db.session.add(log)
+            
+        elif val_type == "tiempo":
+            duration_minutes = payload.get("duration_minutes")
+            if not duration_minutes:
+                raise ValueError("Se requiere la duración completada.")
+                
+            try:
+                duration_minutes = float(duration_minutes)
+            except ValueError:
+                raise ValueError("La duración debe ser un número.")
+                
+            if user_habit.duracion_objetivo_minutos and duration_minutes < user_habit.duracion_objetivo_minutos:
+                raise ValueError(f"Debes completar al menos {user_habit.duracion_objetivo_minutos} minutos. Ingresaste {duration_minutes}.")
+                
+            evidence_metadata["duration_minutes"] = duration_minutes
+            is_approved = True
+            reason = f"Completaste {duration_minutes} minutos."
+            
+            log = ValidationLog(
+                habitousuario_id=user_habit.id,
+                tipo_validacion="tiempo",
+                evidencia=json.dumps(evidence_metadata, ensure_ascii=True, sort_keys=True),
+                status="pending",
+                validado=False,
+            )
+            db.session.add(log)
+            
+        else:
+            raise ValueError(f"Tipo de validación no soportado: {val_type}")
+
         xp_awarded = 0
         if is_approved:
             xp_awarded = _apply_approved_progress(user_habit.id, user_id, today)
 
+        status = "approved" if is_approved else "rejected"
         log.status = status
         log.validado = is_approved
         evidence_metadata.update(
@@ -113,7 +201,6 @@ def validate_habit(
         )
         log.evidencia = json.dumps(evidence_metadata, ensure_ascii=True, sort_keys=True)
         
-        # Streak calculation - always based on current DB state after progress application
         active_user_habit_ids = [
             assigned_habit.id
             for assigned_habit in user_habit.user.assigned_habits
@@ -121,8 +208,6 @@ def validate_habit(
         ]
         
         nueva_racha = compute_current_streak(active_user_habit_ids, today)
-
-        # Evaluate achievements after streak is computed but before final commit
         new_achievements = evaluate_and_award(user_id, current_streak=nueva_racha)
 
         db.session.commit()

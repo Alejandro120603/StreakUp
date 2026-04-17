@@ -8,8 +8,9 @@ Responsibility:
 from collections.abc import Mapping
 
 VALID_VALIDATION_TYPES = {"foto", "texto", "tiempo"}
-VALID_FREQUENCIES = {"daily", "weekly"}
+VALID_FREQUENCIES = {"daily", "weekly", "custom"}
 VALID_HABIT_TYPES = {"boolean", "time", "quantity"}
+_VALID_WEEKDAYS = frozenset(range(7))  # 0=Mon … 6=Sun
 
 
 def _normalize_text(value: object, field_name: str, *, max_length: int) -> tuple[str | None, str | None]:
@@ -64,6 +65,31 @@ def _normalize_frequency(value: object) -> tuple[str | None, str | None]:
         options = ", ".join(sorted(VALID_FREQUENCIES))
         return None, f"frequency must be one of: {options}."
     return normalized, None
+
+
+def _normalize_schedule_days(value: object) -> tuple[list[int] | None, str | None]:
+    """Validate and deduplicate a list of weekday integers (0–6)."""
+    if value is None:
+        return None, None
+    if not isinstance(value, list):
+        return None, "schedule_days must be a list of integers."
+
+    seen: set[int] = set()
+    result: list[int] = []
+    for item in value:
+        if isinstance(item, bool) or not isinstance(item, int):
+            return None, "Each entry in schedule_days must be an integer."
+        if item not in _VALID_WEEKDAYS:
+            return None, f"schedule_days entries must be between 0 (Mon) and 6 (Sun); got {item}."
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+
+    return sorted(result), None
+
+
+def _normalize_min_text_length(value: object) -> tuple[int | None, str | None]:
+    return _normalize_optional_int(value, "min_text_length", allow_zero=True)
 
 
 def normalize_habit_payload(
@@ -143,6 +169,33 @@ def normalize_habit_payload(
         errors.append(error)
     elif "target_unit" in data:
         normalized["target_unit"] = target_unit
+
+    min_text_length, error = _normalize_min_text_length(data.get("min_text_length"))
+    if error:
+        errors.append(error)
+    elif "min_text_length" in data:
+        normalized["min_text_length"] = min_text_length
+
+    schedule_days, error = _normalize_schedule_days(data.get("schedule_days"))
+    if error:
+        errors.append(error)
+    elif "schedule_days" in data:
+        normalized["schedule_days"] = schedule_days
+
+    # Cross-field: custom frequency requires at least one schedule day
+    resolved_frequency = normalized.get("frequency") or data.get("frequency")
+    if resolved_frequency == "custom":
+        sched = normalized.get("schedule_days")
+        if sched is None:
+            # schedule_days not provided in this payload — only error on create
+            if require_habito_id:
+                errors.append(
+                    "schedule_days is required when frequency is 'custom'."
+                )
+        elif len(sched) == 0:
+            errors.append(
+                "schedule_days must contain at least one day when frequency is 'custom'."
+            )
 
     return normalized, errors
 

@@ -63,6 +63,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         from app.models.validation_log import ValidationLog  # noqa: F401
         from app.models.xp_log import XpLog  # noqa: F401
         from app.models.achievement import Achievement, UserAchievement  # noqa: F401
+        from app.models.user_habit_schedule import UserHabitScheduleDay  # noqa: F401
 
         # Seed achievement catalog if the table exists (skipped during migrations)
         try:

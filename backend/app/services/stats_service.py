@@ -13,6 +13,7 @@ from app.extensions import db
 from app.models.checkin import CheckIn
 from app.models.user import User
 from app.models.validation_log import ValidationLog
+from app.services.checkin_service import is_eligible_today
 from app.services.habit_service import list_active_user_habits, _get_presentation, _HABIT_ICONS
 from app.services.streak_service import compute_current_streak, compute_longest_streak
 
@@ -46,18 +47,33 @@ def get_summary(user_id: int) -> dict:
     """Return a stats summary for the user."""
     today = date_type.today()
 
-    uh_ids = _user_habit_ids(user_id)
-    today_total = len(uh_ids)
+    user_habits = list_active_user_habits(user_id)
+    uh_ids = [uh.id for uh in user_habits]
+    
+    # Calculate today's eligible habits
+    eligible_today_uhs = [uh for uh in user_habits if is_eligible_today(uh, today)]
+    eligible_today_ids = [uh.id for uh in eligible_today_uhs]
+    today_total = len(eligible_today_ids)
 
-    today_completed = min(_count_checkins_for_date(uh_ids, today), today_total)
+    today_completed = min(_count_checkins_for_date(eligible_today_ids, today), today_total)
 
     # Completion rate (last 7 days)
     week_checkins = 0
     for i in range(7):
         d = today - timedelta(days=i)
         week_checkins += _count_checkins_for_date(uh_ids, d)
-    week_possible = today_total * 7
-    completion_rate = round((week_checkins / week_possible * 100)) if week_possible > 0 else 0
+        
+    week_possible = 0
+    for uh in user_habits:
+        freq = uh.frecuencia or "daily"
+        if freq == "custom" and uh.schedule_days:
+            week_possible += len(uh.schedule_days)
+        elif freq == "weekly":
+            week_possible += 1
+        else:
+            week_possible += 7
+            
+    completion_rate = min(100, round((week_checkins / week_possible * 100))) if week_possible > 0 else 0
 
     # Current streak
     streak = compute_current_streak(uh_ids, today)
@@ -106,11 +122,12 @@ def get_detailed_stats(user_id: int) -> dict:
     for i in range(6, -1, -1):
         d = today - timedelta(days=i)
         count = _count_checkins_for_date(uh_ids, d)
+        eligible_for_day = sum(1 for uh in user_habits if is_eligible_today(uh, d))
         weekly_history.append({
             "date": d.isoformat(),
             "label": day_names_es[d.weekday()],
             "completed": count,
-            "total": total_habits,
+            "total": eligible_for_day,
         })
 
     # --- Per-habit stats (last 7 days) ---
@@ -124,13 +141,20 @@ def get_detailed_stats(user_id: int) -> dict:
             CheckIn.fecha >= week_ago,
             CheckIn.fecha <= today,
         ).count()
+        freq = uh.frecuencia or "daily"
+        total_opportunities = 7
+        if freq == "custom" and uh.schedule_days:
+            total_opportunities = len(uh.schedule_days)
+        elif freq == "weekly":
+            total_opportunities = 1
+
         per_habit.append({
             "id": uh.id,
             "name": catalog.nombre,
             "icon": _HABIT_ICONS.get(catalog.id, presentation["icon"]),
             "completed": completed_days,
-            "total": 7,
-            "rate": round(completed_days / 7 * 100) if completed_days > 0 else 0,
+            "total": total_opportunities,
+            "rate": min(100, round(completed_days / total_opportunities * 100)) if total_opportunities > 0 else 0,
         })
 
     # --- 30-day streak calendar ---
@@ -194,8 +218,18 @@ def get_detailed_stats(user_id: int) -> dict:
     for i in range(7):
         d = today - timedelta(days=i)
         week_checkins += _count_checkins_for_date(uh_ids, d)
-    week_possible = total_habits * 7
-    completion_rate = round(week_checkins / week_possible * 100) if week_possible > 0 else 0
+        
+    week_possible = 0
+    for uh in user_habits:
+        freq = uh.frecuencia or "daily"
+        if freq == "custom" and uh.schedule_days:
+            week_possible += len(uh.schedule_days)
+        elif freq == "weekly":
+            week_possible += 1
+        else:
+            week_possible += 7
+            
+    completion_rate = min(100, round(week_checkins / week_possible * 100)) if week_possible > 0 else 0
 
     # Active days
     if uh_ids:

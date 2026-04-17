@@ -1,4 +1,4 @@
-// File: /home/alexo/projects/streakUP/frontend/app/(dashboard)/habits/validate/page.tsx
+// File: C:\Users\elgus\OneDrive\Documentos\StreakUp\frontend\app\(dashboard)\habits\validate\page.tsx
 import * as entry from '../../../../../../app/(dashboard)/habits/validate/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
