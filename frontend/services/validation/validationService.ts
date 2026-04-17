@@ -40,15 +40,19 @@ function mapValidationError(error: unknown): Error {
   return new Error(error.message || "No se pudo validar la foto en este momento.");
 }
 
-export async function validateHabit(
-  habitId: number,
-  imageBase64: string,
-  mimeType = "image/jpeg",
-): Promise<ValidationResult> {
+export interface ValidatePayload {
+  habit_id: number;
+  image_base64?: string;
+  mime_type?: string;
+  text_content?: string;
+  duration_minutes?: number;
+}
+
+export async function validateHabit(payload: ValidatePayload): Promise<ValidationResult> {
   try {
     return await apiPost<ValidationResult>(
       API_ENDPOINTS.habits.validate,
-      JSON.stringify({ habit_id: habitId, image_base64: imageBase64, mime_type: mimeType }),
+      JSON.stringify(payload),
     );
   } catch (error) {
     throw mapValidationError(error);
