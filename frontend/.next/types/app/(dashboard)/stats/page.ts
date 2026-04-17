@@ -1,4 +1,4 @@
-// File: /home/alexo/projects/streakUP/frontend/app/(dashboard)/stats/page.tsx
+// File: C:\Users\elgus\OneDrive\Documentos\StreakUp\frontend\app\(dashboard)\stats\page.tsx
 import * as entry from '../../../../../app/(dashboard)/stats/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

@@ -1,4 +1,4 @@
-// File: /home/alexo/projects/streakUP/frontend/app/(dashboard)/layout.tsx
+// File: C:\Users\elgus\OneDrive\Documentos\StreakUp\frontend\app\(dashboard)\layout.tsx
 import * as entry from '../../../../app/(dashboard)/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

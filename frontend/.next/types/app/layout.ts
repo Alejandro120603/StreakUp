@@ -1,4 +1,4 @@
-// File: /home/alexo/projects/streakUP/frontend/app/layout.tsx
+// File: C:\Users\elgus\OneDrive\Documentos\StreakUp\frontend\app\layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

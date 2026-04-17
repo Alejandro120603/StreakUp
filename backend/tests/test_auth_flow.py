@@ -74,16 +74,18 @@ class AuthFlowTestCase(unittest.TestCase):
         self.meditar = Habit(
             categoria_id=1,
             nombre="Meditar 5-10 min",
-            descripcion="Relajación mental",
-            dificultad="facil",
             xp_base=10,
+            dificultad="facil",
+            tipo_validacion="tiempo",
+            frecuencia="daily",
         )
         self.leer = Habit(
             categoria_id=2,
             nombre="Leer 20 min",
-            descripcion="Lectura diaria",
-            dificultad="facil",
-            xp_base=10,
+            xp_base=20,
+            dificultad="media",
+            tipo_validacion="texto",
+            frecuencia="daily",
         )
         db.session.add(self.meditar)
         db.session.add(self.leer)

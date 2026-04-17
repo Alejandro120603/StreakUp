@@ -14,6 +14,38 @@ from app.models.user_habit import UserHabit
 from app.services.habit_service import list_active_user_habits, serialize_user_habit
 from app.services.xp_service import award_xp, revoke_xp
 
+def is_eligible_today(user_habit: UserHabit, target_date: date_type) -> bool:
+    """Determine if a habit is eligible to be completed on a given date based on its frequency."""
+    freq = user_habit.frecuencia or "daily"
+    if freq == "daily":
+        return True
+    
+    if freq == "weekly":
+        # Weekly habits are eligible as long as they haven't been completed this week,
+        # OR if they were completed exactly on target_date (so we can uncheck them).
+        iso_year, iso_week, _ = target_date.isocalendar()
+        start_of_week = date_type.fromisocalendar(iso_year, iso_week, 1)
+        end_of_week = date_type.fromisocalendar(iso_year, iso_week, 7)
+        # Check if completed this week
+        weekly_checkin = CheckIn.query.filter(
+            CheckIn.habitousuario_id == user_habit.id,
+            CheckIn.completado == True,
+            CheckIn.fecha >= start_of_week,
+            CheckIn.fecha <= end_of_week
+        ).first()
+        
+        if weekly_checkin:
+            return weekly_checkin.fecha == target_date
+        return True
+
+    if freq == "custom":
+        if not user_habit.schedule_days:
+            return True # Fallback if no days configured
+        enabled_weekdays = {day.weekday for day in user_habit.schedule_days}
+        return target_date.weekday() in enabled_weekdays
+
+    return True
+
 
 def _is_validation_driven(user_habit: UserHabit) -> bool:
     validation_type = user_habit.tipo_validacion or user_habit.habit.tipo_validacion
@@ -32,6 +64,10 @@ def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = 
     ).first()
     if user_habit is None:
         raise LookupError("Habit not found.")
+    
+    if not is_eligible_today(user_habit, target_date):
+        raise ValueError("Este hábito no está programado para hoy.")
+
     if _is_validation_driven(user_habit):
         raise ValueError("This habit requires validation before progress can be granted.")
 
@@ -83,6 +119,9 @@ def get_today_habits(user_id: int, target_date: date_type | None = None) -> list
 
     result = []
     for user_habit in user_habits:
+        if not is_eligible_today(user_habit, target_date):
+            continue
+            
         habit_dict = serialize_user_habit(user_habit)
         habit_dict["checked_today"] = user_habit.id in checked_ids
         result.append(habit_dict)
