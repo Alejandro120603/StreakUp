@@ -5,7 +5,7 @@ Responsibility:
 - Host catalog and user-assignment habit use cases.
 """
 
-from datetime import date as date_type
+from datetime import date as date_type, datetime, timezone
 
 from app.extensions import db
 from app.models.habit import Habit
@@ -67,33 +67,110 @@ def get_user_habit(habit_id: int, user_id: int, active_only: bool = True) -> Use
     return query.first()
 
 
+def _effective_validation_type(user_habit: UserHabit) -> str:
+    return user_habit.tipo_validacion or user_habit.habit.tipo_validacion
+
+
+def _effective_frequency(user_habit: UserHabit) -> str:
+    return user_habit.frecuencia or user_habit.habit.frecuencia
+
+
+def _effective_quantity_target(user_habit: UserHabit) -> int | None:
+    return (
+        user_habit.cantidad_objetivo
+        if user_habit.cantidad_objetivo is not None
+        else user_habit.habit.cantidad_objetivo
+    )
+
+
+def _effective_duration_target(user_habit: UserHabit) -> int | None:
+    return (
+        user_habit.duracion_objetivo_minutos
+        if user_habit.duracion_objetivo_minutos is not None
+        else user_habit.habit.duracion_objetivo_minutos
+    )
+
+
+def _effective_target_unit(user_habit: UserHabit) -> str | None:
+    return (
+        user_habit.unidad_objetivo
+        if user_habit.unidad_objetivo is not None
+        else user_habit.habit.unidad_objetivo
+    )
+
+
+def _effective_name(user_habit: UserHabit) -> str:
+    return user_habit.nombre_personalizado or user_habit.habit.nombre
+
+
+def _effective_description(user_habit: UserHabit) -> str | None:
+    return (
+        user_habit.descripcion_personalizada
+        if user_habit.descripcion_personalizada is not None
+        else user_habit.habit.descripcion
+    )
+
+
+def _derive_habit_type(
+    validation_type: str,
+    *,
+    target_quantity: int | None,
+    target_duration: int | None,
+) -> str:
+    if validation_type == "tiempo" or target_duration is not None:
+        return "time"
+    if target_quantity is not None:
+        return "quantity"
+    return "boolean"
+
+
 def serialize_user_habit(user_habit: UserHabit) -> dict:
     """Return a frontend-compatible representation of an assigned habit."""
     catalog_habit = user_habit.habit
     presentation = _get_presentation(catalog_habit.categoria_id)
     created_at = user_habit.fecha_creacion.isoformat() if user_habit.fecha_creacion else None
+    updated_at = (
+        user_habit.fecha_actualizacion.isoformat()
+        if user_habit.fecha_actualizacion
+        else created_at
+    )
+    validation_type = _effective_validation_type(user_habit)
+    frequency = _effective_frequency(user_habit)
+    target_quantity = _effective_quantity_target(user_habit)
+    target_duration = _effective_duration_target(user_habit)
+    target_unit = _effective_target_unit(user_habit)
+    custom_name = user_habit.nombre_personalizado
+    custom_description = user_habit.descripcion_personalizada
+    habit_type = _derive_habit_type(
+        validation_type,
+        target_quantity=target_quantity,
+        target_duration=target_duration,
+    )
 
     return {
         "id": user_habit.id,
         "catalog_habit_id": catalog_habit.id,
         "user_id": user_habit.usuario_id,
-        "name": catalog_habit.nombre,
-        "description": catalog_habit.descripcion,
+        "name": _effective_name(user_habit),
+        "custom_name": custom_name,
+        "description": _effective_description(user_habit),
+        "custom_description": custom_description,
         "difficulty": catalog_habit.dificultad,
         "xp_base": catalog_habit.xp_base,
         "active": bool(user_habit.activo),
         "start_date": user_habit.fecha_inicio.isoformat() if user_habit.fecha_inicio else None,
         "end_date": user_habit.fecha_fin.isoformat() if user_habit.fecha_fin else None,
         "icon": _HABIT_ICONS.get(catalog_habit.id, presentation["icon"]),
-        "habit_type": "boolean",
-        "frequency": "daily",
+        "validation_type": validation_type,
+        "habit_type": habit_type,
+        "frequency": frequency,
         "section": presentation["section"],
-        "target_duration": None,
-        "pomodoro_enabled": False,
-        "target_quantity": None,
-        "target_unit": None,
+        "target_duration": target_duration,
+        "pomodoro_enabled": validation_type == "tiempo",
+        "target_quantity": target_quantity,
+        "target_unit": target_unit,
         "created_at": created_at,
-        "updated_at": created_at,
+        "updated_at": updated_at,
     }
 
 
@@ -102,7 +179,34 @@ def get_habits(user_id: int) -> list[dict]:
     return [serialize_user_habit(user_habit) for user_habit in list_active_user_habits(user_id)]
 
 
-def assign_habit_to_user(user_id: int, habito_id: int) -> dict:
+def get_user_habit_payload(habit_id: int, user_id: int, active_only: bool = True) -> dict | None:
+    """Return a serialized user-habit assignment."""
+    user_habit = get_user_habit(habit_id, user_id, active_only=active_only)
+    if user_habit is None:
+        return None
+    return serialize_user_habit(user_habit)
+
+
+def _apply_user_habit_overrides(user_habit: UserHabit, overrides: dict[str, object]) -> None:
+    if "custom_name" in overrides:
+        user_habit.nombre_personalizado = overrides["custom_name"]
+    if "description" in overrides:
+        user_habit.descripcion_personalizada = overrides["description"]
+    if "validation_type" in overrides:
+        user_habit.tipo_validacion = overrides["validation_type"]
+    if "frequency" in overrides:
+        user_habit.frecuencia = overrides["frequency"]
+    if "target_quantity" in overrides:
+        user_habit.cantidad_objetivo = overrides["target_quantity"]
+    if "target_unit" in overrides:
+        user_habit.unidad_objetivo = overrides["target_unit"]
+    if "target_duration" in overrides:
+        user_habit.duracion_objetivo_minutos = overrides["target_duration"]
+
+    user_habit.fecha_actualizacion = datetime.now(timezone.utc)
+
+
+def assign_habit_to_user(user_id: int, habito_id: int, overrides: dict[str, object] | None = None) -> dict:
     """Assign a catalog habit to a user as an active habit."""
     catalog_habit = get_catalog_habit(habito_id)
     if catalog_habit is None:
@@ -122,7 +226,20 @@ def assign_habit_to_user(user_id: int, habito_id: int) -> dict:
         fecha_inicio=date_type.today(),
         activo=True,
     )
+    if overrides:
+        _apply_user_habit_overrides(user_habit, overrides)
     db.session.add(user_habit)
+    db.session.commit()
+    return serialize_user_habit(user_habit)
+
+
+def update_user_habit(habit_id: int, user_id: int, updates: dict[str, object]) -> dict:
+    """Update user-specific overrides for an assigned habit."""
+    user_habit = get_user_habit(habit_id, user_id, active_only=True)
+    if user_habit is None:
+        raise LookupError("Habit not found.")
+
+    _apply_user_habit_overrides(user_habit, updates)
     db.session.commit()
     return serialize_user_habit(user_habit)
 

@@ -126,3 +126,6 @@ ios/DerivedData/
 
 # .gitignore
 .antigravity/skills/
+
+#. documentacion
+documentation.md

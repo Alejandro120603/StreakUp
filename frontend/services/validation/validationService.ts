@@ -27,9 +27,13 @@ function mapValidationError(error: unknown): Error {
     return new Error("Tu sesión expiró. Inicia sesión de nuevo para validar tu hábito.");
   }
 
-  if (isAppErrorCode(error, "network_unavailable") || isAppErrorCode(error, "backend_unavailable")) {
+  if (isAppErrorCode(error, "network_unavailable")) {
+    return new Error("No se pudo contactar el servicio de validación. Verifica tu conexión.");
+  }
+
+  if (isAppErrorCode(error, "backend_unavailable")) {
     return new Error(
-      "No se pudo contactar el servicio de validación. Verifica tu conexión e inténtalo de nuevo.",
+      "El servidor de validación reportó un error interno o está caído. Inténtalo más tarde.",
     );
   }
 
@@ -39,11 +43,12 @@ function mapValidationError(error: unknown): Error {
 export async function validateHabit(
   habitId: number,
   imageBase64: string,
+  mimeType = "image/jpeg",
 ): Promise<ValidationResult> {
   try {
     return await apiPost<ValidationResult>(
       API_ENDPOINTS.habits.validate,
-      JSON.stringify({ habit_id: habitId, image: imageBase64 }),
+      JSON.stringify({ habit_id: habitId, image_base64: imageBase64, mime_type: mimeType }),
     );
   } catch (error) {
     throw mapValidationError(error);

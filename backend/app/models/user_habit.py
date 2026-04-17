@@ -7,6 +7,8 @@ Responsibility:
 
 from datetime import datetime, timezone
 
+from sqlalchemy import true
+
 from app.extensions import db
 
 
@@ -16,6 +18,26 @@ class UserHabit(db.Model):
     __tablename__ = "habitos_usuario"
     __table_args__ = (
         db.UniqueConstraint("usuario_id", "habito_id", "activo", name="uq_habitos_usuario_activo"),
+        db.CheckConstraint(
+            "fecha_fin IS NULL OR fecha_fin >= fecha_inicio",
+            name="ck_habitos_usuario_fechas",
+        ),
+        db.CheckConstraint(
+            "tipo_validacion IS NULL OR tipo_validacion IN ('foto','texto','tiempo')",
+            name="ck_habitos_usuario_tipo_validacion",
+        ),
+        db.CheckConstraint(
+            "frecuencia IS NULL OR frecuencia IN ('daily','weekly')",
+            name="ck_habitos_usuario_frecuencia",
+        ),
+        db.CheckConstraint(
+            "cantidad_objetivo IS NULL OR cantidad_objetivo >= 0",
+            name="ck_habitos_usuario_cantidad_objetivo_non_negative",
+        ),
+        db.CheckConstraint(
+            "duracion_objetivo_minutos IS NULL OR duracion_objetivo_minutos >= 0",
+            name="ck_habitos_usuario_duracion_objetivo_non_negative",
+        ),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -27,8 +49,21 @@ class UserHabit(db.Model):
     )
     fecha_inicio = db.Column(db.Date, nullable=False)
     fecha_fin = db.Column(db.Date, nullable=True)
-    activo = db.Column(db.Boolean, nullable=False, default=True)
+    activo = db.Column(db.Boolean, nullable=False, default=True, server_default=true())
+    nombre_personalizado = db.Column(db.String(120), nullable=True)
+    descripcion_personalizada = db.Column(db.Text, nullable=True)
+    tipo_validacion = db.Column(db.String(20), nullable=True)
+    frecuencia = db.Column(db.String(20), nullable=True)
+    cantidad_objetivo = db.Column(db.Integer, nullable=True)
+    unidad_objetivo = db.Column(db.String(40), nullable=True)
+    duracion_objetivo_minutos = db.Column(db.Integer, nullable=True)
     fecha_creacion = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=db.text("CURRENT_TIMESTAMP"),
+    )
+    fecha_actualizacion = db.Column(
         db.DateTime,
         nullable=False,
         default=lambda: datetime.now(timezone.utc),

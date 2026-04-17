@@ -6,6 +6,7 @@ Create Date: 2026-04-05
 """
 
 from alembic import op
+import sqlalchemy as sa
 
 
 revision = "0001_initial_baseline"
@@ -15,122 +16,126 @@ depends_on = None
 
 
 def upgrade() -> None:
-    statements = [
-        """
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'user',
-            total_xp INTEGER NOT NULL DEFAULT 0,
-            level INTEGER NOT NULL DEFAULT 1,
-            xp_in_level INTEGER NOT NULL DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-        """,
-        "CREATE INDEX idx_users_email ON users(email)",
-        """
-        CREATE TABLE xp_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario_id INTEGER NOT NULL,
-            cantidad INTEGER NOT NULL,
-            fuente TEXT NOT NULL,
-            fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (usuario_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-        """,
-        "CREATE INDEX idx_xp_logs_usuario ON xp_logs(usuario_id)",
-        """
-        CREATE TABLE categorias (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL UNIQUE,
-            descripcion TEXT
-        )
-        """,
-        """
-        CREATE TABLE habitos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            categoria_id INTEGER NOT NULL,
-            nombre TEXT NOT NULL,
-            descripcion TEXT,
-            dificultad TEXT NOT NULL CHECK (dificultad IN ('facil','media','dificil')),
-            xp_base INTEGER NOT NULL CHECK (xp_base >= 0),
-            FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE CASCADE
-        )
-        """,
-        """
-        CREATE TABLE habitos_usuario (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario_id INTEGER NOT NULL,
-            habito_id INTEGER NOT NULL,
-            fecha_inicio DATE NOT NULL,
-            fecha_fin DATE,
-            activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
-            fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (usuario_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (habito_id) REFERENCES habitos(id) ON DELETE CASCADE,
-            UNIQUE (usuario_id, habito_id, activo)
-        )
-        """,
-        "CREATE INDEX idx_habitos_usuario_usuario ON habitos_usuario(usuario_id)",
-        """
-        CREATE TABLE registro_habitos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            habitousuario_id INTEGER NOT NULL,
-            fecha DATE NOT NULL,
-            completado INTEGER NOT NULL CHECK (completado IN (0,1)),
-            xp_ganado INTEGER NOT NULL CHECK (xp_ganado >= 0),
-            FOREIGN KEY (habitousuario_id) REFERENCES habitos_usuario(id) ON DELETE CASCADE,
-            UNIQUE (habitousuario_id, fecha)
-        )
-        """,
-        "CREATE INDEX idx_registro_fecha ON registro_habitos(fecha)",
-        """
-        CREATE TABLE validaciones (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            habitousuario_id INTEGER NOT NULL,
-            tipo_validacion TEXT NOT NULL CHECK (tipo_validacion IN ('foto','tiempo','manual')),
-            evidencia TEXT,
-            tiempo_segundos INTEGER,
-            validado INTEGER DEFAULT 0 CHECK (validado IN (0,1)),
-            fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (habitousuario_id) REFERENCES habitos_usuario(id) ON DELETE CASCADE
-        )
-        """,
-        """
-        CREATE TABLE niveles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL,
-            xp_minimo INTEGER NOT NULL,
-            xp_maximo INTEGER NOT NULL,
-            recompensa TEXT,
-            descripcion TEXT,
-            CHECK (xp_minimo < xp_maximo)
-        )
-        """,
-    ]
+    op.create_table(
+        "users",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("username", sa.String(length=80), nullable=False, unique=True),
+        sa.Column("email", sa.String(length=120), nullable=False, unique=True),
+        sa.Column("password_hash", sa.String(length=256), nullable=False),
+        sa.Column("role", sa.String(length=20), nullable=False, server_default=sa.text("'user'")),
+        sa.Column("total_xp", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("level", sa.Integer(), nullable=False, server_default=sa.text("1")),
+        sa.Column("xp_in_level", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+    )
+    op.create_index("idx_users_email", "users", ["email"], unique=False)
+    op.create_index("idx_users_username", "users", ["username"], unique=False)
 
-    for statement in statements:
-        op.execute(statement)
+    op.create_table(
+        "categorias",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("nombre", sa.String(length=120), nullable=False, unique=True),
+        sa.Column("descripcion", sa.Text(), nullable=True),
+    )
+    op.create_index("idx_categorias_nombre", "categorias", ["nombre"], unique=False)
+
+    op.create_table(
+        "habitos",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("categoria_id", sa.Integer(), nullable=False),
+        sa.Column("nombre", sa.String(length=120), nullable=False),
+        sa.Column("descripcion", sa.Text(), nullable=True),
+        sa.Column("dificultad", sa.String(length=20), nullable=False),
+        sa.Column("xp_base", sa.Integer(), nullable=False),
+        sa.CheckConstraint("dificultad IN ('facil','media','dificil')", name="ck_habitos_dificultad"),
+        sa.CheckConstraint("xp_base >= 0", name="ck_habitos_xp_base_non_negative"),
+        sa.ForeignKeyConstraint(["categoria_id"], ["categorias.id"], ondelete="CASCADE"),
+    )
+    op.create_index("idx_habitos_categoria", "habitos", ["categoria_id"], unique=False)
+
+    op.create_table(
+        "habitos_usuario",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("usuario_id", sa.Integer(), nullable=False),
+        sa.Column("habito_id", sa.Integer(), nullable=False),
+        sa.Column("fecha_inicio", sa.Date(), nullable=False),
+        sa.Column("fecha_fin", sa.Date(), nullable=True),
+        sa.Column("activo", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("fecha_creacion", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.ForeignKeyConstraint(["usuario_id"], ["users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["habito_id"], ["habitos.id"], ondelete="CASCADE"),
+        sa.UniqueConstraint("usuario_id", "habito_id", "activo", name="uq_habitos_usuario_activo"),
+    )
+    op.create_index("idx_habitos_usuario_usuario", "habitos_usuario", ["usuario_id"], unique=False)
+    op.create_index("idx_habitos_usuario_habito", "habitos_usuario", ["habito_id"], unique=False)
+
+    op.create_table(
+        "registro_habitos",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("habitousuario_id", sa.Integer(), nullable=False),
+        sa.Column("fecha", sa.Date(), nullable=False),
+        sa.Column("completado", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("xp_ganado", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.CheckConstraint("xp_ganado >= 0", name="ck_registro_habitos_xp_non_negative"),
+        sa.ForeignKeyConstraint(["habitousuario_id"], ["habitos_usuario.id"], ondelete="CASCADE"),
+        sa.UniqueConstraint("habitousuario_id", "fecha", name="uq_registro_habitos_fecha"),
+    )
+    op.create_index("idx_registro_fecha", "registro_habitos", ["fecha"], unique=False)
+
+    op.create_table(
+        "validaciones",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("habitousuario_id", sa.Integer(), nullable=False),
+        sa.Column("tipo_validacion", sa.String(length=20), nullable=False),
+        sa.Column("evidencia", sa.Text(), nullable=True),
+        sa.Column("tiempo_segundos", sa.Integer(), nullable=True),
+        sa.Column("validado", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("fecha", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.CheckConstraint("tipo_validacion IN ('foto','tiempo','manual')", name="ck_validaciones_tipo_validacion"),
+        sa.ForeignKeyConstraint(["habitousuario_id"], ["habitos_usuario.id"], ondelete="CASCADE"),
+    )
+    op.create_index("idx_validaciones_habitousuario", "validaciones", ["habitousuario_id"], unique=False)
+
+    op.create_table(
+        "xp_logs",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("usuario_id", sa.Integer(), nullable=False),
+        sa.Column("cantidad", sa.Integer(), nullable=False),
+        sa.Column("fuente", sa.String(length=100), nullable=False),
+        sa.Column("fecha", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.CheckConstraint("fuente IN ('checkin','checkin_undo','validation')", name="ck_xp_logs_fuente"),
+        sa.ForeignKeyConstraint(["usuario_id"], ["users.id"], ondelete="CASCADE"),
+    )
+    op.create_index("idx_xp_logs_usuario", "xp_logs", ["usuario_id"], unique=False)
+
+    op.create_table(
+        "niveles",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("nombre", sa.String(length=120), nullable=False),
+        sa.Column("xp_minimo", sa.Integer(), nullable=False),
+        sa.Column("xp_maximo", sa.Integer(), nullable=False),
+        sa.Column("recompensa", sa.Text(), nullable=True),
+        sa.Column("descripcion", sa.Text(), nullable=True),
+        sa.CheckConstraint("xp_minimo < xp_maximo", name="ck_niveles_rango"),
+    )
 
 
 def downgrade() -> None:
-    statements = [
-        "DROP TABLE IF EXISTS niveles",
-        "DROP TABLE IF EXISTS validaciones",
-        "DROP INDEX IF EXISTS idx_registro_fecha",
-        "DROP TABLE IF EXISTS registro_habitos",
-        "DROP INDEX IF EXISTS idx_habitos_usuario_usuario",
-        "DROP TABLE IF EXISTS habitos_usuario",
-        "DROP TABLE IF EXISTS habitos",
-        "DROP TABLE IF EXISTS categorias",
-        "DROP INDEX IF EXISTS idx_xp_logs_usuario",
-        "DROP TABLE IF EXISTS xp_logs",
-        "DROP INDEX IF EXISTS idx_users_email",
-        "DROP TABLE IF EXISTS users",
-    ]
-
-    for statement in statements:
-        op.execute(statement)
+    op.drop_table("niveles")
+    op.drop_index("idx_xp_logs_usuario", table_name="xp_logs")
+    op.drop_table("xp_logs")
+    op.drop_index("idx_validaciones_habitousuario", table_name="validaciones")
+    op.drop_table("validaciones")
+    op.drop_index("idx_registro_fecha", table_name="registro_habitos")
+    op.drop_table("registro_habitos")
+    op.drop_index("idx_habitos_usuario_habito", table_name="habitos_usuario")
+    op.drop_index("idx_habitos_usuario_usuario", table_name="habitos_usuario")
+    op.drop_table("habitos_usuario")
+    op.drop_index("idx_habitos_categoria", table_name="habitos")
+    op.drop_table("habitos")
+    op.drop_index("idx_categorias_nombre", table_name="categorias")
+    op.drop_table("categorias")
+    op.drop_index("idx_users_username", table_name="users")
+    op.drop_index("idx_users_email", table_name="users")
+    op.drop_table("users")

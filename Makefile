@@ -23,8 +23,8 @@ GRADLE_USER_HOME ?= /tmp/streakup-gradle
 OFFLINE_MODE ?= false
 
 .PHONY: help venv install_requirements run_backend run_backend_prod run_frontend run_local dev \
-	build_frontend sync_android open_android build_apk update-apk-auto \
-	db-init db-init-demo db-bootstrap-catalog db-open db-clean db-reset db-dump db-backup
+	build_frontend build_frontend_mobile sync_android open_android build_apk update-apk-auto \
+	db-init db-init-demo db-bootstrap-catalog db-open db-clean db-reset db-dump db-backup db-psql
 
 # ================================
 # HELP
@@ -84,11 +84,15 @@ build_frontend:
 	@echo "Building frontend..."
 	cd $(FRONTEND_DIR) && NEXT_PUBLIC_OFFLINE_MODE="$(OFFLINE_MODE)" $(NPM) run build
 
+build_frontend_mobile:
+	@echo "Building frontend for Capacitor..."
+	cd $(FRONTEND_DIR) && NEXT_PUBLIC_OFFLINE_MODE="$(OFFLINE_MODE)" $(NPM) run build:mobile
+
 # ================================
 # ANDROID
 # ================================
 sync_android:
-	cd $(FRONTEND_DIR) && $(CAP) sync android
+	cd $(FRONTEND_DIR) && NEXT_PUBLIC_OFFLINE_MODE="$(OFFLINE_MODE)" $(NPM) run sync:android
 
 open_android:
 	cd $(FRONTEND_DIR) && $(CAP) open android
@@ -98,7 +102,6 @@ build_apk:
 	@echo "APK ready at $(APK_DEBUG_PATH)"
 
 update-apk-auto:
-	@$(MAKE) build_frontend
 	@$(MAKE) sync_android
 	@$(MAKE) build_apk
 
@@ -132,6 +135,16 @@ db-reset: ## Reset DB (alias)
 db-open:
 	@test -f $(DB_PATH) || (echo "Run: make db-init" && exit 1)
 	sqlite3 $(DB_PATH)
+
+db-psql: ## Open psql using DATABASE_URL from backend/.env.local
+	@command -v psql >/dev/null 2>&1 || { echo "psql is not installed. Install the PostgreSQL client and try again."; exit 1; }
+	@test -f $(BACKEND_DIR)/.env.local || (echo "Missing $(BACKEND_DIR)/.env.local" && exit 1)
+	@set -a; \
+	. $(BACKEND_DIR)/.env.local; \
+	set +a; \
+	test -n "$$DATABASE_URL" || { echo "DATABASE_URL is not set in $(BACKEND_DIR)/.env.local"; exit 1; }; \
+	echo "Opening psql session using DATABASE_URL from $(BACKEND_DIR)/.env.local..."; \
+	exec psql "$$DATABASE_URL"
 
 db-clean:
 	@rm -f $(DB_PATH)
