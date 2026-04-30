@@ -44,14 +44,16 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     from app.routes.pomodoro_routes import pomodoro_bp
     from app.routes.validation_routes import validation_bp
     from app.routes.achievement_routes import achievements_bp
+    from app.routes.user_routes import user_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(habits_bp, url_prefix="/api")
     app.register_blueprint(checkins_bp, url_prefix="/api/checkins")
     app.register_blueprint(stats_bp, url_prefix="/api/stats")
     app.register_blueprint(pomodoro_bp, url_prefix="/api/pomodoro")
-    app.register_blueprint(validation_bp, url_prefix="/api/habits")
+    app.register_blueprint(validation_bp, url_prefix="/api")
     app.register_blueprint(achievements_bp, url_prefix="/api")
+    app.register_blueprint(user_bp, url_prefix="/api/users")
     app.register_blueprint(ops_bp)
 
     with app.app_context():

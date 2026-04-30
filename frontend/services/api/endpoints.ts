@@ -1,13 +1,19 @@
 export const API_ENDPOINTS = {
   auth: {
     login: "/api/auth/login",
-    register: "/api/auth/register"
+    register: "/api/auth/register",
+  },
+  user: {
+    /** Get the authenticated user's profile */
+    me: "/api/users/me",
+    /** Permanently delete the authenticated user's account */
+    delete: "/api/users/me",
   },
   habits: {
     list: "/api/habits",
     create: "/api/habits",
     catalog: "/api/habits/catalog",
-    validate: "/api/habits/validate",
+    validate: "/api/validate",
     detail: (id: number) => `/api/habits/${id}`,
     update: (id: number) => `/api/habits/${id}`,
     delete: (id: number) => `/api/habits/${id}`,
@@ -25,5 +31,10 @@ export const API_ENDPOINTS = {
     sessions: "/api/pomodoro/sessions",
     complete: (id: number) => `/api/pomodoro/sessions/${id}/complete`,
   },
+  achievements: {
+    /** List all achievements for the authenticated user */
+    list: "/api/achievements",
+  },
 } as const;
+
 

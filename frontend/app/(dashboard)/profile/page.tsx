@@ -24,89 +24,29 @@ import {
   ChevronRight,
   ImageIcon,
   LogOut,
+  Trash2,
 } from "lucide-react";
 import { fetchProfileStats, fetchXpInfo, fetchDetailedStats } from "@/services/stats/statsService";
 import { getSession, clearSession } from "@/services/auth/authService";
+import { deleteAccount } from "@/services/auth/accountService";
+import { fetchAchievements } from "@/services/achievements/achievementService";
+import type { AchievementItem } from "@/services/achievements/achievementService";
 import { cn } from "@/lib/utils";
 import { ClayMotionBox } from "@/components/ui/clay-motion-box";
+import { ConfirmDeleteAccountModal } from "@/components/feedback/ConfirmDeleteAccountModal";
 import type { ProfileStats, XpInfo } from "@/types/stats";
 
-interface AchievementDef {
-  name: string;
-  icon: typeof Zap;
-  color: string;
-  description: string;
-  check: (data: AchievementData) => boolean;
-}
 
-interface AchievementData {
-  streak: number;
-  totalCheckins: number;
-  totalValidations: number;
-  habitsCount: number;
-  longestStreak: number;
-  activeDays: number;
-  level: number;
-}
+// Icon mapping for achievement keys coming from the backend
+const ACHIEVEMENT_ICON_MAP: Record<string, typeof Zap> = {
+  first_validation: ImageIcon,
+  streak_7: Flame,
+  completions_30: Trophy,
+};
 
-const ACHIEVEMENTS: AchievementDef[] = [
-  {
-    name: "Principiante",
-    icon: Zap,
-    color: "bg-blue-600",
-    description: "Crea tu primer hábito",
-    check: (d) => d.habitsCount >= 1,
-  },
-  {
-    name: "Consistente",
-    icon: Flame,
-    color: "bg-yellow-600",
-    description: "Racha de 3 días",
-    check: (d) => d.streak >= 3,
-  },
-  {
-    name: "Dedicado",
-    icon: Award,
-    color: "bg-green-600",
-    description: "10 check-ins totales",
-    check: (d) => d.totalCheckins >= 10,
-  },
-  {
-    name: "Imparable",
-    icon: Target,
-    color: "bg-orange-600",
-    description: "Racha de 7 días",
-    check: (d) => d.streak >= 7,
-  },
-  {
-    name: "Validador",
-    icon: ImageIcon,
-    color: "bg-teal-600",
-    description: "5 validaciones exitosas",
-    check: (d) => d.totalValidations >= 5,
-  },
-  {
-    name: "Maestro",
-    icon: Crown,
-    color: "bg-red-600",
-    description: "Alcanza nivel 5",
-    check: (d) => d.level >= 5,
-  },
-  {
-    name: "Leyenda",
-    icon: Gem,
-    color: "bg-purple-600",
-    description: "Racha de 30 días",
-    check: (d) => d.longestStreak >= 30,
-  },
-  {
-    name: "Perfeccionista",
-    icon: Sparkles,
-    color: "bg-amber-600",
-    description: "50 días activos",
-    check: (d) => d.activeDays >= 50,
-  },
-];
+function getAchievementIcon(key: string): typeof Zap {
+  return ACHIEVEMENT_ICON_MAP[key] ?? Award;
+}
 
 export default function ProfilePage() {
   const [user, setUser] = useState<{ username: string; email: string } | null>(null);
@@ -126,6 +66,8 @@ export default function ProfilePage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [achievements, setAchievements] = useState<AchievementItem[]>([]);
 
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -143,10 +85,11 @@ export default function ProfilePage() {
       }
 
       try {
-        const [profileStats, xp, detailed] = await Promise.all([
+        const [profileStats, xp, detailed, achievementList] = await Promise.all([
           fetchProfileStats(),
           fetchXpInfo(),
           fetchDetailedStats(),
+          fetchAchievements(),
         ]);
 
         setStats(profileStats);
@@ -154,6 +97,7 @@ export default function ProfilePage() {
         setRecords(detailed.records);
         setTotalCompleted(detailed.summary.total_completed);
         setValidationStats(detailed.validations);
+        setAchievements(achievementList);
         setError("");
       } catch (err) {
         setError(err instanceof Error ? err.message : "No se pudieron cargar los datos del perfil.");
@@ -164,19 +108,9 @@ export default function ProfilePage() {
     fetchData();
   }, []);
 
-  const achievementData: AchievementData = useMemo(() => ({
-    streak: records.current_streak,
-    totalCheckins: totalCompleted,
-    totalValidations: validationStats.total_successful,
-    habitsCount: stats.habits_count,
-    longestStreak: records.longest_streak,
-    activeDays: records.active_days,
-    level: xpInfo.level,
-  }), [records, stats, totalCompleted, validationStats, xpInfo]);
-
   const unlockedCount = useMemo(() => {
-    return ACHIEVEMENTS.filter((a) => a.check(achievementData)).length;
-  }, [achievementData]);
+    return achievements.filter((a) => a.earned).length;
+  }, [achievements]);
 
   if (loading || !mounted) {
     return (
@@ -190,6 +124,12 @@ export default function ProfilePage() {
     clearSession();
     router.push("/login");
   };
+
+  async function handleDeleteAccount() {
+    await deleteAccount();
+    clearSession();
+    router.push("/login");
+  }
 
   if (error) {
     return (
@@ -280,7 +220,7 @@ export default function ProfilePage() {
         </ClayMotionBox>
         <ClayMotionBox className="p-4 space-y-1 !rounded-2xl">
           <Trophy className="size-5 text-yellow-400" />
-          <p className="text-2xl font-bold text-foreground">{unlockedCount}/{ACHIEVEMENTS.length}</p>
+          <p className="text-2xl font-bold text-foreground">{unlockedCount}/{achievements.length}</p>
           <p className="text-xs text-muted-foreground">Total logros</p>
         </ClayMotionBox>
       </div>
@@ -289,29 +229,43 @@ export default function ProfilePage() {
       <ClayMotionBox className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Logros</h2>
-          <span className="text-xs text-muted-foreground">{unlockedCount} de {ACHIEVEMENTS.length}</span>
+          <span className="text-xs text-muted-foreground">{unlockedCount} de {achievements.length}</span>
         </div>
-        <div className="grid grid-cols-3 @xs:grid-cols-4 gap-3">
-          {ACHIEVEMENTS.map((ach) => {
-            const unlocked = ach.check(achievementData);
-            return (
-              <div
-                key={ach.name}
-                className={cn("flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all",
-                  unlocked
-                    ? `${ach.color} text-white shadow-inner`
-                    : "bg-secondary text-muted-foreground opacity-50"
-                )}
-                title={ach.description}
-              >
-                <ach.icon className="size-5" />
-                <span className="text-[9px] font-medium text-center leading-tight">
-                  {ach.name}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+
+        {achievements.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Cargando logros...
+          </p>
+        ) : (
+          <div className="grid grid-cols-3 @xs:grid-cols-4 gap-3">
+            {achievements.map((ach) => {
+              const IconComp = getAchievementIcon(ach.key);
+              return (
+                <div
+                  key={ach.key}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all relative",
+                    ach.earned
+                      ? "bg-gradient-to-br from-yellow-600 to-orange-600 text-white shadow-inner shadow-orange-700/30"
+                      : "bg-secondary text-muted-foreground opacity-50"
+                  )}
+                  title={ach.description ?? ach.name}
+                >
+                  <span className="text-xl leading-none">{ach.emoji}</span>
+                  <IconComp className="size-4" />
+                  <span className="text-[9px] font-medium text-center leading-tight">
+                    {ach.name}
+                  </span>
+                  {ach.earned && ach.xp_bonus > 0 && (
+                    <span className="text-[8px] font-bold text-yellow-200">
+                      +{ach.xp_bonus} XP
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </ClayMotionBox>
 
       {/* Récords */}
@@ -425,7 +379,26 @@ export default function ProfilePage() {
           </div>
           <ChevronRight className="size-4 text-muted-foreground" />
         </button>
+
+        {/* Danger zone */}
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          className="w-full flex items-center justify-between p-4 hover:bg-red-500/10 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Trash2 className="size-4 text-red-500" />
+            <span className="text-sm text-red-500 font-medium">Eliminar cuenta</span>
+          </div>
+          <ChevronRight className="size-4 text-red-500/50" />
+        </button>
       </ClayMotionBox>
+
+      {/* Delete account confirmation modal */}
+      <ConfirmDeleteAccountModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteAccount}
+      />
     </div>
   );
 }

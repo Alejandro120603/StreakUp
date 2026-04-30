@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Flame, Clock, TrendingUp, Plus, Check, Timer, Snowflake, Hourglass, icons } from "lucide-react";
 import { fetchTodayHabits, toggleCheckin } from "@/services/checkins/checkinService";
 import { fetchStatsSummary } from "@/services/stats/statsService";
+import { showAchievementToast } from "@/components/feedback/AchievementToast";
 import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/types/habits";
 import type { TodayHabit } from "@/types/checkins";
@@ -89,6 +90,13 @@ export default function DashboardHomePage() {
           habit.id === result.habit_id ? { ...habit, checked_today: result.checked } : habit,
         ),
       );
+
+      // Fire achievement toasts for any newly unlocked achievements.
+      if (Array.isArray(result.new_achievements)) {
+        result.new_achievements.forEach((ach: { emoji: string; name: string; xp_bonus?: number; description?: string | null }) => {
+          showAchievementToast(ach);
+        });
+      }
 
       try {
         setStats(await fetchStatsSummary());

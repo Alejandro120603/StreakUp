@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Play, Pause, Square } from "lucide-react";
@@ -26,117 +26,182 @@ type TimerState = "idle" | "focus" | "break" | "finished";
 
 /* ─── Animated Theme Components ─── */
 
-function CandleAnimation({ progress }: { progress: number }) {
-  const height = 60 + progress * 40; // candle height 60-100
-  const flameScale = 0.3 + progress * 0.7;
-  const flameOpacity = 0.4 + progress * 0.6;
+interface AnimProps { progress: number; isPaused?: boolean; isActive?: boolean; }
+
+function FireAnimation({ progress, isPaused, isActive }: AnimProps) {
+  const scale = 0.35 + progress * 0.65;
+  const opacity = 0.35 + progress * 0.65;
+  const dur = isPaused ? "9999s" : "0.8s";
+  const durFast = isPaused ? "9999s" : "0.6s";
+  const glowR = Math.round(20 + progress * 40);
 
   return (
-    <svg viewBox="0 0 100 160" className="w-24 h-32 mx-auto">
-      {/* Candle body */}
-      <rect x="30" y={160 - height} width="40" height={height} rx="4" fill="#8B5CF6" opacity="0.8" />
-      {/* Wick */}
-      <line x1="50" y1={160 - height - 5} x2="50" y2={160 - height} stroke="#555" strokeWidth="2" />
-      {/* Flame */}
-      <g transform={`translate(50, ${155 - height}) scale(${flameScale})`} opacity={flameOpacity}>
-        <ellipse cx="0" cy="-15" rx="6" ry="12" fill="#FCD34D">
-          <animate attributeName="rx" values="5;7;5" dur="0.5s" repeatCount="indefinite" />
-          <animate attributeName="ry" values="10;14;10" dur="0.7s" repeatCount="indefinite" />
-        </ellipse>
-        <ellipse cx="0" cy="-12" rx="3" ry="7" fill="#FBBF24">
-          <animate attributeName="ry" values="6;8;6" dur="0.4s" repeatCount="indefinite" />
-        </ellipse>
-      </g>
-      {/* Wax drips */}
-      {progress > 0.3 && (
-        <circle cx="32" cy={160 - height + 10} r="3" fill="#7C3AED" opacity="0.5" />
-      )}
-    </svg>
-  );
-}
-
-function FireAnimation({ progress }: { progress: number }) {
-  const scale = 0.3 + progress * 0.7;
-  const opacity = 0.3 + progress * 0.7;
-
-  return (
-    <svg viewBox="0 0 120 120" className="w-28 h-28 mx-auto" opacity={opacity}>
-      <g transform={`translate(60, 110) scale(${scale})`}>
+    <svg viewBox="0 0 140 150" className="w-32 h-36 mx-auto" style={{ filter: isActive && !isPaused ? `drop-shadow(0 0 ${glowR}px rgba(249,115,22,0.7))` : undefined }}>
+      {/* Ember particles */}
+      {isActive && !isPaused && [
+        { cx: 50, delay: "0s", dur2: "1.2s" },
+        { cx: 70, delay: "0.4s", dur2: "1.5s" },
+        { cx: 90, delay: "0.8s", dur2: "1.0s" },
+      ].map((e, i) => (
+        <circle key={i} cx={e.cx} r="2.5" fill="#FBBF24" opacity="0.8">
+          <animate attributeName="cy" values="120;40;10" dur={e.dur2} begin={e.delay} repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.9;0.5;0" dur={e.dur2} begin={e.delay} repeatCount="indefinite" />
+          <animate attributeName="r" values="2.5;1.5;0" dur={e.dur2} begin={e.delay} repeatCount="indefinite" />
+        </circle>
+      ))}
+      <g transform={`translate(70, 130) scale(${scale})`} opacity={opacity}>
         {/* Outer flame */}
         <path d="M0,-80 C-20,-60 -30,-30 -25,0 C-25,15 -15,20 0,20 C15,20 25,15 25,0 C30,-30 20,-60 0,-80Z" fill="#F97316">
           <animate attributeName="d"
-            values="M0,-80 C-20,-60 -30,-30 -25,0 C-25,15 -15,20 0,20 C15,20 25,15 25,0 C30,-30 20,-60 0,-80Z;
-                    M0,-85 C-25,-60 -28,-35 -22,0 C-22,15 -12,22 0,22 C12,22 22,15 22,0 C28,-35 25,-60 0,-85Z;
-                    M0,-80 C-20,-60 -30,-30 -25,0 C-25,15 -15,20 0,20 C15,20 25,15 25,0 C30,-30 20,-60 0,-80Z"
-            dur="0.8s" repeatCount="indefinite" />
+            values="M0,-80 C-20,-60 -30,-30 -25,0 C-25,15 -15,20 0,20 C15,20 25,15 25,0 C30,-30 20,-60 0,-80Z;M0,-88 C-25,-62 -28,-35 -22,0 C-22,15 -12,22 0,22 C12,22 22,15 22,0 C28,-35 25,-62 0,-88Z;M0,-80 C-20,-60 -30,-30 -25,0 C-25,15 -15,20 0,20 C15,20 25,15 25,0 C30,-30 20,-60 0,-80Z"
+            dur={dur} repeatCount="indefinite" />
         </path>
-        {/* Inner flame */}
-        <path d="M0,-50 C-10,-35 -15,-15 -12,0 C-12,10 -6,14 0,14 C6,14 12,10 12,0 C15,-15 10,-35 0,-50Z" fill="#FBBF24">
+        {/* Middle flame */}
+        <path d="M0,-55 C-12,-38 -16,-18 -13,0 C-13,10 -6,15 0,15 C6,15 13,10 13,0 C16,-18 12,-38 0,-55Z" fill="#FB923C">
           <animate attributeName="d"
-            values="M0,-50 C-10,-35 -15,-15 -12,0 C-12,10 -6,14 0,14 C6,14 12,10 12,0 C15,-15 10,-35 0,-50Z;
-                    M0,-55 C-12,-35 -13,-18 -10,0 C-10,10 -5,16 0,16 C5,16 10,10 10,0 C13,-18 12,-35 0,-55Z;
-                    M0,-50 C-10,-35 -15,-15 -12,0 C-12,10 -6,14 0,14 C6,14 12,10 12,0 C15,-15 10,-35 0,-50Z"
-            dur="0.6s" repeatCount="indefinite" />
+            values="M0,-55 C-12,-38 -16,-18 -13,0 C-13,10 -6,15 0,15 C6,15 13,10 13,0 C16,-18 12,-38 0,-55Z;M0,-60 C-14,-36 -14,-20 -11,0 C-11,11 -5,17 0,17 C5,17 11,11 11,0 C14,-20 14,-36 0,-60Z;M0,-55 C-12,-38 -16,-18 -13,0 C-13,10 -6,15 0,15 C6,15 13,10 13,0 C16,-18 12,-38 0,-55Z"
+            dur={durFast} repeatCount="indefinite" />
         </path>
+        {/* Inner hot core */}
+        <path d="M0,-30 C-6,-20 -8,-8 -6,0 C-6,6 -3,9 0,9 C3,9 6,6 6,0 C8,-8 6,-20 0,-30Z" fill="#FEF08A" />
       </g>
     </svg>
   );
 }
 
-function IceAnimation({ progress }: { progress: number }) {
-  const meltOffset = (1 - progress) * 30;
-  const puddleWidth = (1 - progress) * 30;
+function CandleAnimation({ progress, isPaused, isActive }: AnimProps) {
+  const height = 55 + progress * 45;
+  const flameScale = 0.4 + progress * 0.6;
+  const dur = isPaused ? "9999s" : "0.55s";
+  const durSlow = isPaused ? "9999s" : "1.8s";
 
   return (
-    <svg viewBox="0 0 100 120" className="w-24 h-28 mx-auto">
-      {/* Ice cube */}
-      <g transform={`translate(0, ${meltOffset})`}>
-        <rect x="20" y="20" width="60" height={60 * progress + 10} rx="6" fill="#60A5FA" opacity={0.4 + progress * 0.5}>
-          <animate attributeName="opacity" values={`${0.4 + progress * 0.5};${0.3 + progress * 0.5};${0.4 + progress * 0.5}`} dur="2s" repeatCount="indefinite" />
-        </rect>
-        {/* Shine */}
-        <rect x="30" y="30" width="8" height={20 * progress} rx="3" fill="white" opacity="0.3" />
-        <rect x="42" y="25" width="5" height={15 * progress} rx="2" fill="white" opacity="0.2" />
+    <svg viewBox="0 0 120 180" className="w-28 h-40 mx-auto"
+      style={{ filter: isActive && !isPaused ? "drop-shadow(0 0 18px rgba(168,85,247,0.6))" : undefined }}>
+      {/* Ambient glow behind flame */}
+      {isActive && <ellipse cx="60" cy={170 - height - 10} rx="18" ry="8" fill="#A855F7" opacity="0.15"><animate attributeName="opacity" values="0.1;0.25;0.1" dur={durSlow} repeatCount="indefinite" /></ellipse>}
+      {/* Candle body with gradient */}
+      <defs>
+        <linearGradient id="candleGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#6D28D9" />
+          <stop offset="50%" stopColor="#8B5CF6" />
+          <stop offset="100%" stopColor="#5B21B6" />
+        </linearGradient>
+      </defs>
+      <rect x="35" y={170 - height} width="50" height={height} rx="5" fill="url(#candleGrad)" />
+      {/* Highlight */}
+      <rect x="42" y={172 - height} width="8" height={height * 0.6} rx="4" fill="white" opacity="0.12" />
+      {/* Wax drips */}
+      {progress > 0.25 && <path d={`M35,${175 - height} Q32,${183 - height} 35,${191 - height}`} stroke="#7C3AED" strokeWidth="5" fill="none" strokeLinecap="round" opacity="0.5" />}
+      {progress > 0.5  && <path d={`M82,${178 - height} Q85,${186 - height} 82,${196 - height}`} stroke="#6D28D9" strokeWidth="4" fill="none" strokeLinecap="round" opacity="0.4" />}
+      {/* Wick */}
+      <line x1="60" y1={162 - height} x2="60" y2={168 - height} stroke="#374151" strokeWidth="2.5" />
+      {/* Flame */}
+      <g transform={`translate(60,${158 - height}) scale(${flameScale})`}>
+        <ellipse cx="0" cy="-16" rx="7" ry="14" fill="#FDE68A">
+          <animate attributeName="rx" values="6;8;5;7;6" dur={dur} repeatCount="indefinite" />
+          <animate attributeName="ry" values="12;16;11;15;12" dur={dur} repeatCount="indefinite" />
+        </ellipse>
+        <ellipse cx="0" cy="-13" rx="4" ry="9" fill="#F59E0B">
+          <animate attributeName="ry" values="8;10;7;9;8" dur="0.4s" repeatCount="indefinite" />
+        </ellipse>
+        <ellipse cx="0" cy="-10" rx="2" ry="5" fill="white" opacity="0.6" />
       </g>
-      {/* Puddle */}
-      <ellipse cx="50" cy={95 + meltOffset / 2} rx={10 + puddleWidth} ry="6" fill="#3B82F6" opacity="0.3" />
-      {/* Drip */}
-      {progress > 0.2 && progress < 0.9 && (
-        <circle cx="55" cy={80 + meltOffset} r="3" fill="#60A5FA" opacity="0.5">
-          <animate attributeName="cy" values={`${70 + meltOffset};${90 + meltOffset};${70 + meltOffset}`} dur="1.5s" repeatCount="indefinite" />
-        </circle>
+    </svg>
+  );
+}
+
+function IceAnimation({ progress, isPaused }: AnimProps) {
+  const meltY = (1 - progress) * 28;
+  const puddleRx = 8 + (1 - progress) * 32;
+  const cubeH = 30 + progress * 35;
+  const dripDur = isPaused ? "9999s" : "1.4s";
+
+  return (
+    <svg viewBox="0 0 110 140" className="w-28 h-36 mx-auto">
+      <defs>
+        <linearGradient id="iceGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#BAE6FD" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.5" />
+        </linearGradient>
+        <filter id="iceBlur"><feGaussianBlur stdDeviation="1" /></filter>
+      </defs>
+      <g transform={`translate(0,${meltY})`}>
+        {/* Main ice block */}
+        <rect x="22" y="20" width="66" height={cubeH} rx="7" fill="url(#iceGrad)" />
+        {/* Refraction facets */}
+        <polygon points="22,20 55,20 40,38" fill="white" opacity="0.18" />
+        <polygon points="88,20 55,20 70,35" fill="white" opacity="0.12" />
+        {/* Vertical shine */}
+        <rect x="32" y="24" width="7" height={cubeH * 0.55} rx="3" fill="white" opacity="0.28" />
+        <rect x="44" y="22" width="4" height={cubeH * 0.35} rx="2" fill="white" opacity="0.18" />
+        {/* Crack lines */}
+        {progress < 0.7 && <line x1="60" y1="28" x2="72" y2={28 + cubeH * 0.4} stroke="white" strokeWidth="1" opacity="0.15" />}
+      </g>
+      {/* Drip 1 */}
+      {progress > 0.15 && progress < 0.92 && (
+        <ellipse cx="58" rx="3" ry="4" fill="#60A5FA" opacity="0.7">
+          <animate attributeName="cy" values={`${40 + meltY};${105};${40 + meltY}`} dur={dripDur} repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.8;0.3;0" dur={dripDur} repeatCount="indefinite" />
+        </ellipse>
       )}
+      {/* Drip 2 */}
+      {progress > 0.3 && progress < 0.88 && (
+        <ellipse cx="42" rx="2" ry="3" fill="#93C5FD" opacity="0.6">
+          <animate attributeName="cy" values={`${38 + meltY};${108};${38 + meltY}`} dur="1.9s" begin="0.7s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.7;0.2;0" dur="1.9s" begin="0.7s" repeatCount="indefinite" />
+        </ellipse>
+      )}
+      {/* Puddle */}
+      <ellipse cx="55" cy="118" rx={puddleRx} ry="6" fill="#3B82F6" opacity={0.15 + (1 - progress) * 0.25} />
     </svg>
   );
 }
 
-function HourglassAnimation({ progress }: { progress: number }) {
-  const topSand = progress * 35;
-  const bottomSand = (1 - progress) * 35;
+function HourglassAnimation({ progress, isPaused, isActive }: AnimProps) {
+  const topSand = progress * 34;
+  const bottomSand = (1 - progress) * 34;
+  // Rotate 180° when session is running and NOT paused
+  const rotation = isActive && !isPaused ? "animate-spin-slow" : "";
+  const streamDur = isPaused ? "9999s" : "0.5s";
 
   return (
-    <svg viewBox="0 0 80 120" className="w-20 h-28 mx-auto">
-      {/* Frame */}
-      <rect x="15" y="5" width="50" height="6" rx="2" fill="#D97706" opacity="0.8" />
-      <rect x="15" y="109" width="50" height="6" rx="2" fill="#D97706" opacity="0.8" />
-      {/* Glass outline */}
-      <path d="M20,11 L20,45 L40,60 L60,45 L60,11" fill="none" stroke="#D97706" strokeWidth="2" opacity="0.5" />
-      <path d="M20,109 L20,75 L40,60 L60,75 L60,109" fill="none" stroke="#D97706" strokeWidth="2" opacity="0.5" />
-      {/* Top sand */}
-      <path d={`M22,${13 + (35 - topSand)} L40,${48 - topSand * 0.2} L58,${13 + (35 - topSand)} Z`} fill="#FBBF24" opacity="0.7" />
-      {/* Bottom sand */}
-      <path d={`M22,${107 - bottomSand} L40,${107 - bottomSand * 0.8} L58,${107 - bottomSand} L58,107 L22,107 Z`} fill="#FBBF24" opacity="0.7" />
-      {/* Falling sand stream */}
-      {progress > 0.05 && progress < 0.95 && (
-        <line x1="40" y1="55" x2="40" y2={75 + bottomSand * 0.3} stroke="#FBBF24" strokeWidth="2" opacity="0.6">
-          <animate attributeName="opacity" values="0.6;0.3;0.6" dur="0.5s" repeatCount="indefinite" />
+    <svg viewBox="0 0 90 130" className={`w-24 h-32 mx-auto transition-transform duration-700 ${rotation}`}
+      style={isActive && !isPaused ? { animation: "hourglass-sway 4s ease-in-out infinite" } : undefined}>
+      {/* Frame bars */}
+      <rect x="12" y="3" width="66" height="8" rx="3" fill="#D97706" />
+      <rect x="12" y="119" width="66" height="8" rx="3" fill="#D97706" />
+      {/* Vertical frame rods */}
+      <line x1="16" y1="11" x2="16" y2="119" stroke="#B45309" strokeWidth="3" />
+      <line x1="74" y1="11" x2="74" y2="119" stroke="#B45309" strokeWidth="3" />
+      {/* Glass outline top */}
+      <path d="M20,11 L20,48 L45,63 L70,48 L70,11 Z" fill="#FEF3C7" opacity="0.06" stroke="#D97706" strokeWidth="1.5" opacity2="0.5" />
+      {/* Glass outline bottom */}
+      <path d="M20,119 L20,82 L45,67 L70,82 L70,119 Z" fill="#FEF3C7" opacity="0.06" stroke="#D97706" strokeWidth="1.5" />
+      {/* Top sand mass */}
+      <path d={`M22,${14 + (34 - topSand)} L45,${50 - topSand * 0.22} L68,${14 + (34 - topSand)} Z`} fill="#FBBF24" opacity="0.75" />
+      {/* Bottom sand mass */}
+      <path d={`M22,${117 - bottomSand} L45,${117 - bottomSand * 0.75} L68,${117 - bottomSand} L68,117 L22,117 Z`} fill="#FCD34D" opacity="0.75" />
+      {/* Sand stream */}
+      {progress > 0.04 && progress < 0.96 && (
+        <line x1="45" y1="59" x2="45" y2={77 + bottomSand * 0.35} stroke="#FBBF24" strokeWidth="2.5" opacity="0.65">
+          <animate attributeName="opacity" values="0.65;0.25;0.65" dur={streamDur} repeatCount="indefinite" />
+          <animate attributeName="strokeWidth" values="2.5;1.5;2.5" dur={streamDur} repeatCount="indefinite" />
         </line>
       )}
+      {/* Center pinch glow */}
+      <ellipse cx="45" cy="63" rx="4" ry="2" fill="#FDE68A" opacity="0.4" />
+      <style>{`
+        @keyframes hourglass-sway {
+          0%,100% { transform: rotate(-2deg); }
+          50%       { transform: rotate(2deg); }
+        }
+      `}</style>
     </svg>
   );
 }
 
-const THEME_ANIMATIONS: Record<ThemeKey, React.FC<{ progress: number }>> = {
+const THEME_ANIMATIONS: Record<ThemeKey, React.FC<AnimProps>> = {
   fire: FireAnimation,
   candle: CandleAnimation,
   ice: IceAnimation,
@@ -303,7 +368,11 @@ function PomodoroContent() {
       <div className="flex-1 flex flex-col items-center px-4 pb-8 max-w-lg mx-auto w-full">
         {/* Theme Animation */}
         <div className="py-4">
-          <ThemeAnim progress={progress} />
+          <ThemeAnim
+            progress={progress}
+            isPaused={isPaused}
+            isActive={timerState !== "idle" && timerState !== "finished"}
+          />
         </div>
 
         {/* Circular Timer */}
@@ -407,12 +476,24 @@ function PomodoroContent() {
               Comenzar
             </Button>
           ) : timerState === "finished" ? (
-            <Button
-              onClick={stopTimer}
-              className="w-full h-12 rounded-xl text-base font-semibold bg-[#5D5FEF] hover:bg-[#4B4DDC] text-white"
-            >
-              ¡Sesión completada! Reiniciar
-            </Button>
+            <div className="w-full space-y-4 text-center py-4">
+              {/* Trophy */}
+              <div className="text-7xl animate-bounce">🏆</div>
+              <div className="space-y-1">
+                <p className="text-xl font-bold text-white">¡Sesión Completada!</p>
+                <p className="text-sm text-muted-foreground">
+                  {cycles} ciclo{cycles !== 1 ? "s" : ""} · {studyMinutes}min enfocado · {breakMinutes}min descanso
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  onClick={stopTimer}
+                  className="flex-1 h-12 rounded-xl text-sm font-semibold bg-[#5D5FEF] hover:bg-[#4B4DDC] text-white"
+                >
+                  Nueva sesión
+                </Button>
+              </div>
+            </div>
           ) : (
             <>
               <Button

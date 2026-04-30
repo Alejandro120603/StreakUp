@@ -196,6 +196,52 @@ export function shouldUseOfflineFallback(error: unknown): boolean {
   return error instanceof OfflineModeError;
 }
 
+// ─── Request timeout (ms) ────────────────────────────────────────────────────
+const REQUEST_TIMEOUT_MS = 15_000;
+
+/** Wrap a fetch call with an AbortController that times out after REQUEST_TIMEOUT_MS. */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new AppError(
+        "network_unavailable",
+        "La solicitud tardó demasiado. Verifica tu conexión e inténtalo de nuevo.",
+        { cause: error },
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timerId);
+  }
+}
+
+/** Try the fetch once; on a transient network error, wait briefly and retry once. */
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  isNetworkError: (err: unknown) => boolean,
+): Promise<Response> {
+  try {
+    return await fetchWithTimeout(url, init);
+  } catch (firstError) {
+    // Only retry on genuine network-level failures, not on app-level errors.
+    if (!isNetworkError(firstError)) {
+      throw firstError;
+    }
+    // Wait 800 ms before the single retry attempt.
+    await new Promise<void>((resolve) => setTimeout(resolve, 800));
+    return fetchWithTimeout(url, init);
+  }
+}
+
 export async function apiRequest<T>({ path, headers, ...options }: RequestOptions): Promise<T> {
   if (isOfflineModeActive()) {
     throw new OfflineModeError();
@@ -209,13 +255,17 @@ export async function apiRequest<T>({ path, headers, ...options }: RequestOption
     throw mapTransportError(error);
   }
 
+  const isRetryableNetworkError = (err: unknown): boolean =>
+    err instanceof TypeError;
+
   let response: Response;
 
   try {
-    response = await fetch(`${apiBaseUrl}${path}`, {
-      ...options,
-      headers: buildAuthHeaders(headers),
-    });
+    response = await fetchWithRetry(
+      `${apiBaseUrl}${path}`,
+      { ...options, headers: buildAuthHeaders(headers) },
+      isRetryableNetworkError,
+    );
   } catch (error) {
     throw mapTransportError(error);
   }

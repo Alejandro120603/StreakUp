@@ -6,6 +6,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, ListChecks, BarChart3, UserCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { hasSavedSession } from "@/services/auth/authService";
+import { NetworkStatusBanner } from "@/components/feedback/NetworkStatusBanner";
+import { AchievementToast } from "@/components/feedback/AchievementToast";
+
 
 const NAV_ITEMS = [
   { href: "/", icon: Home, label: "Inicio" },
@@ -39,6 +42,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Red online/offline indicator — visible on all pages */}
+      <NetworkStatusBanner />
+
+      {/* Achievement unlock toast — shown whenever any page triggers it */}
+      <AchievementToast />
+
       {/* Main content */}
       <main className="flex-1 pb-20">
         {children}
