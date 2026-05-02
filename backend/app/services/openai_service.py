@@ -9,12 +9,15 @@ import base64
 import json
 
 from flask import current_app
+import openai
 from openai import OpenAI
 
 from app.config import is_openai_configured
 
 VALIDATION_NOT_CONFIGURED_CODE = "validation_not_configured"
 VALIDATION_PROVIDER_UNAVAILABLE_CODE = "validation_provider_unavailable"
+VALIDATION_AUTH_ERROR_CODE = "validation_auth_error"
+VALIDATION_QUOTA_EXCEEDED_CODE = "validation_quota_exceeded"
 SUPPORTED_IMAGE_MIME_TYPES = {
     "image/jpeg",
     "image/jpg",
@@ -118,6 +121,18 @@ def analyze_habit_image(habit_name: str, image_base64: str, mime_type: str | Non
             max_tokens=300,
             temperature=0.2,
         )
+    except openai.AuthenticationError as exc:
+        current_app.logger.exception("Habit validation auth error.")
+        raise ValidationUnavailableError(
+            "La llave de OpenAI es inválida o ha sido revocada.",
+            VALIDATION_AUTH_ERROR_CODE,
+        ) from exc
+    except openai.RateLimitError as exc:
+        current_app.logger.exception("Habit validation rate limit or quota exceeded.")
+        raise ValidationUnavailableError(
+            "Se han agotado los créditos o la cuota de OpenAI.",
+            VALIDATION_QUOTA_EXCEEDED_CODE,
+        ) from exc
     except Exception as exc:
         current_app.logger.exception("Habit validation provider call failed.")
         raise ValidationUnavailableError(

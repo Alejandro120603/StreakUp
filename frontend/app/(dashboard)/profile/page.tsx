@@ -32,10 +32,8 @@ import { deleteAccount } from "@/services/auth/accountService";
 import { fetchAchievements } from "@/services/achievements/achievementService";
 import type { AchievementItem } from "@/services/achievements/achievementService";
 import { cn } from "@/lib/utils";
-import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 import { ConfirmDeleteAccountModal } from "@/components/feedback/ConfirmDeleteAccountModal";
 import type { ProfileStats, XpInfo } from "@/types/stats";
-
 
 // Icon mapping for achievement keys coming from the backend
 const ACHIEVEMENT_ICON_MAP: Record<string, typeof Zap> = {
@@ -115,7 +113,7 @@ export default function ProfilePage() {
   if (loading || !mounted) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="size-8 border-2 border-[#5D5FEF] border-t-transparent rounded-full animate-spin" />
+        <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -133,131 +131,131 @@ export default function ProfilePage() {
 
   if (error) {
     return (
-      <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
-        <div className="flex items-center justify-between">
+      <div className="space-y-[24px]">
+        <div className="flex items-center justify-between gap-[14px]">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Perfil</h1>
-            <p className="text-sm text-muted-foreground">Tu progreso y logros</p>
+            <h2 className="text-[30px] leading-[1.05] font-bold">Perfil</h2>
+            <p className="text-white/74 text-[15px]">Tu progreso y logros</p>
           </div>
         </div>
 
-        <ClayMotionBox className="p-6 space-y-4 text-center">
+        <div className="p-[24px] rounded-[24px] bg-white/10 border border-white/20 text-center space-y-4">
           <div className="space-y-2">
-            <h2 className="text-lg font-semibold text-foreground">Perfil no disponible</h2>
-            <p className="text-sm text-muted-foreground">{error}</p>
+            <h2 className="text-[18px] font-bold text-white">Perfil no disponible</h2>
+            <p className="text-[14px] text-white/74">{error}</p>
           </div>
           <button
             onClick={() => window.location.reload()}
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex h-[48px] items-center justify-center rounded-[20px] bg-[var(--purple)] px-[20px] text-[15px] font-bold text-white transition-transform active:scale-95"
           >
             Reintentar
           </button>
-        </ClayMotionBox>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
+    <div className="space-y-[24px] pb-[80px]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Perfil</h1>
-          <p className="text-sm text-muted-foreground">Tu progreso y logros</p>
+          <h2 className="text-[30px] leading-[1.05] font-bold">Perfil</h2>
+          <p className="text-white/74 text-[15px]">Tu progreso y logros</p>
         </div>
-        <button className="text-muted-foreground hover:text-foreground transition-colors">
-          <Settings className="size-5" />
+        <button className="w-[48px] h-[48px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-white/25">
+          <Settings className="size-6 text-white" />
         </button>
       </div>
 
       {/* User Card */}
-      <ClayMotionBox className="p-4 flex items-center gap-4">
-          <div className="size-14 rounded-2xl bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-2xl shadow-inner">
-            <Rocket className="size-8 text-white drop-shadow-md" />
+      <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 flex items-center gap-[16px]">
+          <div className="w-[64px] h-[64px] rounded-[20px] bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-2xl shadow-inner border border-white/20 shrink-0">
+            <Rocket className="size-8 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
           </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-foreground text-lg">{user?.username ?? "Usuario"}</span>
-              <span className="text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-bold text-[20px] truncate">{user?.username ?? "Usuario"}</span>
+              <span className="text-[11px] font-bold bg-[var(--purple)]/30 text-[var(--purple2)] px-[8px] py-[2px] rounded-full border border-[var(--purple)]/50 shrink-0">
                 <Trophy className="size-3 inline mr-1" /> Nivel {xpInfo.level}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Racha actual: {records.current_streak} días <Flame className="size-3 inline text-orange-400" />
+            <p className="text-[13px] text-white/74 font-medium mb-3">
+              Racha actual: {records.current_streak} días <Flame className="size-3 inline text-[var(--yellow)]" />
             </p>
             {/* XP Bar */}
-            <div className="mt-2">
-              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+            <div>
+              <div className="flex justify-between text-[11px] text-white/74 font-bold mb-1">
                 <span>Experiencia</span>
                 <span>{xpInfo.xp_in_level} / {xpInfo.xp_for_next_level} XP</span>
               </div>
-              <div className="h-2 rounded-full bg-secondary overflow-hidden">
+              <div className="h-[8px] rounded-full bg-white/10 overflow-hidden shadow-inner border border-white/5">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-500 transition-all duration-500"
+                  className="h-full rounded-full bg-gradient-to-r from-[var(--purple)] to-[var(--purple2)] transition-all duration-500 shadow-[0_0_12px_rgba(157,85,255,0.6)]"
                   style={{ width: `${xpInfo.progress_pct}%` }}
                 />
               </div>
             </div>
           </div>
-      </ClayMotionBox>
+      </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 @sm:grid-cols-4 gap-3">
-        <ClayMotionBox className="p-4 space-y-1 !rounded-2xl">
-          <Target className="size-5 text-primary" />
-          <p className="text-2xl font-bold text-foreground">{stats.habits_count}</p>
-          <p className="text-xs text-muted-foreground">Hábitos creados</p>
-        </ClayMotionBox>
-        <ClayMotionBox className="p-4 space-y-1 !rounded-2xl">
-          <Star className="size-5 text-purple-400" />
-          <p className="text-2xl font-bold text-foreground">{records.active_days}</p>
-          <p className="text-xs text-muted-foreground">Días activos</p>
-        </ClayMotionBox>
-        <ClayMotionBox className="p-4 space-y-1 !rounded-2xl">
-          <Flame className="size-5 text-orange-400" />
-          <p className="text-2xl font-bold text-foreground">{records.longest_streak}</p>
-          <p className="text-xs text-muted-foreground">Racha más larga</p>
-        </ClayMotionBox>
-        <ClayMotionBox className="p-4 space-y-1 !rounded-2xl">
-          <Trophy className="size-5 text-yellow-400" />
-          <p className="text-2xl font-bold text-foreground">{unlockedCount}/{achievements.length}</p>
-          <p className="text-xs text-muted-foreground">Total logros</p>
-        </ClayMotionBox>
+      <div className="grid grid-cols-2 gap-[14px]">
+        <div className="p-[16px] rounded-[20px] bg-white/13 border border-white/20 text-center space-y-1">
+          <Target className="size-5 text-[var(--purple2)] drop-shadow-[0_0_8px_rgba(157,85,255,0.5)] mx-auto" />
+          <p className="text-[24px] font-bold">{stats.habits_count}</p>
+          <p className="text-[12px] text-white/74">Hábitos creados</p>
+        </div>
+        <div className="p-[16px] rounded-[20px] bg-white/13 border border-white/20 text-center space-y-1">
+          <Star className="size-5 text-[var(--yellow)] drop-shadow-[0_0_8px_rgba(255,229,54,0.5)] mx-auto" />
+          <p className="text-[24px] font-bold">{records.active_days}</p>
+          <p className="text-[12px] text-white/74">Días activos</p>
+        </div>
+        <div className="p-[16px] rounded-[20px] bg-white/13 border border-white/20 text-center space-y-1">
+          <Flame className="size-5 text-orange-400 drop-shadow-[0_0_8px_rgba(255,150,0,0.5)] mx-auto" />
+          <p className="text-[24px] font-bold">{records.longest_streak}</p>
+          <p className="text-[12px] text-white/74">Racha más larga</p>
+        </div>
+        <div className="p-[16px] rounded-[20px] bg-white/13 border border-white/20 text-center space-y-1">
+          <Trophy className="size-5 text-[#36d98f] drop-shadow-[0_0_8px_rgba(54,217,143,0.5)] mx-auto" />
+          <p className="text-[24px] font-bold">{unlockedCount}/{achievements.length}</p>
+          <p className="text-[12px] text-white/74">Total logros</p>
+        </div>
       </div>
 
       {/* Logros */}
-      <ClayMotionBox className="p-4 space-y-3">
+      <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[16px]">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Logros</h2>
-          <span className="text-xs text-muted-foreground">{unlockedCount} de {achievements.length}</span>
+          <h3 className="text-[18px] font-bold">Logros</h3>
+          <span className="text-[13px] text-white/74 font-bold">{unlockedCount} de {achievements.length}</span>
         </div>
 
         {achievements.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
+          <p className="text-[13px] text-white/55 text-center py-4 font-bold">
             Cargando logros...
           </p>
         ) : (
-          <div className="grid grid-cols-3 @xs:grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-[10px]">
             {achievements.map((ach) => {
               const IconComp = getAchievementIcon(ach.key);
               return (
                 <div
                   key={ach.key}
                   className={cn(
-                    "flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all relative",
+                    "flex flex-col items-center gap-[6px] p-[12px] rounded-[16px] transition-all relative border",
                     ach.earned
-                      ? "bg-gradient-to-br from-yellow-600 to-orange-600 text-white shadow-inner shadow-orange-700/30"
-                      : "bg-secondary text-muted-foreground opacity-50"
+                      ? "bg-gradient-to-br from-[var(--purple)] to-[var(--purple2)] border-[var(--purple2)] shadow-[0_0_12px_rgba(157,85,255,0.4)]"
+                      : "bg-white/5 border-white/5 opacity-50"
                   )}
                   title={ach.description ?? ach.name}
                 >
-                  <span className="text-xl leading-none">{ach.emoji}</span>
+                  <span className="text-[24px] leading-none drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">{ach.emoji}</span>
                   <IconComp className="size-4" />
-                  <span className="text-[9px] font-medium text-center leading-tight">
+                  <span className="text-[10px] font-bold text-center leading-tight">
                     {ach.name}
                   </span>
                   {ach.earned && ach.xp_bonus > 0 && (
-                    <span className="text-[8px] font-bold text-yellow-200">
+                    <span className="text-[9px] font-black text-[var(--yellow)] drop-shadow-[0_0_5px_rgba(255,229,54,0.5)]">
                       +{ach.xp_bonus} XP
                     </span>
                   )}
@@ -266,132 +264,147 @@ export default function ProfilePage() {
             })}
           </div>
         )}
-      </ClayMotionBox>
+      </div>
 
       {/* Récords */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground px-1">Récords Históricos</h2>
-        <ClayMotionBox className="p-0 overflow-hidden divide-y divide-border">
-          <div className="flex items-center gap-3 p-4">
-            <Flame className="size-5 text-orange-400" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Racha más larga</p>
-              <p className="text-xs text-muted-foreground">Tu mejor marca</p>
+      <div className="space-y-[12px]">
+        <h3 className="text-[18px] font-bold px-1">Récords Históricos</h3>
+        <div className="p-0 overflow-hidden rounded-[24px] bg-white/13 border border-white/20 divide-y divide-white/10">
+          <div className="flex items-center gap-[14px] p-[20px]">
+            <div className="w-[40px] h-[40px] rounded-[12px] bg-orange-500/20 text-orange-400 grid place-items-center">
+              <Flame className="size-5 drop-shadow-[0_0_8px_rgba(255,150,0,0.5)]" />
             </div>
-            <span className="text-lg font-bold text-foreground">{records.longest_streak} días</span>
-          </div>
-          <div className="flex items-center gap-3 p-4">
-            <Calendar className="size-5 text-green-400" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Días activos</p>
-              <p className="text-xs text-muted-foreground">Total histórico</p>
+              <p className="text-[15px] font-bold leading-tight">Racha más larga</p>
+              <p className="text-[12px] text-white/74">Tu mejor marca</p>
             </div>
-            <span className="text-lg font-bold text-foreground">{records.active_days}</span>
+            <span className="text-[20px] font-black">{records.longest_streak} <span className="text-[12px] font-normal text-white/74">d</span></span>
           </div>
-          <div className="flex items-center gap-3 p-4">
-            <Zap className="size-5 text-primary" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Mejor día</p>
-              <p className="text-xs text-muted-foreground">Más hábitos en un día</p>
+          
+          <div className="flex items-center gap-[14px] p-[20px]">
+            <div className="w-[40px] h-[40px] rounded-[12px] bg-[#36d98f]/20 text-[#36d98f] grid place-items-center">
+              <Calendar className="size-5 drop-shadow-[0_0_8px_rgba(54,217,143,0.5)]" />
             </div>
-            <span className="text-lg font-bold text-foreground">{records.best_day}</span>
-          </div>
-          <div className="flex items-center gap-3 p-4">
-            <ImageIcon className="size-5 text-emerald-400" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Validaciones exitosas</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[15px] font-bold leading-tight">Días activos</p>
+              <p className="text-[12px] text-white/74">Total histórico</p>
+            </div>
+            <span className="text-[20px] font-black">{records.active_days}</span>
+          </div>
+          
+          <div className="flex items-center gap-[14px] p-[20px]">
+            <div className="w-[40px] h-[40px] rounded-[12px] bg-[var(--purple)]/20 text-[var(--purple2)] grid place-items-center">
+              <Zap className="size-5 drop-shadow-[0_0_8px_rgba(157,85,255,0.5)]" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-bold leading-tight">Mejor día</p>
+              <p className="text-[12px] text-white/74">Más hábitos en un día</p>
+            </div>
+            <span className="text-[20px] font-black">{records.best_day}</span>
+          </div>
+          
+          <div className="flex items-center gap-[14px] p-[20px]">
+            <div className="w-[40px] h-[40px] rounded-[12px] bg-emerald-400/20 text-emerald-400 grid place-items-center">
+              <ImageIcon className="size-5 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-bold leading-tight">Validaciones exitosas</p>
+              <p className="text-[12px] text-white/74">
                 {validationStats.success_rate}% tasa de éxito
               </p>
             </div>
-            <span className="text-lg font-bold text-foreground">{validationStats.total_successful}</span>
+            <span className="text-[20px] font-black">{validationStats.total_successful}</span>
           </div>
-        </ClayMotionBox>
+        </div>
       </div>
 
       {/* XP Total */}
-      <ClayMotionBox className="p-4 flex items-center gap-4">
-        <div className="size-12 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
-          <Sparkles className="size-6 text-yellow-950" />
+      <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 flex items-center gap-[16px]">
+        <div className="w-[56px] h-[56px] rounded-[16px] bg-gradient-to-br from-[var(--yellow)] to-orange-500 flex items-center justify-center border border-white/20">
+          <Sparkles className="size-6 text-orange-950" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-medium text-foreground">XP Total</p>
-          <p className="text-xs text-muted-foreground">Nivel {xpInfo.level}</p>
+          <p className="text-[16px] font-bold text-white">XP Total</p>
+          <p className="text-[13px] text-white/74 font-bold">Nivel {xpInfo.level}</p>
         </div>
-        <span className="text-2xl font-bold text-foreground">{xpInfo.total_xp}</span>
-      </ClayMotionBox>
+        <span className="text-[28px] font-black drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]">{xpInfo.total_xp}</span>
+      </div>
 
       {/* Settings */}
-      <ClayMotionBox className="p-0 overflow-hidden divide-y divide-border">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <Bell className="size-4 text-muted-foreground" />
-            <span className="text-sm text-foreground">Notificaciones</span>
+      <div className="p-0 overflow-hidden rounded-[24px] bg-white/13 border border-white/20 divide-y divide-white/10">
+        <div className="flex items-center justify-between p-[20px] bg-white/5">
+          <div className="flex items-center gap-[12px]">
+            <Bell className="size-5 text-white/74" />
+            <span className="text-[15px] font-bold text-white">Notificaciones</span>
           </div>
-          <div className="w-10 h-6 bg-primary rounded-full flex items-center p-0.5">
-            <div className="size-5 bg-white rounded-full ml-auto" />
+          <div className="w-[44px] h-[26px] bg-[var(--purple)] rounded-full flex items-center p-[2px]">
+            <div className="size-[22px] bg-white rounded-full ml-auto shadow-[0_0_8px_rgba(0,0,0,0.2)]" />
           </div>
         </div>
 
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between p-[20px] hover:bg-white/5 transition-colors cursor-pointer">
+          <div className="flex items-center gap-[12px]">
             {theme === "dark" ? (
-              <Moon className="size-4 text-muted-foreground" />
+              <Moon className="size-5 text-white/74" />
             ) : theme === "light" ? (
-              <Sun className="size-4 text-muted-foreground" />
+              <Sun className="size-5 text-white/74" />
             ) : (
-              <Monitor className="size-4 text-muted-foreground" />
+              <Monitor className="size-5 text-white/74" />
             )}
-            <span className="text-sm text-foreground">Tema</span>
+            <span className="text-[15px] font-bold text-white">Tema</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[8px]">
             <select
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
-              className="bg-transparent text-sm text-muted-foreground outline-none appearance-none cursor-pointer"
+              className="bg-transparent text-[13px] font-bold text-white/74 outline-none appearance-none cursor-pointer"
             >
               <option value="system">Sistema</option>
+              <option value="theme-fire">Fuego</option>
+              <option value="theme-ice">Hielo</option>
+              <option value="theme-candy">Dulce</option>
+              <option value="theme-night">Noche</option>
               <option value="light">Claro</option>
               <option value="dark">Oscuro</option>
             </select>
-            <ChevronRight className="size-4 text-muted-foreground pointer-events-none" />
+            <ChevronRight className="size-5 text-white/40 pointer-events-none" />
           </div>
         </div>
 
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <Globe className="size-4 text-muted-foreground" />
-            <span className="text-sm text-foreground">Idioma</span>
+        <div className="flex items-center justify-between p-[20px] hover:bg-white/5 transition-colors cursor-pointer">
+          <div className="flex items-center gap-[12px]">
+            <Globe className="size-5 text-white/74" />
+            <span className="text-[15px] font-bold text-white">Idioma</span>
           </div>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <div className="flex items-center gap-[8px] text-[13px] font-bold text-white/74">
             <span>Español</span>
-            <ChevronRight className="size-4" />
+            <ChevronRight className="size-5 text-white/40" />
           </div>
         </div>
 
         <button 
           onClick={handleLogout}
-          className="w-full flex items-center justify-between p-4 hover:bg-secondary transition-colors"
+          className="w-full flex items-center justify-between p-[20px] hover:bg-white/5 transition-colors"
         >
-          <div className="flex items-center gap-3">
-            <LogOut className="size-4 text-destructive" />
-            <span className="text-sm text-destructive font-medium">Cerrar Sesión</span>
+          <div className="flex items-center gap-[12px]">
+            <LogOut className="size-5 text-red-400" />
+            <span className="text-[15px] text-red-400 font-bold">Cerrar Sesión</span>
           </div>
-          <ChevronRight className="size-4 text-muted-foreground" />
+          <ChevronRight className="size-5 text-white/40" />
         </button>
 
         {/* Danger zone */}
         <button
           onClick={() => setShowDeleteModal(true)}
-          className="w-full flex items-center justify-between p-4 hover:bg-red-500/10 transition-colors"
+          className="w-full flex items-center justify-between p-[20px] hover:bg-red-500/10 transition-colors"
         >
-          <div className="flex items-center gap-3">
-            <Trash2 className="size-4 text-red-500" />
-            <span className="text-sm text-red-500 font-medium">Eliminar cuenta</span>
+          <div className="flex items-center gap-[12px]">
+            <Trash2 className="size-5 text-red-500" />
+            <span className="text-[15px] text-red-500 font-bold">Eliminar cuenta</span>
           </div>
-          <ChevronRight className="size-4 text-red-500/50" />
+          <ChevronRight className="size-5 text-red-500/50" />
         </button>
-      </ClayMotionBox>
+      </div>
 
       {/* Delete account confirmation modal */}
       <ConfirmDeleteAccountModal

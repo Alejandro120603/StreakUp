@@ -1,9 +1,7 @@
 {
   "/(dashboard)/profile/page": "app/(dashboard)/profile/page.js",
-  "/(dashboard)/habits/page": "app/(dashboard)/habits/page.js",
-  "/(dashboard)/stats/page": "app/(dashboard)/stats/page.js",
-  "/(dashboard)/habits/edit/page": "app/(dashboard)/habits/edit/page.js",
-  "/(dashboard)/habits/validate/page": "app/(dashboard)/habits/validate/page.js",
   "/(dashboard)/page": "app/(dashboard)/page.js",
+  "/(dashboard)/habits/page": "app/(dashboard)/habits/page.js",
+  "/(dashboard)/habits/validate/page": "app/(dashboard)/habits/validate/page.js",
   "/(dashboard)/habits/new/page": "app/(dashboard)/habits/new/page.js"
 }

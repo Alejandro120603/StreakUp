@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { fetchDetailedStats } from "@/services/stats/statsService";
 import { getStatsViewState } from "@/services/stats/statsViewState";
-import { ClayMotionBox } from "@/components/ui/clay-motion-box";
+import { StatCard } from "@/components/ui/StatCard";
 
 /* ── Types ────────────────────────────────────── */
 
@@ -78,7 +78,7 @@ const CompletionRing = memo(function CompletionRing({ rate }: { rate: number }) 
           fill="none"
           stroke="currentColor"
           strokeWidth="8"
-          className="text-border"
+          className="text-white/10"
         />
         <circle
           cx="64"
@@ -90,18 +90,18 @@ const CompletionRing = memo(function CompletionRing({ rate }: { rate: number }) 
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          className="transition-all duration-1000 ease-out"
+          className="transition-all duration-1000 ease-out drop-shadow-[0_0_12px_rgba(36,207,255,0.6)]"
         />
         <defs>
           <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#5D5FEF" />
-            <stop offset="100%" stopColor="#A855F7" />
+            <stop offset="0%" stopColor="var(--purple)" />
+            <stop offset="100%" stopColor="var(--purple2)" />
           </linearGradient>
         </defs>
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold text-foreground">{rate}%</span>
-        <span className="text-[10px] text-muted-foreground">completado</span>
+        <span className="text-[32px] font-bold text-white leading-none">{rate}%</span>
+        <span className="text-[11px] text-white/74 uppercase font-bold tracking-wider mt-1">Completado</span>
       </div>
     </div>
   );
@@ -113,32 +113,29 @@ const WeeklyChart = memo(function WeeklyChart({ data }: { data: WeekDay[] }) {
   const maxVal = Math.max(...data.map((d) => d.total), 1);
 
   return (
-    <div className="flex items-end justify-between gap-2 h-32">
+    <div className="flex items-end justify-between gap-2 h-[128px]">
       {data.map((day) => {
         const pct = maxVal > 0 ? (day.completed / maxVal) * 100 : 0;
-        const isToday =
-          day.date === new Date().toISOString().split("T")[0];
+        const isToday = day.date === new Date().toISOString().split("T")[0];
+        
         return (
-          <div
-            key={day.date}
-            className="flex-1 flex flex-col items-center gap-1"
-          >
-            <span className="text-[10px] text-muted-foreground font-medium">
+          <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+            <span className="text-[10px] text-white/55 font-bold">
               {day.completed}
             </span>
-            <div className="w-full h-24 bg-secondary rounded-lg relative overflow-hidden">
+            <div className="w-full h-24 bg-white/10 rounded-lg relative overflow-hidden shadow-inner border border-white/5">
               <div
                 className={`absolute bottom-0 left-0 right-0 rounded-lg transition-all duration-700 ease-out ${
                   isToday
-                    ? "bg-gradient-to-t from-primary to-[#8B5CF6]"
-                    : "bg-gradient-to-t from-primary/60 to-[#8B5CF6]/40"
+                    ? "bg-gradient-to-t from-[var(--purple)] to-[var(--purple2)] shadow-[0_0_12px_rgba(157,85,255,0.6)]"
+                    : "bg-gradient-to-t from-[var(--purple)]/50 to-[var(--purple2)]/50"
                 }`}
-                style={{ height: `${Math.max(pct, 4)}%` }}
+                style={{ height: `${Math.max(pct, 8)}%` }}
               />
             </div>
             <span
-              className={`text-[10px] font-medium ${
-                isToday ? "text-primary" : "text-muted-foreground"
+              className={`text-[10px] font-bold ${
+                isToday ? "text-[var(--yellow)] drop-shadow-[0_0_5px_rgba(255,229,54,0.6)]" : "text-white/55"
               }`}
             >
               {day.label}
@@ -154,10 +151,10 @@ const WeeklyChart = memo(function WeeklyChart({ data }: { data: WeekDay[] }) {
 
 const StreakCalendar = memo(function StreakCalendar({ data }: { data: CalendarDay[] }) {
   const intensityColors = [
-    "bg-secondary",
-    "bg-primary/30",
-    "bg-primary/60",
-    "bg-primary",
+    "bg-white/10 border border-white/5",
+    "bg-[var(--purple)]/30 border border-[var(--purple)]/20",
+    "bg-[var(--purple)]/60 border border-[var(--purple)]/40 shadow-[0_0_8px_rgba(157,85,255,0.4)]",
+    "bg-[var(--purple)] border border-[var(--purple2)] shadow-[0_0_12px_rgba(157,85,255,0.8)]",
   ];
 
   return (
@@ -166,7 +163,7 @@ const StreakCalendar = memo(function StreakCalendar({ data }: { data: CalendarDa
         <div
           key={day.date}
           title={`${day.date}: ${day.count} completados`}
-          className={`aspect-square rounded-[4px] ${
+          className={`aspect-square rounded-[6px] ${
             intensityColors[day.intensity]
           } transition-colors`}
         />
@@ -206,7 +203,7 @@ export default function StatsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -215,22 +212,22 @@ export default function StatsPage() {
 
   if (viewState.kind === "empty" || viewState.kind === "error") {
     return (
-      <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
+      <div className="space-y-[24px]">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Estadísticas</h1>
-          <p className="text-sm text-muted-foreground">Tu progreso en detalle</p>
+          <h2 className="text-[30px] leading-[1.05] font-bold">Estadísticas</h2>
+          <p className="text-white/74 text-[15px]">Tu progreso en detalle</p>
         </div>
 
-        <ClayMotionBox className="p-6 space-y-4 text-center">
+        <div className="p-[24px] rounded-[24px] bg-white/10 border border-white/20 text-center space-y-4">
           <div className="space-y-2">
-            <h2 className="text-lg font-semibold text-foreground">{viewState.title}</h2>
-            <p className="text-sm text-muted-foreground">{viewState.message}</p>
+            <h2 className="text-[18px] font-bold text-white">{viewState.title}</h2>
+            <p className="text-[14px] text-white/74">{viewState.message}</p>
           </div>
 
           {viewState.kind === "empty" ? (
             <Link
               href="/habits/new"
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex h-[48px] items-center justify-center rounded-[20px] bg-[var(--purple)] px-[20px] text-[15px] font-bold text-white transition-transform active:scale-95"
             >
               Agregar hábito del catálogo
             </Link>
@@ -241,12 +238,12 @@ export default function StatsPage() {
                 setLoading(true);
                 void fetchStats();
               }}
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex h-[48px] items-center justify-center rounded-[20px] bg-[var(--purple)] px-[20px] text-[15px] font-bold text-white transition-transform active:scale-95"
             >
               Reintentar
             </button>
           )}
-        </ClayMotionBox>
+        </div>
       </div>
     );
   }
@@ -262,151 +259,142 @@ export default function StatsPage() {
   const records = stats.records;
 
   return (
-    <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
+    <div className="space-y-[24px]">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Estadísticas</h1>
-        <p className="text-sm text-muted-foreground">Tu progreso en detalle</p>
+        <h2 className="text-[30px] leading-[1.05] font-bold">Estadísticas</h2>
+        <p className="text-white/74 text-[15px]">Tu progreso en detalle</p>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <ClayMotionBox className="p-3 text-center space-y-1 !rounded-2xl">
-          <Flame className="size-5 text-orange-400 mx-auto" />
-          <p className="text-xs text-muted-foreground">Racha</p>
-          <p className="text-lg font-bold text-foreground">
-            {summary.streak} <span className="text-xs font-normal text-muted-foreground">días</span>
-          </p>
-        </ClayMotionBox>
-        <ClayMotionBox className="p-3 text-center space-y-1 !rounded-2xl">
-          <TrendingUp className="size-5 text-primary mx-auto" />
-          <p className="text-xs text-muted-foreground">Tasa</p>
-          <p className="text-lg font-bold text-foreground">
-            {summary.completion_rate}<span className="text-xs font-normal text-muted-foreground">%</span>
-          </p>
-        </ClayMotionBox>
-        <ClayMotionBox className="p-3 text-center space-y-1 !rounded-2xl">
-          <Target className="size-5 text-green-400 mx-auto" />
-          <p className="text-xs text-muted-foreground">Total</p>
-          <p className="text-lg font-bold text-foreground">{summary.total_completed}</p>
-        </ClayMotionBox>
+      <div className="grid grid-cols-2 gap-[14px]">
+        <StatCard emoji="🔥" label="Racha" value={`${summary.streak} días`} />
+        <StatCard emoji="🎯" label="Tasa" value={`${summary.completion_rate}%`} />
       </div>
 
-      {/* Completion Ring + Weekly Chart side by side on larger screens */}
-      <div className="grid grid-cols-1 @md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-[14px]">
+        <StatCard emoji="🚀" label="Total Hábitos" value={summary.total_habits} />
+        <StatCard emoji="✨" label="Total Check-ins" value={summary.total_completed} />
+      </div>
+
+      {/* Completion Ring + Weekly Chart */}
+      <div className="space-y-[14px]">
         {/* Weekly Bar Chart */}
-        <ClayMotionBox className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="size-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold text-foreground">
-              Actividad semanal
-            </h2>
+        <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[16px]">
+          <div className="flex items-center gap-[8px]">
+            <BarChart3 className="size-5 text-[var(--yellow)] drop-shadow-[0_0_8px_rgba(255,229,54,0.5)]" />
+            <h3 className="text-[18px] font-bold">Actividad semanal</h3>
           </div>
           <WeeklyChart data={weekly} />
-        </ClayMotionBox>
+        </div>
 
         {/* Completion Ring */}
-        <ClayMotionBox className="p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground text-center">
-            Tasa de completado
-          </h2>
+        <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[16px]">
+          <h3 className="text-[18px] font-bold text-center">Tasa de completado</h3>
           <CompletionRing rate={summary.completion_rate} />
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-[13px] text-white/74 text-center font-medium">
             Últimos 7 días
           </p>
-        </ClayMotionBox>
+        </div>
       </div>
 
       {/* Per-habit Breakdown */}
       {perHabit.length > 0 ? (
-        <ClayMotionBox className="p-4 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground">
-            Desglose por hábito
-          </h2>
-          <div className="space-y-3">
+        <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[20px]">
+          <h3 className="text-[18px] font-bold">Desglose por hábito</h3>
+          <div className="space-y-[16px]">
             {perHabit.map((h) => {
               const IconComp = icons[h.icon as keyof typeof icons] || icons.Circle;
               return (
-              <div key={h.id} className="space-y-1.5">
+              <div key={h.id} className="space-y-[8px]">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base text-primary"><IconComp className="size-5" /></span>
-                    <span className="text-sm text-foreground font-medium">
+                  <div className="flex items-center gap-[10px]">
+                    <span className="w-[36px] h-[36px] rounded-[12px] bg-white/18 grid place-items-center text-white">
+                      <IconComp className="size-5" />
+                    </span>
+                    <span className="text-[15px] font-bold">
                       {h.name}
                     </span>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {h.completed}/{h.total} días
+                  <span className="text-[13px] text-white/74 font-bold">
+                    {h.completed}/{h.total} d
                   </span>
                 </div>
-                <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                <div className="h-[10px] rounded-full bg-white/10 overflow-hidden shadow-inner border border-white/5">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-primary to-[#A855F7] transition-all duration-700 ease-out"
+                    className="h-full rounded-full bg-gradient-to-r from-[var(--purple)] to-[var(--purple2)] transition-all duration-700 ease-out shadow-[0_0_12px_rgba(157,85,255,0.6)]"
                     style={{ width: `${h.rate}%` }}
                   />
                 </div>
               </div>
             )})}
           </div>
-        </ClayMotionBox>
+        </div>
       ) : null}
 
       {/* 30-day Calendar */}
-      <ClayMotionBox className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="size-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">
-            Últimos 30 días
-          </h2>
+      <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[16px]">
+        <div className="flex items-center gap-[8px]">
+          <Calendar className="size-5 text-[var(--yellow)] drop-shadow-[0_0_8px_rgba(255,229,54,0.5)]" />
+          <h3 className="text-[18px] font-bold">Últimos 30 días</h3>
         </div>
         <StreakCalendar data={calendar} />
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <span className="text-[9px] text-muted-foreground">Menos</span>
-          <div className="flex gap-1">
-            <div className="size-3 rounded-[2px] bg-secondary" />
-            <div className="size-3 rounded-[2px] bg-primary/30" />
-            <div className="size-3 rounded-[2px] bg-primary/60" />
-            <div className="size-3 rounded-[2px] bg-primary" />
+        <div className="flex items-center justify-end gap-[6px] pt-2">
+          <span className="text-[11px] text-white/55 font-bold">Menos</span>
+          <div className="flex gap-[4px]">
+            <div className="size-[14px] rounded-[4px] bg-white/10 border border-white/5" />
+            <div className="size-[14px] rounded-[4px] bg-[var(--purple)]/30 border border-[var(--purple)]/20" />
+            <div className="size-[14px] rounded-[4px] bg-[var(--purple)]/60 border border-[var(--purple)]/40" />
+            <div className="size-[14px] rounded-[4px] bg-[var(--purple)] border border-[var(--purple2)] shadow-[0_0_8px_rgba(157,85,255,0.8)]" />
           </div>
-          <span className="text-[9px] text-muted-foreground">Más</span>
+          <span className="text-[11px] text-white/55 font-bold">Más</span>
         </div>
-      </ClayMotionBox>
+      </div>
 
       {/* Records */}
-      <ClayMotionBox className="p-0 overflow-hidden divide-y divide-border">
-        <div className="flex items-center gap-2 px-4 py-4">
-          <Trophy className="size-4 text-yellow-400" />
-          <h2 className="text-sm font-semibold text-foreground">Récords personales</h2>
+      <div className="p-0 overflow-hidden rounded-[24px] bg-white/13 border border-white/20 divide-y divide-white/10">
+        <div className="flex items-center gap-[8px] p-[20px] bg-white/5">
+          <Trophy className="size-5 text-[var(--yellow)] drop-shadow-[0_0_8px_rgba(255,229,54,0.5)]" />
+          <h3 className="text-[18px] font-bold">Récords personales</h3>
         </div>
-        <div className="flex items-center gap-3 px-4 py-4">
-          <Flame className="size-5 text-orange-400" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Racha más larga</p>
-            <p className="text-xs text-muted-foreground">Tu mejor marca</p>
+        
+        <div className="flex items-center gap-[14px] p-[20px]">
+          <div className="w-[46px] h-[46px] rounded-[14px] bg-orange-500/20 text-orange-400 grid place-items-center">
+            <Flame className="size-6 drop-shadow-[0_0_8px_rgba(255,150,0,0.5)]" />
           </div>
-          <span className="text-lg font-bold text-foreground">
-            {records.longest_streak} <span className="text-xs font-normal text-muted-foreground">días</span>
+          <div className="flex-1">
+            <p className="text-[16px] font-bold leading-tight">Racha más larga</p>
+            <p className="text-[13px] text-white/74">Tu mejor marca</p>
+          </div>
+          <span className="text-[24px] font-black tracking-tight">
+            {records.longest_streak} <span className="text-[14px] font-normal text-white/74">días</span>
           </span>
         </div>
-        <div className="flex items-center gap-3 px-4 py-4">
-          <Zap className="size-5 text-primary" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Mejor día</p>
-            <p className="text-xs text-muted-foreground">Más hábitos en un día</p>
+
+        <div className="flex items-center gap-[14px] p-[20px]">
+          <div className="w-[46px] h-[46px] rounded-[14px] bg-[var(--purple)]/20 text-[var(--purple2)] grid place-items-center">
+            <Zap className="size-6 drop-shadow-[0_0_8px_rgba(157,85,255,0.5)]" />
           </div>
-          <span className="text-lg font-bold text-foreground">{records.best_day}</span>
+          <div className="flex-1">
+            <p className="text-[16px] font-bold leading-tight">Mejor día</p>
+            <p className="text-[13px] text-white/74">Más hábitos en un día</p>
+          </div>
+          <span className="text-[24px] font-black tracking-tight">{records.best_day}</span>
         </div>
-        <div className="flex items-center gap-3 px-4 py-4">
-          <TrendingUp className="size-5 text-green-400" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Racha actual</p>
-            <p className="text-xs text-muted-foreground">Días consecutivos</p>
+
+        <div className="flex items-center gap-[14px] p-[20px]">
+          <div className="w-[46px] h-[46px] rounded-[14px] bg-[#36d98f]/20 text-[#36d98f] grid place-items-center">
+            <TrendingUp className="size-6 drop-shadow-[0_0_8px_rgba(54,217,143,0.5)]" />
           </div>
-          <span className="text-lg font-bold text-foreground">
-            {records.current_streak} <span className="text-xs font-normal text-muted-foreground">días</span>
+          <div className="flex-1">
+            <p className="text-[16px] font-bold leading-tight">Racha actual</p>
+            <p className="text-[13px] text-white/74">Días consecutivos</p>
+          </div>
+          <span className="text-[24px] font-black tracking-tight">
+            {records.current_streak} <span className="text-[14px] font-normal text-white/74">días</span>
           </span>
         </div>
-      </ClayMotionBox>
+      </div>
     </div>
   );
 }

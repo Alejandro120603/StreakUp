@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Play, Pause, Square } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Play, Pause, Square, Trophy } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -31,36 +31,25 @@ interface AnimProps { progress: number; isPaused?: boolean; isActive?: boolean; 
 function FireAnimation({ progress, isPaused, isActive }: AnimProps) {
   const scale = 0.35 + progress * 0.65;
   const opacity = 0.35 + progress * 0.65;
-  const dur = isPaused ? "9999s" : "0.8s";
-  const durFast = isPaused ? "9999s" : "0.6s";
   const glowR = Math.round(20 + progress * 40);
 
   return (
     <svg viewBox="0 0 140 150" className="w-32 h-36 mx-auto" style={{ filter: isActive && !isPaused ? `drop-shadow(0 0 ${glowR}px rgba(249,115,22,0.7))` : undefined }}>
-      {/* Ember particles */}
+      {/* Ember particles (static glows) */}
       {isActive && !isPaused && [
-        { cx: 50, delay: "0s", dur2: "1.2s" },
-        { cx: 70, delay: "0.4s", dur2: "1.5s" },
-        { cx: 90, delay: "0.8s", dur2: "1.0s" },
+        { cx: 50 },
+        { cx: 70 },
+        { cx: 90 },
       ].map((e, i) => (
-        <circle key={i} cx={e.cx} r="2.5" fill="#FBBF24" opacity="0.8">
-          <animate attributeName="cy" values="120;40;10" dur={e.dur2} begin={e.delay} repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.9;0.5;0" dur={e.dur2} begin={e.delay} repeatCount="indefinite" />
-          <animate attributeName="r" values="2.5;1.5;0" dur={e.dur2} begin={e.delay} repeatCount="indefinite" />
+        <circle key={i} cx={e.cx} cy={80} r="2.5" fill="#FBBF24" opacity="0.6">
         </circle>
       ))}
       <g transform={`translate(70, 130) scale(${scale})`} opacity={opacity}>
         {/* Outer flame */}
         <path d="M0,-80 C-20,-60 -30,-30 -25,0 C-25,15 -15,20 0,20 C15,20 25,15 25,0 C30,-30 20,-60 0,-80Z" fill="#F97316">
-          <animate attributeName="d"
-            values="M0,-80 C-20,-60 -30,-30 -25,0 C-25,15 -15,20 0,20 C15,20 25,15 25,0 C30,-30 20,-60 0,-80Z;M0,-88 C-25,-62 -28,-35 -22,0 C-22,15 -12,22 0,22 C12,22 22,15 22,0 C28,-35 25,-62 0,-88Z;M0,-80 C-20,-60 -30,-30 -25,0 C-25,15 -15,20 0,20 C15,20 25,15 25,0 C30,-30 20,-60 0,-80Z"
-            dur={dur} repeatCount="indefinite" />
         </path>
         {/* Middle flame */}
         <path d="M0,-55 C-12,-38 -16,-18 -13,0 C-13,10 -6,15 0,15 C6,15 13,10 13,0 C16,-18 12,-38 0,-55Z" fill="#FB923C">
-          <animate attributeName="d"
-            values="M0,-55 C-12,-38 -16,-18 -13,0 C-13,10 -6,15 0,15 C6,15 13,10 13,0 C16,-18 12,-38 0,-55Z;M0,-60 C-14,-36 -14,-20 -11,0 C-11,11 -5,17 0,17 C5,17 11,11 11,0 C14,-20 14,-36 0,-60Z;M0,-55 C-12,-38 -16,-18 -13,0 C-13,10 -6,15 0,15 C6,15 13,10 13,0 C16,-18 12,-38 0,-55Z"
-            dur={durFast} repeatCount="indefinite" />
         </path>
         {/* Inner hot core */}
         <path d="M0,-30 C-6,-20 -8,-8 -6,0 C-6,6 -3,9 0,9 C3,9 6,6 6,0 C8,-8 6,-20 0,-30Z" fill="#FEF08A" />
@@ -72,14 +61,12 @@ function FireAnimation({ progress, isPaused, isActive }: AnimProps) {
 function CandleAnimation({ progress, isPaused, isActive }: AnimProps) {
   const height = 55 + progress * 45;
   const flameScale = 0.4 + progress * 0.6;
-  const dur = isPaused ? "9999s" : "0.55s";
-  const durSlow = isPaused ? "9999s" : "1.8s";
 
   return (
     <svg viewBox="0 0 120 180" className="w-28 h-40 mx-auto"
       style={{ filter: isActive && !isPaused ? "drop-shadow(0 0 18px rgba(168,85,247,0.6))" : undefined }}>
       {/* Ambient glow behind flame */}
-      {isActive && <ellipse cx="60" cy={170 - height - 10} rx="18" ry="8" fill="#A855F7" opacity="0.15"><animate attributeName="opacity" values="0.1;0.25;0.1" dur={durSlow} repeatCount="indefinite" /></ellipse>}
+      {isActive && <ellipse cx="60" cy={170 - height - 10} rx="18" ry="8" fill="#A855F7" opacity="0.25"></ellipse>}
       {/* Candle body with gradient */}
       <defs>
         <linearGradient id="candleGrad" x1="0" y1="0" x2="1" y2="0">
@@ -95,15 +82,12 @@ function CandleAnimation({ progress, isPaused, isActive }: AnimProps) {
       {progress > 0.25 && <path d={`M35,${175 - height} Q32,${183 - height} 35,${191 - height}`} stroke="#7C3AED" strokeWidth="5" fill="none" strokeLinecap="round" opacity="0.5" />}
       {progress > 0.5  && <path d={`M82,${178 - height} Q85,${186 - height} 82,${196 - height}`} stroke="#6D28D9" strokeWidth="4" fill="none" strokeLinecap="round" opacity="0.4" />}
       {/* Wick */}
-      <line x1="60" y1={162 - height} x2="60" y2={168 - height} stroke="#374151" strokeWidth="2.5" />
+      <line x1="60" y1="162 - height" x2="60" y2={168 - height} stroke="#374151" strokeWidth="2.5" />
       {/* Flame */}
       <g transform={`translate(60,${158 - height}) scale(${flameScale})`}>
         <ellipse cx="0" cy="-16" rx="7" ry="14" fill="#FDE68A">
-          <animate attributeName="rx" values="6;8;5;7;6" dur={dur} repeatCount="indefinite" />
-          <animate attributeName="ry" values="12;16;11;15;12" dur={dur} repeatCount="indefinite" />
         </ellipse>
         <ellipse cx="0" cy="-13" rx="4" ry="9" fill="#F59E0B">
-          <animate attributeName="ry" values="8;10;7;9;8" dur="0.4s" repeatCount="indefinite" />
         </ellipse>
         <ellipse cx="0" cy="-10" rx="2" ry="5" fill="white" opacity="0.6" />
       </g>
@@ -115,7 +99,6 @@ function IceAnimation({ progress, isPaused }: AnimProps) {
   const meltY = (1 - progress) * 28;
   const puddleRx = 8 + (1 - progress) * 32;
   const cubeH = 30 + progress * 35;
-  const dripDur = isPaused ? "9999s" : "1.4s";
 
   return (
     <svg viewBox="0 0 110 140" className="w-28 h-36 mx-auto">
@@ -140,16 +123,12 @@ function IceAnimation({ progress, isPaused }: AnimProps) {
       </g>
       {/* Drip 1 */}
       {progress > 0.15 && progress < 0.92 && (
-        <ellipse cx="58" rx="3" ry="4" fill="#60A5FA" opacity="0.7">
-          <animate attributeName="cy" values={`${40 + meltY};${105};${40 + meltY}`} dur={dripDur} repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.8;0.3;0" dur={dripDur} repeatCount="indefinite" />
+        <ellipse cx="58" cy={`${70 + meltY}`} rx="3" ry="4" fill="#60A5FA" opacity="0.4">
         </ellipse>
       )}
       {/* Drip 2 */}
       {progress > 0.3 && progress < 0.88 && (
-        <ellipse cx="42" rx="2" ry="3" fill="#93C5FD" opacity="0.6">
-          <animate attributeName="cy" values={`${38 + meltY};${108};${38 + meltY}`} dur="1.9s" begin="0.7s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.7;0.2;0" dur="1.9s" begin="0.7s" repeatCount="indefinite" />
+        <ellipse cx="42" cy={`${70 + meltY}`} rx="2" ry="3" fill="#93C5FD" opacity="0.4">
         </ellipse>
       )}
       {/* Puddle */}
@@ -161,13 +140,9 @@ function IceAnimation({ progress, isPaused }: AnimProps) {
 function HourglassAnimation({ progress, isPaused, isActive }: AnimProps) {
   const topSand = progress * 34;
   const bottomSand = (1 - progress) * 34;
-  // Rotate 180° when session is running and NOT paused
-  const rotation = isActive && !isPaused ? "animate-spin-slow" : "";
-  const streamDur = isPaused ? "9999s" : "0.5s";
 
   return (
-    <svg viewBox="0 0 90 130" className={`w-24 h-32 mx-auto transition-transform duration-700 ${rotation}`}
-      style={isActive && !isPaused ? { animation: "hourglass-sway 4s ease-in-out infinite" } : undefined}>
+    <svg viewBox="0 0 90 130" className={`w-24 h-32 mx-auto`}>
       {/* Frame bars */}
       <rect x="12" y="3" width="66" height="8" rx="3" fill="#D97706" />
       <rect x="12" y="119" width="66" height="8" rx="3" fill="#D97706" />
@@ -175,7 +150,7 @@ function HourglassAnimation({ progress, isPaused, isActive }: AnimProps) {
       <line x1="16" y1="11" x2="16" y2="119" stroke="#B45309" strokeWidth="3" />
       <line x1="74" y1="11" x2="74" y2="119" stroke="#B45309" strokeWidth="3" />
       {/* Glass outline top */}
-      <path d="M20,11 L20,48 L45,63 L70,48 L70,11 Z" fill="#FEF3C7" opacity="0.06" stroke="#D97706" strokeWidth="1.5" opacity2="0.5" />
+      <path d="M20,11 L20,48 L45,63 L70,48 L70,11 Z" fill="#FEF3C7" opacity="0.06" stroke="#D97706" strokeWidth="1.5" />
       {/* Glass outline bottom */}
       <path d="M20,119 L20,82 L45,67 L70,82 L70,119 Z" fill="#FEF3C7" opacity="0.06" stroke="#D97706" strokeWidth="1.5" />
       {/* Top sand mass */}
@@ -185,18 +160,10 @@ function HourglassAnimation({ progress, isPaused, isActive }: AnimProps) {
       {/* Sand stream */}
       {progress > 0.04 && progress < 0.96 && (
         <line x1="45" y1="59" x2="45" y2={77 + bottomSand * 0.35} stroke="#FBBF24" strokeWidth="2.5" opacity="0.65">
-          <animate attributeName="opacity" values="0.65;0.25;0.65" dur={streamDur} repeatCount="indefinite" />
-          <animate attributeName="strokeWidth" values="2.5;1.5;2.5" dur={streamDur} repeatCount="indefinite" />
         </line>
       )}
       {/* Center pinch glow */}
       <ellipse cx="45" cy="63" rx="4" ry="2" fill="#FDE68A" opacity="0.4" />
-      <style>{`
-        @keyframes hourglass-sway {
-          0%,100% { transform: rotate(-2deg); }
-          50%       { transform: rotate(2deg); }
-        }
-      `}</style>
     </svg>
   );
 }
@@ -356,16 +323,16 @@ function PomodoroContent() {
   const dashOffset = circumference * (1 - progress);
 
   return (
-    <div className={`min-h-screen bg-gradient-to-b ${theme.bg} flex flex-col`}>
+    <div className={`min-h-screen bg-gradient-to-b ${theme.bg} flex flex-col pb-[80px]`}>
       {/* Header */}
       <div className="px-4 pt-6 pb-2">
-        <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-white transition-colors">
+        <Link href="/" className="inline-flex items-center gap-2 text-white/75 hover:text-white transition-colors font-bold">
           <ArrowLeft className="size-5" />
-          <span className="text-sm">Inicio</span>
+          <span className="text-[15px]">Atrás</span>
         </Link>
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-4 pb-8 max-w-lg mx-auto w-full">
+      <div className="flex-1 flex flex-col items-center px-4 max-w-lg mx-auto w-full">
         {/* Theme Animation */}
         <div className="py-4">
           <ThemeAnim
@@ -376,10 +343,10 @@ function PomodoroContent() {
         </div>
 
         {/* Circular Timer */}
-        <div className="relative w-52 h-52 mb-6">
+        <div className="relative w-52 h-52 mb-[24px]">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
             {/* Background circle */}
-            <circle cx="100" cy="100" r={radius} fill="none" stroke="#2A2A3E" strokeWidth="4" />
+            <circle cx="100" cy="100" r={radius} fill="none" stroke="currentColor" className="text-white/10" strokeWidth="6" />
             {/* Progress circle */}
             <circle
               cx="100"
@@ -387,22 +354,22 @@ function PomodoroContent() {
               r={radius}
               fill="none"
               stroke={theme.accent}
-              strokeWidth="4"
+              strokeWidth="6"
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={dashOffset}
-              className="transition-all duration-1000 ease-linear"
+              className="transition-all duration-1000 ease-linear drop-shadow-[0_0_12px_currentColor]"
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-5xl font-bold text-white tabular-nums">
+            <span className="text-[48px] font-black text-white tabular-nums leading-none tracking-tight">
               {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
             </span>
-            <span className="text-sm text-muted-foreground mt-1">
+            <span className="text-[13px] text-white/75 font-bold mt-1 uppercase tracking-wider">
               {timerState === "focus" ? "Enfocado" : timerState === "break" ? "Descanso" : timerState === "finished" ? "¡Completado!" : "Listo"}
             </span>
             {timerState !== "idle" && timerState !== "finished" && (
-              <span className="text-xs text-muted-foreground mt-0.5">
+              <span className="text-[11px] text-white/50 font-bold mt-1 bg-white/10 px-2 py-0.5 rounded-full border border-white/5">
                 Ciclo {currentCycle}/{cycles}
               </span>
             )}
@@ -410,11 +377,11 @@ function PomodoroContent() {
         </div>
 
         {/* Configuration */}
-        <div className="w-full rounded-xl border border-[#2A2A3E] bg-[#111127]/80 p-5 space-y-4 mb-6">
-          <h3 className="text-sm font-semibold text-white text-center">Configuración de sesión</h3>
+        <div className="w-full p-[20px] rounded-[24px] bg-white/5 border border-white/10 space-y-[16px] mb-[24px]">
+          <h3 className="text-[18px] font-bold text-center">Configuración</h3>
 
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Tiempo de estudio (minutos)</Label>
+          <div className="space-y-[8px]">
+            <Label className="text-[13px] text-white/75 font-bold">Tiempo de estudio (minutos)</Label>
             <Input
               type="number"
               min={1}
@@ -429,12 +396,12 @@ function PomodoroContent() {
                 }
               }}
               disabled={timerState !== "idle"}
-              className="h-11 bg-[#1A1A2E] border-[#2A2A3E] text-white text-center text-lg font-bold rounded-xl"
+              className="h-[48px] bg-white/5 border-white/10 text-white text-center text-[18px] font-bold rounded-[16px]"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Tiempo de descanso (minutos)</Label>
+          <div className="space-y-[8px]">
+            <Label className="text-[13px] text-white/75 font-bold">Tiempo de descanso (minutos)</Label>
             <Input
               type="number"
               min={1}
@@ -442,12 +409,12 @@ function PomodoroContent() {
               value={breakMinutes}
               onChange={(e) => setBreakMinutes(parseInt(e.target.value) || 5)}
               disabled={timerState !== "idle"}
-              className="h-11 bg-[#1A1A2E] border-[#2A2A3E] text-white text-center text-lg font-bold rounded-xl"
+              className="h-[48px] bg-white/5 border-white/10 text-white text-center text-[18px] font-bold rounded-[16px]"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Número de ciclos</Label>
+          <div className="space-y-[8px]">
+            <Label className="text-[13px] text-white/75 font-bold">Número de ciclos</Label>
             <Input
               type="number"
               min={1}
@@ -455,50 +422,53 @@ function PomodoroContent() {
               value={cycles}
               onChange={(e) => setCycles(parseInt(e.target.value) || 4)}
               disabled={timerState !== "idle"}
-              className="h-11 bg-[#1A1A2E] border-[#2A2A3E] text-white text-center text-lg font-bold rounded-xl"
+              className="h-[48px] bg-white/5 border-white/10 text-white text-center text-[18px] font-bold rounded-[16px]"
             />
           </div>
         </div>
 
         {/* Controls */}
-        <div className="w-full space-y-3">
+        <div className="w-full space-y-[12px]">
           {sessionError && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
               {sessionError}
             </div>
           )}
           {timerState === "idle" ? (
             <Button
               onClick={startTimer}
-              className="w-full h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white shadow-[0_0_24px_rgba(236,72,153,0.4)] transition-all"
+              className="w-full"
+              size="lg"
+              variant="sacro"
             >
               <Play className="size-5 mr-2" />
               Comenzar
             </Button>
           ) : timerState === "finished" ? (
-            <div className="w-full space-y-4 text-center py-4">
-              {/* Trophy */}
-              <div className="text-7xl animate-bounce">🏆</div>
+            <div className="w-full p-[24px] rounded-[24px] bg-white/5 border border-white/10 text-center space-y-4">
+              <Trophy className="size-16 mx-auto animate-bounce" style={{ color: "#FBBF24" }} />
               <div className="space-y-1">
-                <p className="text-xl font-bold text-white">¡Sesión Completada!</p>
-                <p className="text-sm text-muted-foreground">
-                  {cycles} ciclo{cycles !== 1 ? "s" : ""} · {studyMinutes}min enfocado · {breakMinutes}min descanso
+                <p className="text-[20px] font-bold text-white">¡Sesión Completada!</p>
+                <p className="text-[13px] text-white/75 font-bold">
+                  {cycles} ciclo{cycles !== 1 ? "s" : ""} · {studyMinutes}m enfocado · {breakMinutes}m descanso
                 </p>
               </div>
-              <div className="flex gap-3">
-                <Button
-                  onClick={stopTimer}
-                  className="flex-1 h-12 rounded-xl text-sm font-semibold bg-[#5D5FEF] hover:bg-[#4B4DDC] text-white"
-                >
-                  Nueva sesión
-                </Button>
-              </div>
+              <Button
+                onClick={stopTimer}
+                className="w-full mt-2"
+                size="lg"
+                variant="sacro"
+              >
+                Nueva sesión
+              </Button>
             </div>
           ) : (
             <>
               <Button
                 onClick={togglePause}
-                className="w-full h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white shadow-[0_0_24px_rgba(236,72,153,0.4)] transition-all"
+                className="w-full"
+                size="lg"
+                variant="sacro"
               >
                 {isPaused ? (
                   <><Play className="size-5 mr-2" /> Reanudar</>
@@ -508,8 +478,9 @@ function PomodoroContent() {
               </Button>
               <Button
                 onClick={stopTimer}
-                variant="outline"
-                className="w-full h-12 rounded-xl text-base font-semibold border-[#2A2A3E] bg-transparent text-white hover:bg-[#1A1A2E]"
+                className="w-full bg-white/5 hover:bg-red-500/20 text-white border-white/10 hover:border-red-500/30"
+                size="lg"
+                variant="sacro-ghost"
               >
                 <Square className="size-4 mr-2" />
                 Finalizar sesión
@@ -518,47 +489,48 @@ function PomodoroContent() {
           )}
         </div>
 
-        <div className="mt-6 w-full rounded-xl border border-[#2A2A3E] bg-[#111127]/80 p-5 space-y-3">
+        {/* Recent Sessions */}
+        <div className="mt-[24px] w-full p-[20px] rounded-[24px] bg-white/5 border border-white/10 space-y-[12px]">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white">Sesiones recientes</h3>
+            <h3 className="text-[16px] font-bold text-white">Sesiones recientes</h3>
             <button
               type="button"
               onClick={() => void loadRecentSessions()}
-              className="text-xs text-[#5D5FEF] hover:text-[#7B7DF7] transition-colors"
+              className="text-[11px] font-bold text-white/50 hover:text-white transition-colors uppercase tracking-wider"
             >
               Recargar
             </button>
           </div>
 
           {recentSessionsError ? (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
               {recentSessionsError}
             </div>
           ) : null}
 
           {!recentSessionsError && recentSessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aún no hay sesiones guardadas.</p>
+            <p className="text-[13px] text-white/50 font-bold">Aún no hay sesiones guardadas.</p>
           ) : recentSessions.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-[8px]">
               {recentSessions.map((session) => (
                 <div
                   key={session.id}
-                  className="flex items-center justify-between rounded-xl border border-[#2A2A3E] bg-[#1A1A2E] px-4 py-3"
+                  className="flex items-center justify-between rounded-[16px] border border-white/5 bg-white/5 px-[16px] py-[12px]"
                 >
                   <div>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-[14px] font-bold text-white leading-tight mb-1">
                       {THEMES[session.theme]?.label ?? "Pomodoro"} · {session.study_minutes}m
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[11px] text-white/50 font-bold">
                       {session.cycles} ciclo{session.cycles === 1 ? "" : "s"} · descanso {session.break_minutes}m
                     </p>
                   </div>
                   <span
-                    className={`text-xs font-semibold ${
-                      session.completed ? "text-green-400" : "text-amber-300"
+                    className={`text-[10px] font-bold px-[8px] py-[4px] rounded-full uppercase tracking-wider ${
+                      session.completed ? "bg-emerald-500/20 text-emerald-200" : "bg-amber-500/20 text-amber-200"
                     }`}
                   >
-                    {session.completed ? "Completa" : "En progreso"}
+                    {session.completed ? "Completa" : "Progreso"}
                   </span>
                 </div>
               ))}
@@ -574,7 +546,7 @@ export default function PomodoroPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-        <div className="size-8 border-2 border-[#5D5FEF] border-t-transparent rounded-full animate-spin" />
+        <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <PomodoroContent />

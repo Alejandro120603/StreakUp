@@ -9,7 +9,7 @@ interface AppProvidersProps {
 
 export function AppProviders({ children }: AppProvidersProps) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="theme-fire" themes={['theme-fire', 'theme-ice', 'theme-candy', 'theme-night', 'light', 'dark']} enableSystem={false} disableTransitionOnChange>
       {children}
     </ThemeProvider>
   );

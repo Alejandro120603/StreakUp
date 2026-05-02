@@ -209,7 +209,7 @@ function EditHabitPageContent() {
               onChange={(event) => setCustomName(event.target.value)}
               placeholder={habit.name}
               maxLength={120}
-              className="h-12 bg-background border-border text-foreground rounded-xl focus-visible:ring-primary/50 focus-visible:border-primary"
+              className="h-12 bg-white/13 border border-white/20 text-white rounded-xl focus-visible:ring-[var(--purple)]/50 focus-visible:border-[var(--purple)] placeholder:text-white/40 px-4"
             />
             <p className="text-xs text-muted-foreground">
               Déjalo vacío para usar el nombre del catálogo: <span className="italic">{habit.name}</span>.
@@ -224,7 +224,7 @@ function EditHabitPageContent() {
               placeholder={habit.description ?? "Describe qué evidencia contará como completado (ej: foto con vaso de agua lleno)"}
               rows={4}
               maxLength={2000}
-              className="w-full px-4 py-3 bg-background border border-border text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors resize-none"
+              className="w-full px-4 py-3 bg-white/13 border border-white/20 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--purple)]/50 focus:border-[var(--purple)] transition-colors resize-none placeholder:text-white/40"
             />
             <p className="text-xs text-muted-foreground">
               Esta descripción guía la validación con IA. Sé específico sobre qué evidencia se espera.
@@ -241,8 +241,8 @@ function EditHabitPageContent() {
                   onClick={() => setValidationType(option.value)}
                   className={`flex flex-col items-center justify-center gap-1 h-16 rounded-xl text-sm font-medium border transition-all duration-200 ${
                     validationType === option.value
-                      ? "border-primary text-primary bg-primary/10"
-                      : "border-border text-foreground bg-background hover:bg-secondary"
+                      ? "border-[var(--purple2)] text-white bg-[var(--purple)]"
+                      : "border-white/20 text-white/74 bg-white/13 hover:bg-white/20"
                   }`}
                 >
                   <option.Icon className="size-4" />
@@ -262,8 +262,8 @@ function EditHabitPageContent() {
                   onClick={() => setFrequency(option.value)}
                   className={`h-11 rounded-xl text-sm font-medium border transition-all duration-200 ${
                     frequency === option.value
-                      ? "border-primary text-primary bg-primary/10"
-                      : "border-border text-foreground bg-background hover:bg-secondary"
+                      ? "border-[var(--purple2)] text-white bg-[var(--purple)]"
+                      : "border-white/20 text-white/74 bg-white/13 hover:bg-white/20"
                   }`}
                 >
                   {option.label}
@@ -291,8 +291,8 @@ function EditHabitPageContent() {
                       }}
                       className={`size-10 rounded-full text-sm font-semibold border transition-all duration-200 ${
                         isSelected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                          ? "border-[var(--purple2)] bg-[var(--purple)] text-white"
+                          : "border-white/20 bg-white/13 text-white/74 hover:border-[var(--purple)]/50"
                       }`}
                     >
                       {day.label}
@@ -313,7 +313,7 @@ function EditHabitPageContent() {
                   value={targetDuration}
                   onChange={(event) => setTargetDuration(event.target.value)}
                   placeholder="e.g. 15"
-                  className="h-12 w-28 bg-background border-border text-foreground rounded-xl text-center focus-visible:ring-primary/50 focus-visible:border-primary"
+                  className="h-12 w-28 bg-white/13 border border-white/20 text-white rounded-xl text-center focus-visible:ring-[var(--purple)]/50 focus-visible:border-[var(--purple)] placeholder:text-white/40"
                 />
                 <span className="text-muted-foreground text-sm">minutos</span>
               </div>
@@ -330,13 +330,13 @@ function EditHabitPageContent() {
                   value={targetQuantity}
                   onChange={(event) => setTargetQuantity(event.target.value)}
                   placeholder="e.g. 3"
-                  className="h-12 w-28 bg-background border-border text-foreground rounded-xl text-center focus-visible:ring-primary/50 focus-visible:border-primary"
+                  className="h-12 w-28 bg-white/13 border border-white/20 text-white rounded-xl text-center focus-visible:ring-[var(--purple)]/50 focus-visible:border-[var(--purple)] placeholder:text-white/40"
                 />
                 <Input
                   value={targetUnit}
                   onChange={(event) => setTargetUnit(event.target.value)}
                   placeholder="vasos, pasos..."
-                  className="h-12 flex-1 bg-background border-border text-foreground rounded-xl focus-visible:ring-primary/50 focus-visible:border-primary"
+                  className="h-12 flex-1 bg-white/13 border border-white/20 text-white rounded-xl focus-visible:ring-[var(--purple)]/50 focus-visible:border-[var(--purple)] placeholder:text-white/40 px-4"
                 />
               </div>
             </div>
@@ -352,7 +352,7 @@ function EditHabitPageContent() {
                   value={minTextLength}
                   onChange={(event) => setMinTextLength(event.target.value)}
                   placeholder="e.g. 50"
-                  className="h-12 w-28 bg-background border-border text-foreground rounded-xl text-center focus-visible:ring-primary/50 focus-visible:border-primary"
+                  className="h-12 w-28 bg-white/13 border border-white/20 text-white rounded-xl text-center focus-visible:ring-[var(--purple)]/50 focus-visible:border-[var(--purple)] placeholder:text-white/40"
                 />
                 <span className="text-muted-foreground text-sm">caracteres</span>
               </div>
@@ -362,7 +362,7 @@ function EditHabitPageContent() {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full h-12 rounded-xl text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
+            className="w-full h-[48px] rounded-[20px] text-[16px] font-bold bg-[var(--purple)] hover:bg-[var(--purple2)] text-white shadow-[0_0_15px_rgba(157,85,255,0.4)] transition-transform active:scale-95"
           >
             {isLoading ? "Guardando..." : "Guardar cambios"}
           </Button>

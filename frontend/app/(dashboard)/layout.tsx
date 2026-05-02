@@ -1,24 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, ListChecks, BarChart3, UserCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { hasSavedSession } from "@/services/auth/authService";
 import { NetworkStatusBanner } from "@/components/feedback/NetworkStatusBanner";
 import { AchievementToast } from "@/components/feedback/AchievementToast";
-
-
-const NAV_ITEMS = [
-  { href: "/", icon: Home, label: "Inicio" },
-  { href: "/habits", icon: ListChecks, label: "Hábitos" },
-  { href: "/stats", icon: BarChart3, label: "Stats" },
-  { href: "/profile", icon: UserCircle, label: "Perfil" },
-];
+import { BottomNav } from "@/components/layout/BottomNav";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
   const [sessionReady, setSessionReady] = useState(false);
 
@@ -34,49 +24,27 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   if (!sessionReady) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <>
       {/* Red online/offline indicator — visible on all pages */}
       <NetworkStatusBanner />
 
       {/* Achievement unlock toast — shown whenever any page triggers it */}
       <AchievementToast />
 
-      {/* Main content */}
-      <main className="flex-1 pb-20">
+      {/* Main content - handles the scrolling area like the .screen class in HTML */}
+      <main className="absolute inset-0 overflow-y-auto overflow-x-hidden pt-7 px-[22px] pb-[100px] z-10 animate-[enter_0.28s_ease_both]">
         {children}
       </main>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
-        <div className="max-w-lg mx-auto flex justify-around items-center h-16">
-          {NAV_ITEMS.map((item) => {
-            const isActive = item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-1 px-3 py-2 transition-colors ${
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <item.icon className="size-5" />
-                <span className="text-[10px] font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-    </div>
+      <BottomNav />
+    </>
   );
 }
