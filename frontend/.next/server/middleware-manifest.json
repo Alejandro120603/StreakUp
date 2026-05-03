@@ -10,18 +10,42 @@
       "page": "/",
       "matchers": [
         {
-          "regexp": "^/.*$",
-          "originalSource": "/:path*"
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/(\\/?index|\\/?index\\.json))?[\\/#\\?]?$",
+          "originalSource": "/"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/habits(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/habits/:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/stats(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/stats/:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/profile(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/profile/:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/pomodoro(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/pomodoro/:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/login(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/login"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/register(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/register"
         }
       ],
       "wasm": [],
       "assets": [],
       "env": {
-        "__NEXT_BUILD_ID": "development",
+        "__NEXT_BUILD_ID": "yKFa3qbJHGv9AYZJIHeCN",
         "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "JmQHN1AsMzBjj9ZhYZjUcyloXtX0vTP/bZWyx5m7Ujw=",
-        "__NEXT_PREVIEW_MODE_ID": "18c92457ed7415665a8e21b7710c346e",
-        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "e1a901146a029a35c8cd01d9292f9636c1de7ae71df83391ae86cb25135ee593",
-        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "2acf210651aade85b29e5b02bdc74062368b7947286627c0d05288f3b7e9e2b6"
+        "__NEXT_PREVIEW_MODE_ID": "757eb19eac83a3b3e04465ce948fb4b0",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "161fe126394bcfa196c81eacadfb0b465f959525d409b91a51aea40043ed482b",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "ffed8ac45df41d20edeaffa77ff8b7527adf829402ebf240892990e6fadcecd5"
       }
     }
   },

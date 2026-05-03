@@ -133,8 +133,9 @@ export function createLocalHabit(payload: CreateHabitPayload, userId = getCurren
   const targetDuration = payload.target_duration ?? null;
   const targetQuantity = payload.target_quantity ?? null;
   const targetUnit = payload.target_unit ?? null;
+  const isTimeType = validationType === "tiempo" || validationType === "time";
   const habitType =
-    validationType === "tiempo" || targetDuration !== null
+    isTimeType || targetDuration !== null
       ? "time"
       : targetQuantity !== null
       ? "quantity"
@@ -153,7 +154,7 @@ export function createLocalHabit(payload: CreateHabitPayload, userId = getCurren
     frequency: payload.frequency ?? "daily",
     section: "fire",
     target_duration: targetDuration,
-    pomodoro_enabled: validationType === "tiempo",
+    pomodoro_enabled: isTimeType,
     target_quantity: targetQuantity,
     target_unit: targetUnit,
     created_at: now,
@@ -196,15 +197,17 @@ export function updateLocalHabit(
     custom_description: payload.description ?? allHabits[index].custom_description ?? null,
     validation_type: payload.validation_type ?? allHabits[index].validation_type ?? "foto",
     frequency: payload.frequency ?? allHabits[index].frequency,
-    pomodoro_enabled:
-      (payload.validation_type ?? allHabits[index].validation_type ?? "foto") === "tiempo",
-    habit_type:
-      (payload.validation_type ?? allHabits[index].validation_type ?? "foto") === "tiempo" ||
-      (payload.target_duration ?? allHabits[index].target_duration) !== null
-        ? "time"
-        : (payload.target_quantity ?? allHabits[index].target_quantity) !== null
-        ? "quantity"
-        : "boolean",
+    pomodoro_enabled: (() => {
+      const vt = payload.validation_type ?? allHabits[index].validation_type ?? "foto";
+      return vt === "tiempo" || vt === "time";
+    })(),
+    habit_type: (() => {
+      const vt = payload.validation_type ?? allHabits[index].validation_type ?? "foto";
+      const isTime = vt === "tiempo" || vt === "time";
+      const dur = payload.target_duration ?? allHabits[index].target_duration;
+      const qty = payload.target_quantity ?? allHabits[index].target_quantity;
+      return isTime || dur !== null ? "time" : qty !== null ? "quantity" : "boolean";
+    })(),
     updated_at: getNowIso(),
   };
 

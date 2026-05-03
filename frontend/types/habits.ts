@@ -121,9 +121,11 @@ export function getHabitTargetSummary(habit: Pick<Habit, "target_duration" | "ta
 }
 
 export interface ValidationResult {
+  status?: string;
   valido: boolean;
   razon: string;
   confianza: number;
   xp_ganado?: number;
   nueva_racha?: number;
+  new_achievements?: Array<Record<string, unknown>>;
 }
