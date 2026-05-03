@@ -12,8 +12,6 @@ import {
   Calendar,
   Zap,
   Award,
-  Crown,
-  Gem,
   Rocket,
   Sparkles,
   Bell,
@@ -58,7 +56,6 @@ export default function ProfilePage() {
   const [records, setRecords] = useState({
     longest_streak: 0, best_day: 0, current_streak: 0, active_days: 0,
   });
-  const [totalCompleted, setTotalCompleted] = useState(0);
   const [validationStats, setValidationStats] = useState({
     total_successful: 0, total_attempts: 0, success_rate: 0,
   });
@@ -93,7 +90,6 @@ export default function ProfilePage() {
         setStats(profileStats);
         setXpInfo(xp);
         setRecords(detailed.records);
-        setTotalCompleted(detailed.summary.total_completed);
         setValidationStats(detailed.validations);
         setAchievements(achievementList);
         setError("");

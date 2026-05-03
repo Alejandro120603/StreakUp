@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from "react
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Play, Pause, Square, Trophy } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -95,7 +95,7 @@ function CandleAnimation({ progress, isPaused, isActive }: AnimProps) {
   );
 }
 
-function IceAnimation({ progress, isPaused }: AnimProps) {
+function IceAnimation({ progress }: AnimProps) {
   const meltY = (1 - progress) * 28;
   const puddleRx = 8 + (1 - progress) * 32;
   const cubeH = 30 + progress * 35;
@@ -137,7 +137,7 @@ function IceAnimation({ progress, isPaused }: AnimProps) {
   );
 }
 
-function HourglassAnimation({ progress, isPaused, isActive }: AnimProps) {
+function HourglassAnimation({ progress }: AnimProps) {
   const topSand = progress * 34;
   const bottomSand = (1 - progress) * 34;
 

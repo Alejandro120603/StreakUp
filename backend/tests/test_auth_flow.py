@@ -74,6 +74,7 @@ class AuthFlowTestCase(unittest.TestCase):
         self.meditar = Habit(
             categoria_id=1,
             nombre="Meditar 5-10 min",
+            descripcion="Relajación mental",
             xp_base=10,
             dificultad="facil",
             tipo_validacion="tiempo",
@@ -168,7 +169,7 @@ class AuthFlowTestCase(unittest.TestCase):
         payload = response.get_json()
 
         self.assertEqual({habit["name"] for habit in payload}, {"Meditar 5-10 min", "Leer 20 min"})
-        self.assertEqual({habit["difficulty"] for habit in payload}, {"facil"})
+        self.assertEqual({habit["difficulty"] for habit in payload}, {"facil", "media"})
 
     def test_habits_are_scoped_to_the_authenticated_user(self) -> None:
         daniel_login = self._login("daniel@correo.com", "daniel-password").get_json()
@@ -342,7 +343,7 @@ class AuthFlowTestCase(unittest.TestCase):
         self.assertEqual(payload["custom_description"], None)
         self.assertEqual(payload["name"], "Meditar 5-10 min")
         self.assertEqual(payload["description"], "Relajación mental")
-        self.assertEqual(payload["validation_type"], "foto")
+        self.assertEqual(payload["validation_type"], "tiempo")
         self.assertEqual(payload["frequency"], "daily")
         self.assertEqual(payload["target_quantity"], None)
         self.assertEqual(payload["target_unit"], None)

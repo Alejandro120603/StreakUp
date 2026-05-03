@@ -6,7 +6,6 @@ import {
   Flame,
   TrendingUp,
   Trophy,
-  Target,
   Calendar,
   Zap,
   BarChart3,

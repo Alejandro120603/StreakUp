@@ -11,7 +11,7 @@ import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/
 import type { TodayHabit } from "@/types/checkins";
 import type { StatsSummary } from "@/types/stats";
 
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { Mascot } from "@/components/Mascot";
 import { StatCard } from "@/components/ui/StatCard";
 import { HabitRow } from "@/components/ui/HabitRow";
@@ -67,9 +67,7 @@ export default function DashboardHomePage() {
       setTodayHabits((currentHabits) =>
         currentHabits.map((habit) => (habit.id === result.habit_id ? { ...habit, checked_today: result.checked } : habit))
       );
-      if (Array.isArray(result.new_achievements)) {
-        result.new_achievements.forEach((ach: any) => showAchievementToast(ach));
-      }
+      result.new_achievements?.forEach((achievement) => showAchievementToast(achievement));
       try {
         setStats(await fetchStatsSummary());
       } catch (err) {
@@ -184,6 +182,10 @@ export default function DashboardHomePage() {
           <div>
             {todayHabits.map((habit) => {
               let IconComp = icons.Circle;
+              const targetSummary = getHabitTargetSummary(habit);
+              const validationLabel = VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"];
+              const subtitle = targetSummary ? `${validationLabel} · ${targetSummary}` : validationLabel;
+
               if (habit.icon && icons[habit.icon as keyof typeof icons]) {
                 IconComp = icons[habit.icon as keyof typeof icons] as never;
               } else {
@@ -198,6 +200,7 @@ export default function DashboardHomePage() {
                   <HabitRow
                     icon={<IconComp className="size-[34px]" />}
                     name={habit.name}
+                    subtitle={subtitle}
                     checked={habit.checked_today}
                     onToggle={() => handleHabitAction(habit)}
                   />

@@ -84,7 +84,11 @@ class XpConsistencyTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": True, "razon": "evidencia valida", "confianza": 0.9},
         ):
-            result = validate_habit(self.user.id, self.user_habit.id, "image-base64")
+            result = validate_habit(
+                self.user.id,
+                self.user_habit.id,
+                {"image_base64": "image-base64"},
+            )
 
         db.session.refresh(self.user)
         checkin = CheckIn.query.filter_by(habitousuario_id=self.user_habit.id).one()
@@ -107,6 +111,7 @@ class XpConsistencyTestCase(unittest.TestCase):
                 "mime_type": "image/jpeg",
                 "provider": "openai",
                 "reason": "evidencia valida",
+                "validation_type": "foto",
                 "xp_awarded": 15,
             },
         )
@@ -140,7 +145,11 @@ class XpConsistencyTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": True, "razon": "evidencia valida", "confianza": 0.95},
         ):
-            result = validate_habit(self.user.id, self.user_habit.id, "image-base64")
+            result = validate_habit(
+                self.user.id,
+                self.user_habit.id,
+                {"image_base64": "image-base64"},
+            )
 
         db.session.refresh(self.user)
         checkin = CheckIn.query.filter_by(habitousuario_id=self.user_habit.id).one()
@@ -199,7 +208,11 @@ class XpConsistencyTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": False, "razon": "evidencia invalida", "confianza": 0.2},
         ):
-            result = validate_habit(self.user.id, self.user_habit.id, "image-base64")
+            result = validate_habit(
+                self.user.id,
+                self.user_habit.id,
+                {"image_base64": "image-base64"},
+            )
 
         db.session.refresh(self.user)
         validation = ValidationLog.query.order_by(ValidationLog.id.desc()).first()
@@ -223,9 +236,17 @@ class XpConsistencyTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": True, "razon": "evidencia valida", "confianza": 0.9},
         ):
-            first_result = validate_habit(self.user.id, self.user_habit.id, "image-base64")
+            first_result = validate_habit(
+                self.user.id,
+                self.user_habit.id,
+                {"image_base64": "image-base64"},
+            )
             with self.assertRaisesRegex(ValueError, "Ya validaste este habito hoy"):
-                validate_habit(self.user.id, self.user_habit.id, "image-base64")
+                validate_habit(
+                    self.user.id,
+                    self.user_habit.id,
+                    {"image_base64": "image-base64"},
+                )
 
         db.session.refresh(self.user)
         self.assertEqual(first_result["status"], "approved")
@@ -256,12 +277,18 @@ class XpConsistencyTestCase(unittest.TestCase):
             side_effect=RuntimeError("xp write failed"),
         ):
             with self.assertRaisesRegex(RuntimeError, "xp write failed"):
-                validate_habit(self.user.id, self.user_habit.id, "image-base64")
+                validate_habit(
+                    self.user.id,
+                    self.user_habit.id,
+                    {"image_base64": "image-base64"},
+                )
 
         db.session.refresh(self.user)
         self.assertEqual(self.user.total_xp, 0)
         self.assertEqual(CheckIn.query.count(), 0)
-        self.assertEqual(ValidationLog.query.count(), 0)
+        validation = ValidationLog.query.one()
+        self.assertEqual(validation.status, "pending")
+        self.assertFalse(validation.validado)
         self.assertEqual(XpLog.query.count(), 0)
 
 

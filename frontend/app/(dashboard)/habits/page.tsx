@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, X, Camera, icons } from "lucide-react";
+import { Plus, Pencil, Trash2, Camera, icons } from "lucide-react";
 import { fetchHabits, deleteHabit } from "@/services/habits/habitService";
 import type { Habit } from "@/types/habits";
 import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/types/habits";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 
 const DIFFICULTY_LABELS: Record<string, string> = {
   facil: "Fácil",

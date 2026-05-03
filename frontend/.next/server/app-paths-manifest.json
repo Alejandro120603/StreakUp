@@ -1,7 +1,7 @@
 {
-  "/(dashboard)/profile/page": "app/(dashboard)/profile/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
   "/(dashboard)/page": "app/(dashboard)/page.js",
-  "/(dashboard)/habits/page": "app/(dashboard)/habits/page.js",
-  "/(dashboard)/habits/validate/page": "app/(dashboard)/habits/validate/page.js",
-  "/(dashboard)/habits/new/page": "app/(dashboard)/habits/new/page.js"
+  "/(dashboard)/profile/page": "app/(dashboard)/profile/page.js",
+  "/(dashboard)/habits/new/page": "app/(dashboard)/habits/new/page.js",
+  "/(dashboard)/pomodoro/page": "app/(dashboard)/pomodoro/page.js"
 }

@@ -69,10 +69,11 @@ CREATE TABLE IF NOT EXISTS habitos_usuario (
     nombre_personalizado TEXT,
     descripcion_personalizada TEXT,
     tipo_validacion TEXT CHECK (tipo_validacion IS NULL OR tipo_validacion IN ('foto','texto','tiempo')),
-    frecuencia TEXT CHECK (frecuencia IS NULL OR frecuencia IN ('daily','weekly')),
+    frecuencia TEXT CHECK (frecuencia IS NULL OR frecuencia IN ('daily','weekly','custom')),
     cantidad_objetivo INTEGER CHECK (cantidad_objetivo IS NULL OR cantidad_objetivo >= 0),
     unidad_objetivo TEXT,
     duracion_objetivo_minutos INTEGER CHECK (duracion_objetivo_minutos IS NULL OR duracion_objetivo_minutos >= 0),
+    min_text_length INTEGER CHECK (min_text_length IS NULL OR min_text_length >= 0),
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -82,6 +83,20 @@ CREATE TABLE IF NOT EXISTS habitos_usuario (
 
 CREATE INDEX IF NOT EXISTS idx_habitos_usuario_usuario ON habitos_usuario(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_habitos_usuario_habito ON habitos_usuario(habito_id);
+
+-- =====================================================
+-- HABITOS_USUARIO_SCHEDULE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS habitos_usuario_schedule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    habitousuario_id INTEGER NOT NULL,
+    weekday INTEGER NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+    FOREIGN KEY (habitousuario_id) REFERENCES habitos_usuario(id) ON DELETE CASCADE,
+    UNIQUE (habitousuario_id, weekday)
+);
+
+CREATE INDEX IF NOT EXISTS idx_habitos_usuario_schedule_habitousuario
+ON habitos_usuario_schedule(habitousuario_id);
 
 -- =====================================================
 -- REGISTRO_HABITOS

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { hasSavedSession } from "@/services/auth/authService";
 import { NetworkStatusBanner } from "@/components/feedback/NetworkStatusBanner";

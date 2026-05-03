@@ -130,7 +130,7 @@ test("validation service maps provider-unavailable responses to a controlled mes
     );
 
   await assert.rejects(
-    validateHabit(1, "image-base64"),
+    validateHabit({ habit_id: 1, image_base64: "image-base64" }),
     /La validación de fotos no está disponible temporalmente\. Inténtalo más tarde\./,
   );
 });
@@ -141,7 +141,7 @@ test("validation service maps backend-unreachable failures to a friendly network
   };
 
   await assert.rejects(
-    validateHabit(1, "image-base64"),
+    validateHabit({ habit_id: 1, image_base64: "image-base64" }),
     /No se pudo contactar el servicio de validación/,
   );
 });
@@ -167,7 +167,11 @@ test("validation service sends mime_type with the image payload", async () => {
     );
   };
 
-  const result = await validateHabit(3, "image-base64", "image/png");
+  const result = await validateHabit({
+    habit_id: 3,
+    image_base64: "image-base64",
+    mime_type: "image/png",
+  });
 
   assert.equal(result.valido, true);
   assert.equal(result.xp_ganado, 15);
