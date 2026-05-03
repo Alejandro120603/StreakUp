@@ -9,11 +9,17 @@ import {
   Calendar,
   Zap,
   BarChart3,
+  Clock3,
+  CheckCircle2,
+  XCircle,
+  Hourglass,
   icons,
 } from "lucide-react";
+import { fetchHabitHistory } from "@/services/history/historyService";
 import { fetchDetailedStats } from "@/services/stats/statsService";
 import { getStatsViewState } from "@/services/stats/statsViewState";
 import { StatCard } from "@/components/ui/StatCard";
+import type { HabitHistoryEvent, HabitHistoryStatus } from "@/types/history";
 
 /* ── Types ────────────────────────────────────── */
 
@@ -171,10 +177,89 @@ const StreakCalendar = memo(function StreakCalendar({ data }: { data: CalendarDa
   );
 });
 
+const HISTORY_STATUS_LABELS: Record<HabitHistoryStatus, string> = {
+  completed: "Completado",
+  approved: "Aprobado",
+  rejected: "Rechazado",
+  pending: "Pendiente",
+};
+
+function HistoryStatusIcon({ status }: { status: HabitHistoryStatus }) {
+  if (status === "rejected") {
+    return <XCircle className="size-4 text-red-300" />;
+  }
+  if (status === "pending") {
+    return <Hourglass className="size-4 text-yellow-200" />;
+  }
+  return <CheckCircle2 className="size-4 text-emerald-300" />;
+}
+
+function formatHistoryDate(value: string | null): string {
+  if (!value) {
+    return "Sin fecha";
+  }
+  const date = new Date(`${value}T00:00:00`);
+  return new Intl.DateTimeFormat("es", {
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+const RecentHistory = memo(function RecentHistory({ events }: { events: HabitHistoryEvent[] }) {
+  if (events.length === 0) {
+    return (
+      <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 text-center">
+        <p className="text-[14px] text-white/74">Aún no hay eventos de historial.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[16px]">
+      <div className="flex items-center gap-[8px]">
+        <Clock3 className="size-5 text-[var(--yellow)] drop-shadow-[0_0_8px_rgba(255,229,54,0.5)]" />
+        <h3 className="text-[18px] font-bold">Historial reciente</h3>
+      </div>
+      <div className="space-y-[10px]">
+        {events.map((event) => (
+          <div key={event.id} className="rounded-[18px] bg-white/10 border border-white/10 p-[14px] space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[15px] font-bold truncate">{event.habit_name ?? "Hábito"}</p>
+                <p className="text-[12px] text-white/55">
+                  {event.category_name ?? "Sin categoría"} · {formatHistoryDate(event.event_date)}
+                </p>
+              </div>
+              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-white/12 px-2.5 py-1 text-[11px] font-bold text-white/84">
+                <HistoryStatusIcon status={event.status} />
+                {HISTORY_STATUS_LABELS[event.status]}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              {event.validation_type ? (
+                <span className="rounded-full bg-[var(--purple)]/20 text-white px-2.5 py-1">
+                  {event.validation_type}
+                </span>
+              ) : null}
+              <span className="rounded-full bg-[var(--yellow)]/15 text-[var(--yellow)] px-2.5 py-1 font-bold">
+                {event.xp_awarded} XP
+              </span>
+            </div>
+            {event.reason ? (
+              <p className="text-[12px] text-white/65 line-clamp-2">{event.reason}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
 /* ── Main Page ────────────────────────────────── */
 
 export default function StatsPage() {
   const [stats, setStats] = useState<StatsData | null>(null);
+  const [historyEvents, setHistoryEvents] = useState<HabitHistoryEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -183,8 +268,15 @@ export default function StatsPage() {
       const data = await fetchDetailedStats();
       setStats(data);
       setErrorMessage(null);
+      try {
+        const history = await fetchHabitHistory({ limit: 20 });
+        setHistoryEvents(history.items);
+      } catch {
+        setHistoryEvents([]);
+      }
     } catch (error) {
       setStats(null);
+      setHistoryEvents([]);
       setErrorMessage(
         error instanceof Error && error.message.trim()
           ? error.message
@@ -349,6 +441,8 @@ export default function StatsPage() {
           <span className="text-[11px] text-white/55 font-bold">Más</span>
         </div>
       </div>
+
+      <RecentHistory events={historyEvents} />
 
       {/* Records */}
       <div className="p-0 overflow-hidden rounded-[24px] bg-white/13 border border-white/20 divide-y divide-white/10">

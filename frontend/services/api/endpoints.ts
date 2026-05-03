@@ -23,6 +23,7 @@ export const API_ENDPOINTS = {
   checkins: {
     toggle: "/api/checkins/toggle",
     today: "/api/checkins/today",
+    history: "/api/checkins/history",
   },
   stats: {
     summary: "/api/stats/summary",
@@ -38,4 +39,3 @@ export const API_ENDPOINTS = {
     list: "/api/achievements",
   },
 } as const;
-
