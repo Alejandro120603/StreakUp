@@ -478,6 +478,8 @@ export function createLocalPomodoroSession(
     break_minutes: payload.break_minutes ?? 5,
     cycles: payload.cycles ?? 4,
     completed: false,
+    interruption_count: 0,
+    bonus_xp_awarded: null,
     started_at: getNowIso(),
     completed_at: null,
   };

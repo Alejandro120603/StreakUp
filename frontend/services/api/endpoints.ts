@@ -33,6 +33,7 @@ export const API_ENDPOINTS = {
   pomodoro: {
     sessions: "/api/pomodoro/sessions",
     complete: (id: number) => `/api/pomodoro/sessions/${id}/complete`,
+    interrupt: (id: number) => `/api/pomodoro/sessions/${id}/interrupt`,
   },
   achievements: {
     /** List all achievements for the authenticated user */

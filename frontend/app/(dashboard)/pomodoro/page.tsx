@@ -11,6 +11,7 @@ import {
   completePomodoroSession,
   createPomodoroSession,
   fetchPomodoroSessions,
+  interruptPomodoroSession,
 } from "@/services/pomodoro/pomodoroService";
 import { fetchHabits } from "@/services/habits/habitService";
 import type { PomodoroSession } from "@/types/pomodoro";
@@ -199,6 +200,7 @@ function PomodoroContent() {
   const [timeHabits, setTimeHabits] = useState<Habit[]>([]);
   const [selectedHabitId, setSelectedHabitId] = useState<number | null>(null);
   const [xpAwarded, setXpAwarded] = useState<number | null>(null);
+  const [bonusXp, setBonusXp] = useState<number | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const completingSessionRef = useRef(false);
@@ -294,10 +296,17 @@ function PomodoroContent() {
   }
 
   function togglePause() {
-    setIsPaused((p) => !p);
+    const nowPausing = !isPaused;
+    setIsPaused(nowPausing);
+    if (nowPausing && activeSessionId !== null) {
+      void interruptPomodoroSession(activeSessionId).catch(() => {});
+    }
   }
 
   function stopTimer() {
+    if (activeSessionId !== null && timerState !== "finished") {
+      void interruptPomodoroSession(activeSessionId).catch(() => {});
+    }
     clearTimer();
     setTimerState("idle");
     setSecondsLeft(studyMinutes * 60);
@@ -306,6 +315,7 @@ function PomodoroContent() {
     setCurrentCycle(1);
     setActiveSessionId(null);
     setXpAwarded(null);
+    setBonusXp(null);
     completingSessionRef.current = false;
   }
 
@@ -320,6 +330,7 @@ function PomodoroContent() {
       .then((session) => {
         setRecentSessions((prev) => [session, ...prev.filter((existing) => existing.id !== session.id)].slice(0, 5));
         setXpAwarded(session.xp_awarded ?? null);
+        setBonusXp(session.bonus_xp ?? null);
         setSessionError("");
       })
       .catch((error) => {
@@ -488,6 +499,9 @@ function PomodoroContent() {
                 )}
                 {xpAwarded === 0 && selectedHabitId !== null && (
                   <p className="text-[11px] text-white/50 font-bold">XP ya registrado hoy</p>
+                )}
+                {bonusXp !== null && bonusXp > 0 && (
+                  <p className="text-[13px] font-bold text-emerald-300">+{bonusXp} XP bonus (sin interrupciones)</p>
                 )}
               </div>
               <Button

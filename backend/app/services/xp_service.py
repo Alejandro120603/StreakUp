@@ -29,6 +29,7 @@ _XP_REASON_ALIASES = {
     "checkin_undo": "checkin_undo",
     "validation": "validation",
     "pomodoro": "pomodoro",
+    "pomodoro_bonus": "pomodoro_bonus",
     "uncheck": "checkin_undo",
     "revocation": "checkin_undo",
 }

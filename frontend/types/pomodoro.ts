@@ -9,9 +9,12 @@ export interface PomodoroSession {
   break_minutes: number;
   cycles: number;
   completed: boolean;
+  interruption_count: number;
+  bonus_xp_awarded: number | null;
   started_at: string | null;
   completed_at: string | null;
   xp_awarded?: number | null;
+  bonus_xp?: number | null;
 }
 
 export interface CreatePomodoroSessionPayload {
