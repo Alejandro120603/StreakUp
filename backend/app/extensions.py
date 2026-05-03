@@ -16,6 +16,7 @@ Should NOT contain:
 """
 
 import sqlite3
+from pathlib import Path
 
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
@@ -45,4 +46,5 @@ def init_extensions(app) -> None:
     """Initialize Flask extensions for the provided app instance."""
     db.init_app(app)
     jwt.init_app(app)
-    migrate.init_app(app, db)
+    migrate_dir = Path(__file__).resolve().parents[1] / "migrations"
+    migrate.init_app(app, db, directory=str(migrate_dir))

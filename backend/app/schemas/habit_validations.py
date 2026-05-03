@@ -13,7 +13,6 @@ VALID_VALIDATION_TYPES = {"foto", "texto", "tiempo", "photo", "text_ai", "time",
 VALID_FREQUENCIES = {"daily", "weekly", "custom"}
 VALID_HABIT_TYPES = {"boolean", "time", "quantity"}
 IMMUTABLE_CATALOG_FIELDS = {
-    "validation_type",
     "xp_base",
     "xp_rate",
     "max_xp_per_day",
@@ -202,6 +201,12 @@ def normalize_habit_payload(
         errors.append(error)
     elif "frequency" in data:
         normalized["frequency"] = frequency
+
+    validation_type, error = _normalize_validation_type(data.get("validation_type"))
+    if error:
+        errors.append(error)
+    elif "validation_type" in data:
+        normalized["validation_type"] = validation_type
 
     target_quantity, error = _normalize_optional_decimal(data.get("target_quantity"), "target_quantity")
     if error:

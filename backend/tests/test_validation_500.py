@@ -28,6 +28,7 @@ def test_validation_route(client, monkeypatch):
         u = db.session.get(User, 1)
         if not u:
             u = User(username="test", email="test@test.com")
+            u.set_password("password")
             db.session.add(u)
         c = Category.query.filter_by(nombre="cat").first()
         if not c:
@@ -35,7 +36,14 @@ def test_validation_route(client, monkeypatch):
             db.session.add(c)
         h = db.session.get(Habit, 1)
         if not h:
-            h = Habit(nombre="Beber Agua", categoria=c, section="general", frequency="daily", habit_type="boolean")
+            h = Habit(
+                nombre="Beber Agua",
+                categoria_id=c.id,
+                dificultad="media",
+                xp_base=10,
+                tipo_validacion="foto",
+                frecuencia="daily",
+            )
             db.session.add(h)
         db.session.commit()
         uh_q = UserHabit.query.filter_by(usuario_id=u.id, habito_id=h.id).first()

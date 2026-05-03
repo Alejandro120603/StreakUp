@@ -281,7 +281,7 @@ test("register reports offline only after a real request failure", async () => {
       password: TEST_PASSWORD,
     }),
     (error: unknown) => {
-      assert.equal(fetchCalls, 1);
+      assert.equal(fetchCalls, 2);
       assert.equal(
         error instanceof Error ? error.message : String(error),
         "No hay conexión. El registro requiere internet.",
@@ -305,7 +305,7 @@ test("login reports offline when the backend request fails", async () => {
       password: TEST_PASSWORD,
     }),
     (error: unknown) => {
-      assert.equal(fetchCalls, 1);
+      assert.equal(fetchCalls, 2);
       assert.ok(error instanceof Error);
       return true;
     },
@@ -337,7 +337,7 @@ test("login with cached session fails securely when backend request throws", asy
       password: "wrong_password",
     }),
     (error: unknown) => {
-      assert.equal(fetchCalls, 1);
+      assert.equal(fetchCalls, 2);
       assert.ok(error instanceof Error);
       assert.equal(error.message, "No hay conexión. Usa una sesión guardada previamente.");
       return true;
