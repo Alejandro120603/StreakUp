@@ -181,7 +181,7 @@ function ValidateHabitPageContent() {
     const validationType = habit.validation_type ?? "foto";
     const payload: ValidatePayload = { habit_id: habit.id };
 
-    if (validationType === "foto") {
+    if (validationType === "foto" || validationType === "photo") {
       if (!imageBase64 || !imageMimeType) {
         setErrorMsg("Sube una foto como evidencia.");
         setStatus("idle");
@@ -189,14 +189,14 @@ function ValidateHabitPageContent() {
       }
       payload.image_base64 = imageBase64;
       payload.mime_type = imageMimeType;
-    } else if (validationType === "texto") {
+    } else if (validationType === "texto" || validationType === "text_ai") {
       if (!textContent.trim()) {
         setErrorMsg("Escribe tu evidencia textual.");
         setStatus("idle");
         return;
       }
       payload.text_content = textContent;
-    } else if (validationType === "tiempo") {
+    } else if (validationType === "tiempo" || validationType === "time") {
       const minutesToLog = typeof timerMinutes === "number" ? timerMinutes : habit.target_duration || 5;
       if (!minutesToLog) {
         setErrorMsg("El temporizador no completó los minutos requeridos.");
@@ -205,6 +205,7 @@ function ValidateHabitPageContent() {
       }
       payload.duration_minutes = minutesToLog;
     }
+    // check: no extra payload field needed — server checks timestamp
 
     try {
       const res = await validateHabit(payload);
@@ -270,9 +271,11 @@ function ValidateHabitPageContent() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Validar Hábito</h1>
           <p className="text-sm text-muted-foreground">
-            {validationType === "foto" && "Sube una foto como evidencia"}
-            {validationType === "texto" && "Escribe tu bitácora de progreso"}
-            {validationType === "tiempo" && "Registra el tiempo completado"}
+            {(validationType === "foto" || validationType === "photo") && "Sube una foto como evidencia"}
+            {(validationType === "texto") && "Escribe tu bitácora de progreso"}
+            {(validationType === "text_ai") && "Escribe tu evidencia — la IA la evaluará"}
+            {(validationType === "tiempo" || validationType === "time") && "Registra el tiempo completado"}
+            {validationType === "check" && `Empieza antes de ${habit.deadline_time ?? "la hora límite"}`}
           </p>
         </div>
       </div>
@@ -325,9 +328,11 @@ function ValidateHabitPageContent() {
           <div className="space-y-1">
             <p className="text-blue-300 text-xs font-semibold uppercase tracking-wider">Evidencia esperada</p>
             <p className="text-sm text-foreground/90">
-              {validationType === "foto" && (habit.description || `Sube una foto que demuestre que completaste "${habit.name}".`)}
+              {(validationType === "foto" || validationType === "photo") && (habit.description || `Sube una foto que demuestre que completaste "${habit.name}".`)}
               {validationType === "texto" && (habit.description || `Escribe una breve recapitulación sobre "${habit.name}".`)}
-              {validationType === "tiempo" && (habit.description || `Ingresa el total de minutos que dedicaste a "${habit.name}".`)}
+              {validationType === "text_ai" && (habit.description || `Escribe una descripción de lo que hiciste para "${habit.name}". La IA evaluará si corresponde al hábito.`)}
+              {(validationType === "tiempo" || validationType === "time") && (habit.description || `Ingresa el total de minutos que dedicaste a "${habit.name}".`)}
+              {validationType === "check" && (habit.description || `Confirma que empezaste "${habit.name}" antes de ${habit.deadline_time ?? "la hora límite"}.`)}
             </p>
             {targetSummary ? (
               <p className="text-xs text-muted-foreground mt-1">
@@ -338,7 +343,7 @@ function ValidateHabitPageContent() {
         </div>
       )}
 
-      {status === "idle" && validationType === "foto" && (
+      {status === "idle" && (validationType === "foto" || validationType === "photo") && (
         <div className="space-y-4">
           <input
             ref={fileInputRef}
@@ -416,7 +421,7 @@ function ValidateHabitPageContent() {
         </div>
       )}
 
-      {status === "idle" && validationType === "texto" && (
+      {status === "idle" && (validationType === "texto" || validationType === "text_ai") && (
         <div className="space-y-4">
           <textarea
             value={textContent}
@@ -436,12 +441,42 @@ function ValidateHabitPageContent() {
             disabled={!textContent.trim()}
             className="w-full py-3.5 rounded-xl font-semibold text-primary-foreground transition-all duration-300 disabled:opacity-30 border bg-primary hover:bg-primary/90"
           >
-            Validar texto
+            {validationType === "text_ai" ? (
+              <>
+                <Sparkles className="size-4 inline mr-2" />
+                Validar texto con IA
+              </>
+            ) : "Validar texto"}
           </button>
         </div>
       )}
 
-      {status === "idle" && validationType === "tiempo" && (
+      {status === "idle" && validationType === "check" && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-secondary/50 p-6 text-center space-y-2">
+            <p className="text-foreground font-semibold text-lg">
+              Hora límite: {habit.deadline_time ?? "—"}
+            </p>
+            <p className="text-muted-foreground text-sm">
+              El servidor registrará la hora exacta de tu confirmación.
+            </p>
+          </div>
+          {errorMsg && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {errorMsg}
+            </div>
+          )}
+          <button
+            onClick={() => handleValidate()}
+            className="w-full py-3.5 rounded-xl font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-all shadow-md active:scale-[0.98]"
+          >
+            <CheckCircle2 className="size-4 inline mr-2" />
+            Confirmar que empecé a tiempo
+          </button>
+        </div>
+      )}
+
+      {status === "idle" && (validationType === "tiempo" || validationType === "time") && (
         <div className="space-y-4">
           <TimerValidation habit={habit} onComplete={handleValidate} />
           {errorMsg && (

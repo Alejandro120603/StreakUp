@@ -5,7 +5,19 @@ Responsibility:
 - Define persistence structure for catalog habit entities.
 """
 
+from decimal import Decimal
+
 from app.extensions import db
+
+
+def _json_number(value: object) -> float | int | None:
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        if value == value.to_integral_value():
+            return int(value)
+        return float(value)
+    return value
 
 
 class Category(db.Model):
@@ -83,7 +95,7 @@ class Habit(db.Model):
         default="daily",
         server_default="daily",
     )
-    cantidad_objetivo = db.Column(db.Integer, nullable=True)
+    cantidad_objetivo = db.Column(db.Numeric(8, 2), nullable=True)
     unidad_objetivo = db.Column(db.String(40), nullable=True)
     duracion_objetivo_minutos = db.Column(db.Integer, nullable=True)
 
@@ -102,7 +114,7 @@ class Habit(db.Model):
             "active": bool(self.activo),
             "validation_type": self.tipo_validacion,
             "frequency": self.frecuencia,
-            "target_quantity": self.cantidad_objetivo,
+            "target_quantity": _json_number(self.cantidad_objetivo),
             "target_unit": self.unidad_objetivo,
             "target_duration": self.duracion_objetivo_minutos,
         }

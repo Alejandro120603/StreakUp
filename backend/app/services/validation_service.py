@@ -18,12 +18,17 @@ from app.models.user_habit import UserHabit
 from app.models.validation_log import ValidationLog
 from app.services.achievement_service import evaluate_and_award
 from app.services.habit_service import get_user_habit
-from app.services.openai_service import analyze_habit_image
+from app.services.openai_service import analyze_habit_image, analyze_habit_text
 from app.services.streak_service import compute_current_streak
 from app.services.xp_service import award_xp
 from app.services.checkin_service import is_eligible_today
 
 _LOCAL_TIMEZONE = datetime.now().astimezone().tzinfo or timezone.utc
+
+
+def _get_current_time_str() -> str:
+    """Return current local time as HH:MM. Injectable for tests."""
+    return datetime.now(_LOCAL_TIMEZONE).strftime("%H:%M")
 
 
 def _to_local_date(value: datetime | None) -> date_type | None:
@@ -134,19 +139,17 @@ def validate_habit(
             if not isinstance(text_content, str):
                 text_content = str(text_content)
             text_content = text_content.strip()
-            
+
             if not text_content:
                 raise ValueError("Se requiere texto para validar este hábito.")
-                
+
             min_length = user_habit.min_text_length or 0
             if len(text_content) < min_length:
                 raise ValueError(f"El texto debe tener al menos {min_length} caracteres. Actualmente tiene {len(text_content)}.")
 
             evidence_metadata["text_content"] = text_content
             evidence_metadata["text_length"] = len(text_content)
-            is_approved = True
-            reason = "Texto validado correctamente."
-            
+
             log = ValidationLog(
                 habitousuario_id=user_habit.id,
                 tipo_validacion="texto",
@@ -155,7 +158,23 @@ def validate_habit(
                 validado=False,
             )
             db.session.add(log)
-            
+            db.session.flush()
+
+            if val_type == "text_ai":
+                evidence_metadata["provider"] = "openai"
+                try:
+                    habit_name = user_habit.nombre_personalizado or user_habit.habit.nombre
+                    ai_result = analyze_habit_text(habit_name, text_content)
+                    is_approved = bool(ai_result["valido"])
+                    reason = ai_result["razon"]
+                    confidence = ai_result["confianza"]
+                except Exception as ai_exc:
+                    current_app.logger.error(f"AI text validation failed for log_id={log.id}: {str(ai_exc)}")
+                    raise
+            else:
+                is_approved = True
+                reason = "Texto validado correctamente."
+
         elif val_type in {"tiempo", "time"}:
             duration_minutes = payload.get("duration_minutes")
             if not duration_minutes:
@@ -182,6 +201,30 @@ def validate_habit(
             )
             db.session.add(log)
             
+        elif val_type == "check":
+            deadline = user_habit.deadline_time
+            if not deadline:
+                raise ValueError("Este hábito requiere hora límite configurada (deadline_time).")
+
+            now_time_str = _get_current_time_str()
+            is_approved = now_time_str <= deadline
+            reason = (
+                f"Validado a las {now_time_str}, antes del límite de {deadline}."
+                if is_approved
+                else f"Validado a las {now_time_str}, después del límite de {deadline}."
+            )
+            evidence_metadata["checked_at"] = now_time_str
+            evidence_metadata["deadline"] = deadline
+
+            log = ValidationLog(
+                habitousuario_id=user_habit.id,
+                tipo_validacion="manual",
+                evidencia=json.dumps(evidence_metadata, ensure_ascii=True, sort_keys=True),
+                status="pending",
+                validado=False,
+            )
+            db.session.add(log)
+
         else:
             raise ValueError(f"Tipo de validación no soportado: {val_type}")
 

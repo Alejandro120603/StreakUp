@@ -5,6 +5,7 @@ Responsibility:
 - Host catalog and user-assignment habit use cases.
 """
 
+from decimal import Decimal
 from datetime import date as date_type, datetime, timezone
 
 from app.extensions import db
@@ -38,6 +39,10 @@ _HABIT_ICONS = {
 }
 
 _CATALOG_ORDER = {habit_id: index for index, habit_id in enumerate(DEFAULT_HABIT_IDS)}
+
+
+class HabitConfigurationError(ValueError):
+    """Raised when user habit configuration violates catalog requirements."""
 
 def _get_presentation(category_id: int) -> dict[str, str]:
     return _CATEGORY_PRESENTATION.get(category_id, {"section": "fire", "icon": "Flame"})
@@ -82,7 +87,17 @@ def _effective_frequency(user_habit: UserHabit) -> str:
     return user_habit.frecuencia or user_habit.habit.frecuencia
 
 
-def _effective_quantity_target(user_habit: UserHabit) -> int | None:
+def _json_number(value: object) -> float | int | None:
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        if value == value.to_integral_value():
+            return int(value)
+        return float(value)
+    return value
+
+
+def _effective_quantity_target(user_habit: UserHabit) -> Decimal | None:
     return (
         user_habit.cantidad_objetivo
         if user_habit.cantidad_objetivo is not None
@@ -106,6 +121,10 @@ def _effective_target_unit(user_habit: UserHabit) -> str | None:
     )
 
 
+def _effective_deadline_time(user_habit: UserHabit) -> str | None:
+    return user_habit.deadline_time
+
+
 def _effective_name(user_habit: UserHabit) -> str:
     return user_habit.nombre_personalizado or user_habit.habit.nombre
 
@@ -121,7 +140,7 @@ def _effective_description(user_habit: UserHabit) -> str | None:
 def _derive_habit_type(
     validation_type: str,
     *,
-    target_quantity: int | None,
+    target_quantity: Decimal | None,
     target_duration: int | None,
 ) -> str:
     if validation_type in {"tiempo", "time"} or target_duration is not None:
@@ -146,6 +165,7 @@ def serialize_user_habit(user_habit: UserHabit) -> dict:
     target_quantity = _effective_quantity_target(user_habit)
     target_duration = _effective_duration_target(user_habit)
     target_unit = _effective_target_unit(user_habit)
+    deadline_time = _effective_deadline_time(user_habit)
     custom_name = user_habit.nombre_personalizado
     custom_description = user_habit.descripcion_personalizada
     habit_type = _derive_habit_type(
@@ -174,8 +194,9 @@ def serialize_user_habit(user_habit: UserHabit) -> dict:
         "section": presentation["section"],
         "target_duration": target_duration,
         "pomodoro_enabled": validation_type in {"tiempo", "time"},
-        "target_quantity": target_quantity,
+        "target_quantity": _json_number(target_quantity),
         "target_unit": target_unit,
+        "deadline_time": deadline_time,
         "min_text_length": user_habit.min_text_length,
         "schedule_days": [
             row.weekday
@@ -216,6 +237,8 @@ def _apply_user_habit_overrides(user_habit: UserHabit, overrides: dict[str, obje
         user_habit.unidad_objetivo = overrides["target_unit"]
     if "target_duration" in overrides:
         user_habit.duracion_objetivo_minutos = overrides["target_duration"]
+    if "deadline_time" in overrides:
+        user_habit.deadline_time = overrides["deadline_time"]
     if "min_text_length" in overrides:
         user_habit.min_text_length = overrides["min_text_length"]
     if "schedule_days" in overrides:
@@ -233,6 +256,69 @@ def _apply_user_habit_overrides(user_habit: UserHabit, overrides: dict[str, obje
             )
 
     user_habit.fecha_actualizacion = datetime.now(timezone.utc)
+
+
+def _effective_config_after_update(
+    user_habit: UserHabit,
+    updates: dict[str, object],
+    catalog_habit: Habit | None = None,
+) -> dict[str, object]:
+    habit = catalog_habit or user_habit.habit
+    return {
+        "target_quantity": (
+            updates["target_quantity"]
+            if "target_quantity" in updates
+            else (
+                user_habit.cantidad_objetivo
+                if user_habit.cantidad_objetivo is not None
+                else habit.cantidad_objetivo
+            )
+        ),
+        "target_unit": (
+            updates["target_unit"]
+            if "target_unit" in updates
+            else (
+                user_habit.unidad_objetivo
+                if user_habit.unidad_objetivo is not None
+                else habit.unidad_objetivo
+            )
+        ),
+        "target_duration": (
+            updates["target_duration"]
+            if "target_duration" in updates
+            else (
+                user_habit.duracion_objetivo_minutos
+                if user_habit.duracion_objetivo_minutos is not None
+                else habit.duracion_objetivo_minutos
+            )
+        ),
+        "deadline_time": (
+            updates["deadline_time"]
+            if "deadline_time" in updates
+            else _effective_deadline_time(user_habit)
+        ),
+    }
+
+
+def _validate_point_a_config(catalog_habit: Habit, config: dict[str, object]) -> None:
+    meta_type = catalog_habit.meta_type
+    validation_type = catalog_habit.tipo_validacion
+
+    if meta_type == "quantity_liters":
+        quantity = config["target_quantity"]
+        if quantity is None or Decimal(str(quantity)) <= 0:
+            raise HabitConfigurationError("target_quantity greater than zero is required for this habit.")
+        if config["target_unit"] is None:
+            config["target_unit"] = "litros"
+
+    if meta_type == "minutes":
+        duration = config["target_duration"]
+        if duration is None or int(duration) <= 0:
+            raise HabitConfigurationError("target_duration greater than zero is required for this habit.")
+
+    if validation_type == "check":
+        if config["deadline_time"] is None:
+            raise HabitConfigurationError("deadline_time is required for this habit.")
 
 
 def assign_habit_to_user(user_id: int, habito_id: int, overrides: dict[str, object] | None = None) -> dict:
@@ -255,10 +341,13 @@ def assign_habit_to_user(user_id: int, habito_id: int, overrides: dict[str, obje
         fecha_inicio=date_type.today(),
         activo=True,
     )
+    effective_config = _effective_config_after_update(user_habit, overrides or {}, catalog_habit)
+    _validate_point_a_config(catalog_habit, effective_config)
     db.session.add(user_habit)
     # Flush to get the PK so schedule_days can reference user_habit.id
     db.session.flush()
     if overrides:
+        overrides = {**overrides, **effective_config}
         _apply_user_habit_overrides(user_habit, overrides)
     db.session.commit()
     return serialize_user_habit(user_habit)
@@ -270,6 +359,9 @@ def update_user_habit(habit_id: int, user_id: int, updates: dict[str, object]) -
     if user_habit is None:
         raise LookupError("Habit not found.")
 
+    effective_config = _effective_config_after_update(user_habit, updates)
+    _validate_point_a_config(user_habit.habit, effective_config)
+    updates = {**updates, **effective_config}
     _apply_user_habit_overrides(user_habit, updates)
     db.session.commit()
     return serialize_user_habit(user_habit)

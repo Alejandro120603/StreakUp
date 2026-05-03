@@ -14,6 +14,7 @@ from app.schemas.habit_validations import (
     normalize_update_habit_payload,
 )
 from app.services.habit_service import (
+    HabitConfigurationError,
     assign_habit_to_user,
     deactivate_user_habit,
     get_habits,
@@ -47,6 +48,8 @@ def assign():
         habito_id = int(normalized.pop("habito_id"))
         habit = assign_habit_to_user(user_id, habito_id, normalized)
         return jsonify(habit), 201
+    except HabitConfigurationError as exc:
+        return error_response(str(exc), 400)
     except ValueError as exc:
         return error_response(str(exc), 409)
     except LookupError as exc:
@@ -111,6 +114,8 @@ def assign_compatible():
         habito_id = int(normalized.pop("habito_id"))
         habit = assign_habit_to_user(user_id, habito_id, normalized)
         return jsonify(habit), 201
+    except HabitConfigurationError as exc:
+        return error_response(str(exc), 400)
     except ValueError as exc:
         return error_response(str(exc), 409)
     except LookupError as exc:
@@ -138,6 +143,8 @@ def update_compatible(habit_id: int):
     try:
         habit = update_user_habit(habit_id, user_id, normalized)
         return jsonify(habit), 200
+    except HabitConfigurationError as exc:
+        return error_response(str(exc), 400)
     except LookupError as exc:
         return error_response(str(exc), 404)
 
@@ -158,5 +165,7 @@ def patch_user_habit(habit_id: int):
     try:
         habit = update_user_habit(habit_id, user_id, normalized)
         return jsonify(habit), 200
+    except HabitConfigurationError as exc:
+        return error_response(str(exc), 400)
     except LookupError as exc:
         return error_response(str(exc), 404)

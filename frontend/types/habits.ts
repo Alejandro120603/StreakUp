@@ -28,6 +28,7 @@ export interface Habit {
   pomodoro_enabled: boolean;
   target_quantity: number | null;
   target_unit: string | null;
+  deadline_time?: string | null;
   min_text_length?: number | null;
   schedule_days?: number[];
   created_at: string;
@@ -61,6 +62,7 @@ export interface CreateHabitPayload {
   target_duration?: number | null;
   target_quantity?: number | null;
   target_unit?: string | null;
+  deadline_time?: string | null;
   min_text_length?: number | null;
   schedule_days?: number[];
 }
@@ -78,6 +80,7 @@ export interface UpdateHabitPayload {
   target_duration?: number | null;
   target_quantity?: number | null;
   target_unit?: string | null;
+  deadline_time?: string | null;
   pomodoro_enabled?: boolean;
   min_text_length?: number | null;
   schedule_days?: number[];

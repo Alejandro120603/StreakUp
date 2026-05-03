@@ -54,9 +54,10 @@ class UserHabit(db.Model):
     descripcion_personalizada = db.Column(db.Text, nullable=True)
     tipo_validacion = db.Column(db.String(20), nullable=True)
     frecuencia = db.Column(db.String(20), nullable=True)
-    cantidad_objetivo = db.Column(db.Integer, nullable=True)
+    cantidad_objetivo = db.Column(db.Numeric(8, 2), nullable=True)
     unidad_objetivo = db.Column(db.String(40), nullable=True)
     duracion_objetivo_minutos = db.Column(db.Integer, nullable=True)
+    deadline_time = db.Column(db.String(5), nullable=True)
     min_text_length = db.Column(db.Integer, nullable=True)
     fecha_creacion = db.Column(
         db.DateTime,
