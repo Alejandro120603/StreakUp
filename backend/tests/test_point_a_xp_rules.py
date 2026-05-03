@@ -166,6 +166,27 @@ def test_daily_cap_zero_when_reached(app, setup):
         assert awarded2 == 0
 
 
+def test_advisory_difficulty_metadata_does_not_change_xp_cap(app, setup):
+    with app.app_context():
+        user_id = setup["user_id"]
+        uh = db.session.get(UserHabit, setup["time_uh_id"])
+        today = date.today()
+        advisory_metadata = {
+            "level": "dificil",
+            "confidence": 1.0,
+            "explanation": "Solo metadata consultiva.",
+            "source": "openai",
+            "advisory": True,
+        }
+
+        awarded = award_habit_xp(user_id, uh, today, duration_minutes=200, commit=False)
+        db.session.flush()
+
+        assert advisory_metadata["advisory"] is True
+        assert awarded == 50
+        assert get_daily_xp_used(user_id, uh.id, today) == 50
+
+
 def test_cap_hit_logged_in_xp_log(app, setup):
     with app.app_context():
         user_id = setup["user_id"]

@@ -152,6 +152,9 @@ def test_photo_calls_ai_and_approves(app, seeded):
         assert result["valido"] is True
         assert result["xp_ganado"] > 0
         assert result["status"] == "approved"
+        assert result["difficulty_recommendation"]["advisory"] is True
+        assert result["difficulty_recommendation"]["source"] == "deterministic"
+        assert result["feedback"]["message"]
 
 
 def test_photo_calls_ai_and_rejects(app, seeded):
@@ -230,8 +233,24 @@ def test_time_sufficient_duration_approves(app, seeded):
     with app.app_context():
         result = validate_habit(seeded["user_id"], seeded["uh_time"], {"duration_minutes": 20})
         assert result["valido"] is True
-        assert result["xp_ganado"] > 0
+        assert result["xp_ganado"] == 30
         assert result["status"] == "approved"
+
+
+def test_ai_difficulty_metadata_cannot_bypass_time_xp_cap(app, seeded):
+    with app.app_context():
+        advisory = {
+            "level": "dificil",
+            "confidence": 0.99,
+            "explanation": "Parece más demandante.",
+            "source": "openai",
+            "advisory": True,
+        }
+        with patch("app.services.validation_service.recommend_difficulty", return_value=advisory):
+            result = validate_habit(seeded["user_id"], seeded["uh_time"], {"duration_minutes": 200})
+
+        assert result["difficulty_recommendation"] == advisory
+        assert result["xp_ganado"] == 30
 
 
 # --- check ---

@@ -116,6 +116,12 @@ export default function DashboardHomePage() {
         </div>
       )}
 
+      {stats.feedback?.message ? (
+        <div className="rounded-[20px] border border-white/18 bg-white/12 px-4 py-3 text-sm text-white/86">
+          {stats.feedback.message}
+        </div>
+      ) : null}
+
       {/* Hero Card */}
       <div className="bg-white/14 border border-white/20 rounded-[28px] shadow-[0_22px_55px_rgba(18,5,72,0.32)] backdrop-blur-[18px] relative overflow-hidden text-center px-[22px] pt-[28px] pb-[24px]">
         <span className="absolute text-[var(--yellow)] text-[24px] [text-shadow:0_0_15px_currentColor] animate-[twinkle_1.7s_infinite] left-[18px] top-[66px]">✦</span>

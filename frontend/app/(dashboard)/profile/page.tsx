@@ -28,6 +28,7 @@ import {
   Save,
   X,
   Mail,
+  Users,
 } from "lucide-react";
 import { fetchProfileStats, fetchXpInfo, fetchDetailedStats } from "@/services/stats/statsService";
 import { getSession, clearSession } from "@/services/auth/authService";
@@ -333,6 +334,23 @@ export default function ProfilePage() {
           <p className="text-[12px] text-white/74">Total logros</p>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => router.push("/social")}
+        className="w-full rounded-[24px] bg-white/13 border border-white/20 p-[20px] flex items-center justify-between text-left transition-colors hover:bg-white/18"
+      >
+        <div className="flex items-center gap-[14px]">
+          <div className="w-[44px] h-[44px] rounded-[14px] bg-[#36d98f]/20 text-[#36d98f] grid place-items-center">
+            <Users className="size-5" />
+          </div>
+          <div>
+            <p className="text-[16px] font-bold text-white">Rachas compartidas</p>
+            <p className="text-[12px] text-white/74">Grupos privados por invitación</p>
+          </div>
+        </div>
+        <ChevronRight className="size-5 text-white/40" />
+      </button>
 
       {/* Logros */}
       <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[16px]">

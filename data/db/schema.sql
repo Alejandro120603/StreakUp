@@ -177,6 +177,45 @@ CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_user_started
 ON pomodoro_sessions(user_id, started_at);
 
 -- =====================================================
+-- SHARED STREAK SOCIAL GROUPS
+-- =====================================================
+CREATE TABLE IF NOT EXISTS shared_streak_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id INTEGER NOT NULL,
+    name TEXT NOT NULL CHECK (length(name) >= 3),
+    invite_code TEXT NOT NULL UNIQUE,
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS ix_shared_streak_groups_owner_user_id
+ON shared_streak_groups(owner_user_id);
+
+CREATE INDEX IF NOT EXISTS ix_shared_streak_groups_invite_code
+ON shared_streak_groups(invite_code);
+
+CREATE TABLE IF NOT EXISTS shared_streak_memberships (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','left')),
+    share_progress INTEGER NOT NULL DEFAULT 1 CHECK (share_progress IN (0,1)),
+    joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    left_at DATETIME,
+    FOREIGN KEY (group_id) REFERENCES shared_streak_groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (group_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_shared_streak_memberships_group_id
+ON shared_streak_memberships(group_id);
+
+CREATE INDEX IF NOT EXISTS ix_shared_streak_memberships_user_id
+ON shared_streak_memberships(user_id);
+
+-- =====================================================
 -- NIVELES
 -- =====================================================
 CREATE TABLE IF NOT EXISTS niveles (

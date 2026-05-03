@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 
 import { saveSession } from "@/services/auth/authService";
-import { validateHabit } from "@/services/validation/validationService";
+import {
+  createSharedGroup,
+  fetchSharedGroups,
+  joinSharedGroup,
+  leaveSharedGroup,
+} from "@/services/social/socialService";
 
 const originalFetch = globalThis.fetch;
 const originalWindow = globalThis.window;
@@ -116,83 +121,68 @@ afterEach(() => {
   }
 });
 
-test("validation service maps provider-unavailable responses to a controlled message", async () => {
-  globalThis.fetch = async () =>
-    new Response(
-      JSON.stringify({
-        error: "La validación de fotos no está disponible temporalmente.",
-        code: "validation_provider_unavailable",
-      }),
-      {
-        status: 503,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-
-  await assert.rejects(
-    validateHabit({ habit_id: 1, image_base64: "image-base64" }),
-    /La validación de fotos no está disponible temporalmente\. Inténtalo más tarde\./,
-  );
-});
-
-test("validation service maps backend-unreachable failures to a friendly network message", async () => {
-  globalThis.fetch = async () => {
-    throw new TypeError("Failed to fetch");
-  };
-
-  await assert.rejects(
-    validateHabit({ habit_id: 1, image_base64: "image-base64" }),
-    /No se pudo contactar el servicio de validación/,
-  );
-});
-
-test("validation service sends mime_type with the image payload", async () => {
-  globalThis.fetch = async (_input, init) => {
-    assert.equal(init?.method, "POST");
-    assert.equal(
-      init?.body,
-      JSON.stringify({
-        habit_id: 3,
-        image_base64: "image-base64",
-        mime_type: "image/png",
-      }),
-    );
-
+test("social service creates and joins groups through social endpoints", async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = async (input, init) => {
+    calls.push({ url: String(input), init });
     return new Response(
       JSON.stringify({
-        valido: true,
-        razon: "ok",
-        confianza: 0.9,
-        xp_ganado: 15,
-        nueva_racha: 2,
-        difficulty_recommendation: {
-          level: "media",
-          confidence: 0.7,
-          explanation: "Buen nivel para este hábito.",
-          source: "deterministic",
-          advisory: true,
+        id: 4,
+        name: "Equipo",
+        invite_code: "ABC123",
+        owner_user_id: 7,
+        member_count: 2,
+        created_at: "2026-05-03T00:00:00Z",
+        shared_streak: {
+          current: 3,
+          today_completed_members: 2,
+          required_members: 2,
+          ready: true,
         },
-        feedback: {
-          message: "Validaste el hábito con progreso concreto.",
-          tone: "progress",
-          context: { today_completed: 1 },
-        },
+        members: [],
       }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      },
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   };
 
-  const result = await validateHabit({
-    habit_id: 3,
-    image_base64: "image-base64",
-    mime_type: "image/png",
-  });
+  const created = await createSharedGroup({ name: "Equipo" });
+  const joined = await joinSharedGroup({ invite_code: "ABC123" });
 
-  assert.equal(result.valido, true);
-  assert.equal(result.xp_ganado, 15);
-  assert.equal(result.difficulty_recommendation?.advisory, true);
-  assert.equal(result.feedback?.message, "Validaste el hábito con progreso concreto.");
+  assert.equal(calls[0]?.url.endsWith("/api/social/groups"), true);
+  assert.equal(calls[0]?.init?.body, JSON.stringify({ name: "Equipo" }));
+  assert.equal(calls[1]?.url.endsWith("/api/social/groups/join"), true);
+  assert.equal(calls[1]?.init?.body, JSON.stringify({ invite_code: "ABC123" }));
+  assert.equal(created.shared_streak.current, 3);
+  assert.equal(joined.member_count, 2);
+});
+
+test("social service lists and leaves groups", async () => {
+  const calls: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    calls.push(`${init?.method ?? "GET"} ${String(input)}`);
+    if (init?.method === "DELETE") {
+      return new Response(JSON.stringify({ left: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await fetchSharedGroups();
+  await leaveSharedGroup(9);
+
+  assert.equal(calls[0]?.endsWith("/api/social/groups"), true);
+  assert.equal(calls[1]?.includes("DELETE"), true);
+  assert.equal(calls[1]?.endsWith("/api/social/groups/9/membership"), true);
+});
+
+test("offline mode does not fabricate social success", async () => {
+  process.env.NEXT_PUBLIC_OFFLINE_MODE = "true";
+
+  await assert.rejects(fetchSharedGroups(), /requieren conexión/);
+  await assert.rejects(createSharedGroup({ name: "Equipo" }), /requieren conexión/);
 });

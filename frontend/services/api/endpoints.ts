@@ -38,4 +38,10 @@ export const API_ENDPOINTS = {
     /** List all achievements for the authenticated user */
     list: "/api/achievements",
   },
+  social: {
+    groups: "/api/social/groups",
+    join: "/api/social/groups/join",
+    detail: (id: number) => `/api/social/groups/${id}`,
+    membership: (id: number) => `/api/social/groups/${id}/membership`,
+  },
 } as const;

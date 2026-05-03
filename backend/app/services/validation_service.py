@@ -8,6 +8,7 @@ Responsibility:
 
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import date as date_type, datetime, timezone
 
 from flask import current_app
@@ -17,7 +18,9 @@ from app.models.checkin import CheckIn
 from app.models.user_habit import UserHabit
 from app.models.validation_log import ValidationLog
 from app.services.achievement_service import evaluate_and_award
+from app.services.difficulty_service import recommend_difficulty
 from app.services.habit_service import get_user_habit
+from app.services.motivation_service import build_validation_feedback
 from app.services.openai_service import analyze_habit_image, analyze_habit_text
 from app.services.streak_service import compute_current_streak
 from app.services.xp_service import award_xp, award_habit_xp
@@ -39,8 +42,6 @@ def _to_local_date(value: datetime | None) -> date_type | None:
     return value.astimezone(_LOCAL_TIMEZONE).date()
 
 
-from collections.abc import Mapping
-
 def _extract_image_payload(data: Mapping[str, object]) -> tuple[str | None, str | None]:
     """Support both legacy and current validation payload shapes."""
     image_value = data.get("image_base64") or data.get("image")
@@ -60,6 +61,69 @@ def _extract_image_payload(data: Mapping[str, object]) -> tuple[str | None, str 
             normalized_mime_type = metadata[len("data:") :].split(";", 1)[0].strip() or None
 
     return image_value or None, normalized_mime_type
+
+
+def _target_summary(user_habit: UserHabit) -> str | None:
+    if user_habit.duracion_objetivo_minutos is not None:
+        return f"{user_habit.duracion_objetivo_minutos} min"
+    if user_habit.cantidad_objetivo is not None:
+        amount = user_habit.cantidad_objetivo
+        if amount == amount.to_integral_value():
+            amount = int(amount)
+        unit = f" {user_habit.unidad_objetivo}" if user_habit.unidad_objetivo else ""
+        return f"{amount}{unit}"
+    return None
+
+
+def _difficulty_context(user_habit: UserHabit, validation_type: str, payload: Mapping[str, object]) -> dict:
+    context = {
+        "validation_type": validation_type,
+        "target_summary": _target_summary(user_habit),
+        "frequency": user_habit.frecuencia or user_habit.habit.frecuencia,
+    }
+    if validation_type in {"tiempo", "time"}:
+        context["duration_minutes"] = payload.get("duration_minutes")
+    if validation_type in {"texto", "text_ai"}:
+        text_content = payload.get("text_content")
+        context["text_length"] = len(text_content.strip()) if isinstance(text_content, str) else 0
+    return context
+
+
+def _progress_context(
+    user_habit: UserHabit,
+    today: date_type,
+    streak: int,
+    xp_awarded: int,
+    approved: bool,
+) -> dict:
+    active_habits = [
+        assigned_habit
+        for assigned_habit in user_habit.user.assigned_habits
+        if assigned_habit.activo
+    ]
+    eligible_today = [
+        assigned_habit
+        for assigned_habit in active_habits
+        if is_eligible_today(assigned_habit, today)
+    ]
+    eligible_ids = [assigned_habit.id for assigned_habit in eligible_today]
+    today_completed = 0
+    if eligible_ids:
+        today_completed = CheckIn.query.filter(
+            CheckIn.habitousuario_id.in_(eligible_ids),
+            CheckIn.fecha == today,
+        ).count()
+
+    habit_name = user_habit.nombre_personalizado or user_habit.habit.nombre
+    return {
+        "approved": approved,
+        "habit_name": habit_name,
+        "today_completed": min(today_completed, len(eligible_ids)),
+        "today_total": len(eligible_ids),
+        "streak": streak,
+        "xp_awarded": xp_awarded,
+    }
+
 
 def validate_habit(
     user_id: int,
@@ -255,6 +319,23 @@ def validate_habit(
         
         nueva_racha = compute_current_streak(active_user_habit_ids, today)
         new_achievements = evaluate_and_award(user_id, current_streak=nueva_racha)
+        habit_name = user_habit.nombre_personalizado or user_habit.habit.nombre
+        difficulty_recommendation = recommend_difficulty(
+            habit_name,
+            user_habit.habit.dificultad,
+            _difficulty_context(user_habit, val_type, payload),
+        )
+        db.session.flush()
+        feedback = build_validation_feedback(
+            _progress_context(user_habit, today, nueva_racha, xp_awarded, is_approved)
+        )
+        evidence_metadata.update(
+            {
+                "difficulty_recommendation": difficulty_recommendation,
+                "feedback": feedback,
+            }
+        )
+        log.evidencia = json.dumps(evidence_metadata, ensure_ascii=True, sort_keys=True)
 
         db.session.commit()
 
@@ -266,6 +347,8 @@ def validate_habit(
             "xp_ganado": xp_awarded,
             "nueva_racha": nueva_racha,
             "new_achievements": new_achievements,
+            "difficulty_recommendation": difficulty_recommendation,
+            "feedback": feedback,
         }
     except Exception:
         current_app.logger.exception(

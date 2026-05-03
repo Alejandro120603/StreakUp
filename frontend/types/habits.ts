@@ -161,6 +161,20 @@ export function getHabitTargetSummary(habit: Pick<Habit, "target_duration" | "ta
   return null;
 }
 
+export interface MotivationFeedback {
+  message: string;
+  tone: string;
+  context?: Record<string, unknown>;
+}
+
+export interface DifficultyRecommendation {
+  level: HabitDifficulty;
+  confidence: number;
+  explanation: string;
+  source: "deterministic" | "openai" | string;
+  advisory: boolean;
+}
+
 export interface ValidationResult {
   status?: string;
   valido: boolean;
@@ -169,4 +183,6 @@ export interface ValidationResult {
   xp_ganado?: number;
   nueva_racha?: number;
   new_achievements?: Array<Record<string, unknown>>;
+  difficulty_recommendation?: DifficultyRecommendation;
+  feedback?: MotivationFeedback;
 }

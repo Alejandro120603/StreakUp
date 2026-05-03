@@ -103,18 +103,18 @@ class XpConsistencyTestCase(unittest.TestCase):
         self.assertEqual(validation.status, "approved")
         self.assertTrue(validation.validado)
         evidence = json.loads(validation.evidencia)
+        self.assertEqual(evidence["confidence"], 0.9)
         self.assertEqual(
-            evidence,
-            {
-                "confidence": 0.9,
-                "image_sha256": hashlib.sha256("image-base64".encode("utf-8")).hexdigest(),
-                "mime_type": "image/jpeg",
-                "provider": "openai",
-                "reason": "evidencia valida",
-                "validation_type": "foto",
-                "xp_awarded": 10,
-            },
+            evidence["image_sha256"],
+            hashlib.sha256("image-base64".encode("utf-8")).hexdigest(),
         )
+        self.assertEqual(evidence["mime_type"], "image/jpeg")
+        self.assertEqual(evidence["provider"], "openai")
+        self.assertEqual(evidence["reason"], "evidencia valida")
+        self.assertEqual(evidence["validation_type"], "foto")
+        self.assertEqual(evidence["xp_awarded"], 10)
+        self.assertTrue(evidence["difficulty_recommendation"]["advisory"])
+        self.assertEqual(evidence["feedback"]["context"]["xp_awarded"], 10)
         self.assertEqual(ValidationLog.query.count(), 1)
 
     def test_validation_day_filter_binds_postgres_date_param(self) -> None:

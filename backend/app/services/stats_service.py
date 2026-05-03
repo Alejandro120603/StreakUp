@@ -15,6 +15,7 @@ from app.models.user import User
 from app.models.validation_log import ValidationLog
 from app.services.checkin_service import is_eligible_today
 from app.services.habit_service import list_active_user_habits, _get_presentation, _HABIT_ICONS
+from app.services.motivation_service import build_summary_feedback
 from app.services.streak_service import compute_current_streak, compute_longest_streak
 
 _LOCAL_TIMEZONE = datetime.now().astimezone().tzinfo or timezone.utc
@@ -96,7 +97,7 @@ def get_summary(user_id: int) -> dict:
             if _to_local_date(validation.fecha) == today
         )
 
-    return {
+    summary = {
         "streak": streak,
         "today_completed": today_completed,
         "today_total": today_total,
@@ -105,6 +106,8 @@ def get_summary(user_id: int) -> dict:
         "level": level,
         "validations_today": validations_today,
     }
+    summary["feedback"] = build_summary_feedback(summary)
+    return summary
 
 
 def get_detailed_stats(user_id: int) -> dict:

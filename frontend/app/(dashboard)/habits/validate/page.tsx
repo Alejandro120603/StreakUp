@@ -534,6 +534,24 @@ function ValidateHabitPageContent() {
                 <p className="text-xs text-muted-foreground">Racha actual</p>
               </div>
             </div>
+
+            {result.feedback?.message ? (
+              <div className="rounded-lg bg-secondary p-4">
+                <p className="text-sm text-foreground">{result.feedback.message}</p>
+              </div>
+            ) : null}
+
+            {result.difficulty_recommendation ? (
+              <div className="rounded-lg bg-secondary p-4">
+                <p className="text-xs text-muted-foreground mb-1">Dificultad sugerida</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {result.difficulty_recommendation.level} · {Math.round(result.difficulty_recommendation.confidence * 100)}%
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {result.difficulty_recommendation.explanation}
+                </p>
+              </div>
+            ) : null}
           </div>
 
           <button
@@ -562,6 +580,24 @@ function ValidateHabitPageContent() {
               <p className="text-xs text-muted-foreground mb-1">Confianza del modelo</p>
               <p className="text-foreground font-semibold">{Math.round(result.confianza * 100)}%</p>
             </div>
+
+            {result.feedback?.message ? (
+              <div className="rounded-lg bg-secondary p-4">
+                <p className="text-sm text-foreground">{result.feedback.message}</p>
+              </div>
+            ) : null}
+
+            {result.difficulty_recommendation ? (
+              <div className="rounded-lg bg-secondary p-4">
+                <p className="text-xs text-muted-foreground mb-1">Dificultad sugerida</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {result.difficulty_recommendation.level} · {Math.round(result.difficulty_recommendation.confidence * 100)}%
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {result.difficulty_recommendation.explanation}
+                </p>
+              </div>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
