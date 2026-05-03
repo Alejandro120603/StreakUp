@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import type { FormEvent } from "react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import {
@@ -23,14 +24,20 @@ import {
   ImageIcon,
   LogOut,
   Trash2,
+  Edit3,
+  Save,
+  X,
+  Mail,
 } from "lucide-react";
 import { fetchProfileStats, fetchXpInfo, fetchDetailedStats } from "@/services/stats/statsService";
 import { getSession, clearSession } from "@/services/auth/authService";
 import { deleteAccount } from "@/services/auth/accountService";
+import { fetchCurrentUser, updateProfile } from "@/services/auth/profileService";
 import { fetchAchievements } from "@/services/achievements/achievementService";
 import type { AchievementItem } from "@/services/achievements/achievementService";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteAccountModal } from "@/components/feedback/ConfirmDeleteAccountModal";
+import type { AuthUser } from "@/types/auth";
 import type { ProfileStats, XpInfo } from "@/types/stats";
 
 // Icon mapping for achievement keys coming from the backend
@@ -45,7 +52,7 @@ function getAchievementIcon(key: string): typeof Zap {
 }
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<{ username: string; email: string } | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [stats, setStats] = useState<ProfileStats>({
     streak: 0, today_completed: 0, today_total: 0, completion_rate: 0,
     habits_count: 0, total_xp: 0, level: 1, validations_today: 0,
@@ -63,6 +70,10 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [achievements, setAchievements] = useState<AchievementItem[]>([]);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editUsername, setEditUsername] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -80,13 +91,16 @@ export default function ProfilePage() {
       }
 
       try {
-        const [profileStats, xp, detailed, achievementList] = await Promise.all([
+        const [currentUser, profileStats, xp, detailed, achievementList] = await Promise.all([
+          fetchCurrentUser(),
           fetchProfileStats(),
           fetchXpInfo(),
           fetchDetailedStats(),
           fetchAchievements(),
         ]);
 
+        setUser(currentUser);
+        setEditUsername(currentUser.username);
         setStats(profileStats);
         setXpInfo(xp);
         setRecords(detailed.records);
@@ -105,6 +119,42 @@ export default function ProfilePage() {
   const unlockedCount = useMemo(() => {
     return achievements.filter((a) => a.earned).length;
   }, [achievements]);
+
+  const startEditingProfile = () => {
+    setEditUsername(user?.username ?? "");
+    setProfileError("");
+    setIsEditingProfile(true);
+  };
+
+  const cancelEditingProfile = () => {
+    setEditUsername(user?.username ?? "");
+    setProfileError("");
+    setIsEditingProfile(false);
+  };
+
+  async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const username = editUsername.trim();
+
+    if (username.length < 3) {
+      setProfileError("El nombre debe tener al menos 3 caracteres.");
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileError("");
+
+    try {
+      const updatedUser = await updateProfile({ username });
+      setUser(updatedUser);
+      setEditUsername(updatedUser.username);
+      setIsEditingProfile(false);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "No se pudo actualizar el perfil.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
 
   if (loading || !mounted) {
     return (
@@ -159,7 +209,11 @@ export default function ProfilePage() {
           <h2 className="text-[30px] leading-[1.05] font-bold">Perfil</h2>
           <p className="text-white/74 text-[15px]">Tu progreso y logros</p>
         </div>
-        <button className="w-[48px] h-[48px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-white/25">
+        <button
+          onClick={startEditingProfile}
+          className="w-[48px] h-[48px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-white/25"
+          aria-label="Editar perfil"
+        >
           <Settings className="size-6 text-white" />
         </button>
       </div>
@@ -170,29 +224,90 @@ export default function ProfilePage() {
             <Rocket className="size-8 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-bold text-[20px] truncate">{user?.username ?? "Usuario"}</span>
-              <span className="text-[11px] font-bold bg-[var(--purple)]/30 text-[var(--purple2)] px-[8px] py-[2px] rounded-full border border-[var(--purple)]/50 shrink-0">
-                <Trophy className="size-3 inline mr-1" /> Nivel {xpInfo.level}
-              </span>
-            </div>
-            <p className="text-[13px] text-white/74 font-medium mb-3">
-              Racha actual: {records.current_streak} días <Flame className="size-3 inline text-[var(--yellow)]" />
-            </p>
-            {/* XP Bar */}
-            <div>
-              <div className="flex justify-between text-[11px] text-white/74 font-bold mb-1">
-                <span>Experiencia</span>
-                <span>{xpInfo.xp_in_level} / {xpInfo.xp_for_next_level} XP</span>
+            {isEditingProfile ? (
+              <form onSubmit={handleProfileSubmit} className="space-y-[12px]">
+                <div className="space-y-[6px]">
+                  <label className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/55">
+                    Nombre
+                  </label>
+                  <input
+                    value={editUsername}
+                    onChange={(event) => setEditUsername(event.target.value)}
+                    disabled={isSavingProfile}
+                    className="h-[44px] w-full rounded-[14px] border border-white/15 bg-white/10 px-[12px] text-[15px] font-bold text-white outline-none transition-colors placeholder:text-white/35 focus:border-[var(--purple2)] disabled:opacity-60"
+                    maxLength={80}
+                  />
+                </div>
+
+                <div className="flex items-center gap-[8px] text-[13px] text-white/65">
+                  <Mail className="size-4 shrink-0" />
+                  <span className="truncate">{user?.email ?? ""}</span>
+                </div>
+
+                {profileError ? (
+                  <p className="text-[12px] font-bold text-red-300">{profileError}</p>
+                ) : null}
+
+                <div className="flex flex-wrap gap-[8px]">
+                  <button
+                    type="submit"
+                    disabled={isSavingProfile}
+                    className="inline-flex h-[40px] items-center justify-center gap-[8px] rounded-[14px] bg-[var(--purple)] px-[14px] text-[13px] font-bold text-white transition-transform active:scale-95 disabled:opacity-60"
+                  >
+                    <Save className="size-4" />
+                    {isSavingProfile ? "Guardando" : "Guardar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditingProfile}
+                    disabled={isSavingProfile}
+                    className="inline-flex h-[40px] items-center justify-center gap-[8px] rounded-[14px] bg-white/10 px-[14px] text-[13px] font-bold text-white transition-transform active:scale-95 disabled:opacity-60"
+                  >
+                    <X className="size-4" />
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-[20px] truncate">{user?.username ?? "Usuario"}</span>
+                      <span className="text-[11px] font-bold bg-[var(--purple)]/30 text-[var(--purple2)] px-[8px] py-[2px] rounded-full border border-[var(--purple)]/50 shrink-0">
+                        <Trophy className="size-3 inline mr-1" /> Nivel {xpInfo.level}
+                      </span>
+                    </div>
+                    <p className="text-[13px] text-white/60 font-medium truncate">{user?.email ?? ""}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={startEditingProfile}
+                    className="size-[36px] rounded-[12px] bg-white/10 text-white/80 grid place-items-center transition-colors hover:bg-white/18 shrink-0"
+                    aria-label="Editar perfil"
+                  >
+                    <Edit3 className="size-4" />
+                  </button>
+                </div>
+                <p className="text-[13px] text-white/74 font-medium mb-3">
+                  Racha actual: {records.current_streak} días <Flame className="size-3 inline text-[var(--yellow)]" />
+                </p>
+                {/* XP Bar */}
+                <div>
+                  <div className="flex justify-between text-[11px] text-white/74 font-bold mb-1">
+                    <span>Experiencia</span>
+                    <span>{xpInfo.xp_in_level} / {xpInfo.xp_for_next_level} XP</span>
+                  </div>
+                  <div className="h-[8px] rounded-full bg-white/10 overflow-hidden shadow-inner border border-white/5">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[var(--purple)] to-[var(--purple2)] transition-all duration-500 shadow-[0_0_12px_rgba(157,85,255,0.6)]"
+                      style={{ width: `${xpInfo.progress_pct}%` }}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
               </div>
-              <div className="h-[8px] rounded-full bg-white/10 overflow-hidden shadow-inner border border-white/5">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[var(--purple)] to-[var(--purple2)] transition-all duration-500 shadow-[0_0_12px_rgba(157,85,255,0.6)]"
-                  style={{ width: `${xpInfo.progress_pct}%` }}
-                />
-              </div>
-            </div>
-          </div>
       </div>
 
       {/* Stats Grid */}

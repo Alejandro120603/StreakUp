@@ -6,6 +6,8 @@ export const API_ENDPOINTS = {
   user: {
     /** Get the authenticated user's profile */
     me: "/api/users/me",
+    /** Update editable profile fields for the authenticated user */
+    update: "/api/users/me",
     /** Permanently delete the authenticated user's account */
     delete: "/api/users/me",
   },
@@ -36,5 +38,4 @@ export const API_ENDPOINTS = {
     list: "/api/achievements",
   },
 } as const;
-
 

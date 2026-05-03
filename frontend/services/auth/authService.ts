@@ -4,8 +4,9 @@ import {
   getStoredSession,
   hasStoredSession,
   persistSession,
+  updateStoredUser,
 } from "@/services/auth/session";
-import type { AuthSession } from "@/types/auth";
+import type { AuthSession, AuthUser } from "@/types/auth";
 
 const OFFLINE_LOGIN_ERROR = "No hay conexión. Usa una sesión guardada previamente.";
 const OFFLINE_REGISTER_ERROR = "No hay conexión. El registro requiere internet.";
@@ -99,6 +100,10 @@ export function getSession(): AuthSession | null {
  */
 export function clearSession(): void {
   clearStoredSession();
+}
+
+export function updateSessionUser(user: AuthUser): void {
+  updateStoredUser(user);
 }
 
 export function hasSavedSession(): boolean {

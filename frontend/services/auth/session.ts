@@ -146,6 +146,14 @@ export function persistSession(data: {
   setSessionCookie(data.accessToken);
 }
 
+export function updateStoredUser(user: AuthUser): void {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+}
+
 export function clearStoredSession(): void {
   if (canUseLocalStorage()) {
     window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);

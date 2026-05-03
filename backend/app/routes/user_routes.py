@@ -9,7 +9,7 @@ Endpoints:
   DELETE /api/users/me → permanently delete the account and all related data.
 """
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.extensions import db
@@ -20,6 +20,8 @@ from app.models.user import User
 from app.models.user_habit import UserHabit
 from app.models.validation_log import ValidationLog
 from app.models.xp_log import XpLog
+from app.schemas.user_validations import validate_profile_update_input
+from app.services.user_service import update_user_profile
 from app.utils.error_handler import error_response
 
 user_bp = Blueprint("users", __name__)
@@ -36,6 +38,25 @@ def get_me():
         return error_response("Usuario no encontrado.", 404)
 
     return jsonify(user.to_dict()), 200
+
+
+@user_bp.route("/me", methods=["PUT"])
+@jwt_required()
+def update_me():
+    """Update the authenticated user's editable public profile fields."""
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True)
+    normalized, errors = validate_profile_update_input(data)
+    if errors:
+        return error_response(errors, 400)
+
+    try:
+        user = update_user_profile(user_id, username=normalized["username"])
+        return jsonify(user), 200
+    except LookupError as exc:
+        return error_response(str(exc), 404)
+    except ValueError as exc:
+        return error_response(str(exc), 409)
 
 
 @user_bp.route("/me", methods=["DELETE"])
