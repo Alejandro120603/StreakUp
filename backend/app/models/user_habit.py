@@ -23,7 +23,7 @@ class UserHabit(db.Model):
             name="ck_habitos_usuario_fechas",
         ),
         db.CheckConstraint(
-            "tipo_validacion IS NULL OR tipo_validacion IN ('foto','texto','tiempo')",
+            "tipo_validacion IS NULL OR tipo_validacion IN ('foto','texto','tiempo','photo','text_ai','time','check')",
             name="ck_habitos_usuario_tipo_validacion",
         ),
         db.CheckConstraint(

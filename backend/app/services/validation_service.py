@@ -100,7 +100,7 @@ def validate_habit(
         reason = ""
         confidence = 1.0
 
-        if val_type == "foto":
+        if val_type in {"foto", "photo"}:
             image_base64, mime_type = _extract_image_payload(payload)
             if not image_base64:
                 raise ValueError("image (base64) is required for photo validation.")
@@ -129,7 +129,7 @@ def validate_habit(
                 current_app.logger.error(f"AI validation failed for log_id={log.id}: {str(ai_exc)}")
                 raise
 
-        elif val_type == "texto":
+        elif val_type in {"texto", "text_ai"}:
             text_content = payload.get("text_content", "")
             if not isinstance(text_content, str):
                 text_content = str(text_content)
@@ -156,7 +156,7 @@ def validate_habit(
             )
             db.session.add(log)
             
-        elif val_type == "tiempo":
+        elif val_type in {"tiempo", "time"}:
             duration_minutes = payload.get("duration_minutes")
             if not duration_minutes:
                 raise ValueError("Se requiere la duración completada.")

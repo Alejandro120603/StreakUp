@@ -27,7 +27,7 @@ def readyz():
     try:
         db.session.execute(text("SELECT 1"))
         categories = Category.query.count()
-        habits = Habit.query.count()
+        habits = Habit.query.filter_by(activo=True).count()
     except Exception:
         return (
             jsonify(

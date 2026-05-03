@@ -49,7 +49,7 @@ def is_eligible_today(user_habit: UserHabit, target_date: date_type) -> bool:
 
 def _is_validation_driven(user_habit: UserHabit) -> bool:
     validation_type = user_habit.tipo_validacion or user_habit.habit.tipo_validacion
-    return validation_type in {"foto", "texto", "tiempo"}
+    return validation_type in {"foto", "texto", "tiempo", "photo", "text_ai", "time", "check"}
 
 
 def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = None) -> dict:

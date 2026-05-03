@@ -11,6 +11,7 @@ from app.extensions import db
 from app.models.habit import Habit
 from app.models.user_habit import UserHabit
 from app.models.user_habit_schedule import UserHabitScheduleDay
+from app.services.catalog_bootstrap_service import DEFAULT_HABIT_IDS
 
 
 _CATEGORY_PRESENTATION = {
@@ -32,7 +33,11 @@ _HABIT_ICONS = {
     10: "Globe",
     11: "BedDouble",
     12: "Moon",
+    13: "PenLine",
+    14: "GraduationCap",
 }
+
+_CATALOG_ORDER = {habit_id: index for index, habit_id in enumerate(DEFAULT_HABIT_IDS)}
 
 def _get_presentation(category_id: int) -> dict[str, str]:
     return _CATEGORY_PRESENTATION.get(category_id, {"section": "fire", "icon": "Flame"})
@@ -40,7 +45,8 @@ def _get_presentation(category_id: int) -> dict[str, str]:
 
 def list_catalog_habits() -> list[dict]:
     """Return the seeded habit catalog."""
-    habits = Habit.query.order_by(Habit.categoria_id, Habit.nombre).all()
+    habits = Habit.query.filter_by(activo=True).all()
+    habits.sort(key=lambda habit: _CATALOG_ORDER.get(habit.id, len(_CATALOG_ORDER)))
     return [habit.to_dict() for habit in habits]
 
 
@@ -118,7 +124,7 @@ def _derive_habit_type(
     target_quantity: int | None,
     target_duration: int | None,
 ) -> str:
-    if validation_type == "tiempo" or target_duration is not None:
+    if validation_type in {"tiempo", "time"} or target_duration is not None:
         return "time"
     if target_quantity is not None:
         return "quantity"
@@ -167,7 +173,7 @@ def serialize_user_habit(user_habit: UserHabit) -> dict:
         "frequency": frequency,
         "section": presentation["section"],
         "target_duration": target_duration,
-        "pomodoro_enabled": validation_type == "tiempo",
+        "pomodoro_enabled": validation_type in {"tiempo", "time"},
         "target_quantity": target_quantity,
         "target_unit": target_unit,
         "min_text_length": user_habit.min_text_length,

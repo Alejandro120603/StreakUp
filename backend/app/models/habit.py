@@ -24,7 +24,7 @@ class Habit(db.Model):
     __tablename__ = "habitos"
     __table_args__ = (
         db.CheckConstraint(
-            "tipo_validacion IN ('foto','texto','tiempo')",
+            "tipo_validacion IN ('foto','texto','tiempo','photo','text_ai','time','check')",
             name="ck_habitos_tipo_validacion",
         ),
         db.CheckConstraint(
@@ -36,6 +36,11 @@ class Habit(db.Model):
             name="ck_habitos_dificultad",
         ),
         db.CheckConstraint("xp_base >= 0", name="ck_habitos_xp_base_non_negative"),
+        db.CheckConstraint("xp_rate >= 0", name="ck_habitos_xp_rate_non_negative"),
+        db.CheckConstraint(
+            "max_xp_per_day >= 0",
+            name="ck_habitos_max_xp_per_day_non_negative",
+        ),
         db.CheckConstraint(
             "cantidad_objetivo IS NULL OR cantidad_objetivo >= 0",
             name="ck_habitos_cantidad_objetivo_non_negative",
@@ -57,6 +62,15 @@ class Habit(db.Model):
     descripcion = db.Column(db.Text, nullable=True)
     dificultad = db.Column(db.String(20), nullable=False)
     xp_base = db.Column(db.Integer, nullable=False)
+    meta_type = db.Column(
+        db.String(40),
+        nullable=False,
+        default="boolean",
+        server_default="boolean",
+    )
+    xp_rate = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    max_xp_per_day = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    activo = db.Column(db.Boolean, nullable=False, default=True, server_default="1")
     tipo_validacion = db.Column(
         db.String(20),
         nullable=False,
@@ -82,6 +96,10 @@ class Habit(db.Model):
             "description": self.descripcion,
             "difficulty": self.dificultad,
             "xp_base": self.xp_base,
+            "meta_type": self.meta_type,
+            "xp_rate": self.xp_rate,
+            "max_xp_per_day": self.max_xp_per_day,
+            "active": bool(self.activo),
             "validation_type": self.tipo_validacion,
             "frequency": self.frecuencia,
             "target_quantity": self.cantidad_objetivo,

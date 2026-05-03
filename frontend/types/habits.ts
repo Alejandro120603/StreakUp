@@ -1,5 +1,6 @@
 export type HabitDifficulty = "facil" | "media" | "dificil";
-export type ValidationType = "foto" | "texto" | "tiempo";
+export type ValidationType = "foto" | "texto" | "tiempo" | "photo" | "text_ai" | "time" | "check";
+export type HabitMetaType = "boolean" | "quantity_liters" | "minutes";
 export type HabitFrequency = "daily" | "weekly" | "custom";
 
 export interface Habit {
@@ -12,6 +13,9 @@ export interface Habit {
   custom_description?: string | null;
   difficulty?: HabitDifficulty | null;
   xp_base?: number | null;
+  meta_type?: HabitMetaType | string | null;
+  xp_rate?: number | null;
+  max_xp_per_day?: number | null;
   active?: boolean;
   start_date?: string | null;
   end_date?: string | null;
@@ -37,6 +41,10 @@ export interface HabitCatalogItem {
   description: string | null;
   difficulty: HabitDifficulty;
   xp_base: number;
+  meta_type: HabitMetaType | string;
+  xp_rate: number;
+  max_xp_per_day: number;
+  active: boolean;
   validation_type: ValidationType;
   frequency: HabitFrequency;
   target_quantity: number | null;
@@ -91,6 +99,10 @@ export const VALIDATION_TYPE_LABELS: Record<ValidationType, string> = {
   foto: "Foto",
   texto: "Texto",
   tiempo: "Tiempo",
+  photo: "Foto",
+  text_ai: "Texto IA",
+  time: "Tiempo",
+  check: "Check",
 };
 
 export function getHabitTargetSummary(habit: Pick<Habit, "target_duration" | "target_quantity" | "target_unit">): string | null {

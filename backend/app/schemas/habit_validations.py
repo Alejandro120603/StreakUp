@@ -7,7 +7,7 @@ Responsibility:
 
 from collections.abc import Mapping
 
-VALID_VALIDATION_TYPES = {"foto", "texto", "tiempo"}
+VALID_VALIDATION_TYPES = {"foto", "texto", "tiempo", "photo", "text_ai", "time", "check"}
 VALID_FREQUENCIES = {"daily", "weekly", "custom"}
 VALID_HABIT_TYPES = {"boolean", "time", "quantity"}
 _VALID_WEEKDAYS = frozenset(range(7))  # 0=Mon … 6=Sun
