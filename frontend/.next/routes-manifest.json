@@ -81,6 +81,12 @@
       "namedRegex": "^/register(?:/)?$"
     },
     {
+      "page": "/social",
+      "regex": "^/social(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/social(?:/)?$"
+    },
+    {
       "page": "/stats",
       "regex": "^/stats(?:/)?$",
       "routeKeys": {},

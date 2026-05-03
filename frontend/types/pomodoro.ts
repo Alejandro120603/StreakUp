@@ -11,6 +11,7 @@ export interface PomodoroSession {
   completed: boolean;
   started_at: string | null;
   completed_at: string | null;
+  xp_awarded?: number | null;
 }
 
 export interface CreatePomodoroSessionPayload {

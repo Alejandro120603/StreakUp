@@ -12,7 +12,9 @@ import {
   createPomodoroSession,
   fetchPomodoroSessions,
 } from "@/services/pomodoro/pomodoroService";
+import { fetchHabits } from "@/services/habits/habitService";
 import type { PomodoroSession } from "@/types/pomodoro";
+import type { Habit } from "@/types/habits";
 
 const THEMES = {
   fire: { label: "Fuego", bg: "from-orange-950 to-[#0A0A0A]", accent: "#F97316" },
@@ -194,6 +196,9 @@ function PomodoroContent() {
   const [recentSessions, setRecentSessions] = useState<PomodoroSession[]>([]);
   const [sessionError, setSessionError] = useState("");
   const [recentSessionsError, setRecentSessionsError] = useState("");
+  const [timeHabits, setTimeHabits] = useState<Habit[]>([]);
+  const [selectedHabitId, setSelectedHabitId] = useState<number | null>(null);
+  const [xpAwarded, setXpAwarded] = useState<number | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const completingSessionRef = useRef(false);
@@ -221,6 +226,12 @@ function PomodoroContent() {
   useEffect(() => {
     loadRecentSessions();
   }, [loadRecentSessions]);
+
+  useEffect(() => {
+    fetchHabits()
+      .then((habits) => setTimeHabits(habits.filter((h) => h.pomodoro_enabled && h.active !== false)))
+      .catch(() => {/* non-critical, habit selector will be empty */});
+  }, []);
 
   // Timer tick
   useEffect(() => {
@@ -265,6 +276,7 @@ function PomodoroContent() {
         study_minutes: studyMinutes,
         break_minutes: breakMinutes,
         cycles,
+        habit_id: selectedHabitId ?? undefined,
       });
       setActiveSessionId(session.id);
       setRecentSessions((prev) => [session, ...prev.filter((existing) => existing.id !== session.id)].slice(0, 5));
@@ -293,6 +305,7 @@ function PomodoroContent() {
     setIsPaused(false);
     setCurrentCycle(1);
     setActiveSessionId(null);
+    setXpAwarded(null);
     completingSessionRef.current = false;
   }
 
@@ -306,6 +319,7 @@ function PomodoroContent() {
     void completePomodoroSession(activeSessionId)
       .then((session) => {
         setRecentSessions((prev) => [session, ...prev.filter((existing) => existing.id !== session.id)].slice(0, 5));
+        setXpAwarded(session.xp_awarded ?? null);
         setSessionError("");
       })
       .catch((error) => {
@@ -425,6 +439,23 @@ function PomodoroContent() {
               className="h-[48px] bg-white/5 border-white/10 text-white text-center text-[18px] font-bold rounded-[16px]"
             />
           </div>
+
+          {timeHabits.length > 0 && (
+            <div className="space-y-[8px]">
+              <Label className="text-[13px] text-white/75 font-bold">Hábito vinculado (opcional)</Label>
+              <select
+                value={selectedHabitId ?? ""}
+                onChange={(e) => setSelectedHabitId(e.target.value ? Number(e.target.value) : null)}
+                disabled={timerState !== "idle"}
+                className="w-full h-[48px] rounded-[16px] bg-white/5 border border-white/10 text-white text-[14px] font-bold px-4 disabled:opacity-50"
+              >
+                <option value="">Sin hábito</option>
+                {timeHabits.map((h) => (
+                  <option key={h.id} value={h.id}>{h.custom_name ?? h.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Controls */}
@@ -452,6 +483,12 @@ function PomodoroContent() {
                 <p className="text-[13px] text-white/75 font-bold">
                   {cycles} ciclo{cycles !== 1 ? "s" : ""} · {studyMinutes}m enfocado · {breakMinutes}m descanso
                 </p>
+                {xpAwarded !== null && xpAwarded > 0 && (
+                  <p className="text-[13px] font-bold text-yellow-300">+{xpAwarded} XP</p>
+                )}
+                {xpAwarded === 0 && selectedHabitId !== null && (
+                  <p className="text-[11px] text-white/50 font-bold">XP ya registrado hoy</p>
+                )}
               </div>
               <Button
                 onClick={stopTimer}

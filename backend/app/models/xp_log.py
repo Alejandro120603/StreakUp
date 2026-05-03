@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from app.extensions import db
 
 
-VALID_XP_REASONS = ("checkin", "checkin_undo", "validation")
+VALID_XP_REASONS = ("checkin", "checkin_undo", "validation", "pomodoro")
 
 
 class XpLog(db.Model):
@@ -19,7 +19,7 @@ class XpLog(db.Model):
     __tablename__ = "xp_logs"
     __table_args__ = (
         db.CheckConstraint(
-            "fuente IN ('checkin','checkin_undo','validation')",
+            "fuente IN ('checkin','checkin_undo','validation','pomodoro')",
             name="ck_xp_logs_fuente",
         ),
         db.CheckConstraint(

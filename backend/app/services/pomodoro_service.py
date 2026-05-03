@@ -5,14 +5,17 @@ Responsibility:
 - Create and manage Pomodoro timer sessions.
 """
 
-from datetime import datetime, timezone
+from datetime import date as date_type, datetime, timezone
 
 from app.extensions import db
+from app.models.checkin import CheckIn
 from app.models.pomodoro_session import PomodoroSession
 from app.models.user_habit import UserHabit
+from app.services.xp_service import award_habit_xp
 
 
 VALID_THEMES = {"fire", "candle", "ice", "hourglass"}
+_TIME_VALIDATION_TYPES = {"tiempo", "time"}
 
 
 def _require_int(value, field_name: str) -> int:
@@ -45,6 +48,8 @@ def create_session(user_id: int, data: dict) -> dict:
         user_habit = UserHabit.query.filter_by(id=habit_id, usuario_id=user_id, activo=True).first()
         if user_habit is None:
             raise ValueError("habit_id must reference an active habit owned by the user.")
+        if user_habit.tipo_validacion not in _TIME_VALIDATION_TYPES:
+            raise ValueError("habit_id must reference a time-based habit.")
 
     session = PomodoroSession(
         user_id=user_id,
@@ -60,15 +65,59 @@ def create_session(user_id: int, data: dict) -> dict:
 
 
 def complete_session(session_id: int, user_id: int) -> dict | None:
-    """Mark a Pomodoro session as completed."""
+    """Mark a Pomodoro session as completed and award XP for linked time habits."""
     session = PomodoroSession.query.filter_by(id=session_id, user_id=user_id).first()
     if session is None:
         return None
 
+    if session.completed:
+        return {**session.to_dict(), "xp_awarded": 0}
+
     session.completed = True
     session.completed_at = datetime.now(timezone.utc)
+
+    xp_awarded = 0
+    if session.habit_id is not None:
+        xp_awarded = _award_pomodoro_xp(session, user_id)
+
     db.session.commit()
-    return session.to_dict()
+    return {**session.to_dict(), "xp_awarded": xp_awarded}
+
+
+def _award_pomodoro_xp(session: PomodoroSession, user_id: int) -> int:
+    """Create one CheckIn and award XP for a completed Pomodoro linked to a time habit.
+
+    Idempotent: if a CheckIn already exists for this habit on today's date, returns 0.
+    """
+    today = date_type.today()
+    existing = CheckIn.query.filter_by(
+        habitousuario_id=session.habit_id,
+        fecha=today,
+    ).first()
+    if existing:
+        return 0
+
+    user_habit = db.session.get(UserHabit, session.habit_id)
+    if user_habit is None or user_habit.tipo_validacion not in _TIME_VALIDATION_TYPES:
+        return 0
+
+    duration_minutes = session.study_minutes * session.cycles
+    awarded = award_habit_xp(
+        user_id,
+        user_habit,
+        today,
+        duration_minutes,
+        reason="pomodoro",
+        commit=False,
+    )
+    checkin = CheckIn(
+        habitousuario_id=session.habit_id,
+        fecha=today,
+        completado=True,
+        xp_ganado=awarded,
+    )
+    db.session.add(checkin)
+    return awarded
 
 
 def get_user_sessions(user_id: int, limit: int = 10) -> list[dict]:
