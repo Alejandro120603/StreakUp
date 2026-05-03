@@ -36,9 +36,23 @@ import { deleteAccount } from "@/services/auth/accountService";
 import { fetchCurrentUser, updateProfile } from "@/services/auth/profileService";
 import { fetchAchievements } from "@/services/achievements/achievementService";
 import type { AchievementItem } from "@/services/achievements/achievementService";
+import { fetchHabits } from "@/services/habits/habitService";
+import {
+  applyReminderSchedule,
+  areNativeRemindersAvailable,
+  getReminderPermissionStatus,
+  loadReminderPreferences,
+  requestReminderPermission,
+} from "@/services/reminders/reminderService";
+import type {
+  ReminderPermissionState,
+  ReminderPreferences,
+  ReminderScheduleStatus,
+} from "@/services/reminders/reminderService";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteAccountModal } from "@/components/feedback/ConfirmDeleteAccountModal";
 import type { AuthUser } from "@/types/auth";
+import { WEEKDAY_LABELS } from "@/types/habits";
 import type { ProfileStats, XpInfo } from "@/types/stats";
 
 // Icon mapping for achievement keys coming from the backend
@@ -48,8 +62,58 @@ const ACHIEVEMENT_ICON_MAP: Record<string, typeof Zap> = {
   completions_30: Trophy,
 };
 
+const REMINDER_DAYS = Object.entries(WEEKDAY_LABELS).map(([value, label]) => ({
+  value: Number(value),
+  label,
+}));
+
 function getAchievementIcon(key: string): typeof Zap {
   return ACHIEVEMENT_ICON_MAP[key] ?? Award;
+}
+
+function getReminderStatusMessage(
+  status: ReminderScheduleStatus | "",
+  scheduledCount: number,
+): string {
+  if (status === "scheduled") {
+    return scheduledCount === 1
+      ? "Recordatorio programado para 1 día."
+      : `Recordatorios programados para ${scheduledCount} días.`;
+  }
+
+  if (status === "disabled") {
+    return "Recordatorios desactivados.";
+  }
+
+  if (status === "permission_denied") {
+    return "Permiso de notificaciones denegado. Puedes activarlo desde ajustes del sistema.";
+  }
+
+  if (status === "unavailable") {
+    return "Los recordatorios locales solo están disponibles en la app móvil.";
+  }
+
+  if (status === "no_matching_habits") {
+    return "No hay hábitos activos para los días seleccionados.";
+  }
+
+  return "";
+}
+
+function getPermissionLabel(permission: ReminderPermissionState): string {
+  if (permission === "granted") {
+    return "Permiso concedido";
+  }
+
+  if (permission === "denied") {
+    return "Permiso denegado";
+  }
+
+  if (permission === "prompt" || permission === "prompt-with-rationale") {
+    return "Permiso pendiente";
+  }
+
+  return "No disponible";
 }
 
 export default function ProfilePage() {
@@ -75,13 +139,26 @@ export default function ProfilePage() {
   const [editUsername, setEditUsername] = useState("");
   const [profileError, setProfileError] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [reminderPreferences, setReminderPreferences] = useState<ReminderPreferences>(() =>
+    loadReminderPreferences(),
+  );
+  const [reminderPermission, setReminderPermission] =
+    useState<ReminderPermissionState>("unavailable");
+  const [reminderStatus, setReminderStatus] = useState<ReminderScheduleStatus | "">("");
+  const [reminderMessage, setReminderMessage] = useState("");
+  const [isSavingReminders, setIsSavingReminders] = useState(false);
 
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
+  const nativeRemindersAvailable = areNativeRemindersAvailable();
 
   useEffect(() => {
     setMounted(true);
+    setReminderPreferences(loadReminderPreferences());
+    getReminderPermissionStatus()
+      .then(setReminderPermission)
+      .catch(() => setReminderPermission("unavailable"));
   }, []);
 
   useEffect(() => {
@@ -132,6 +209,57 @@ export default function ProfilePage() {
     setProfileError("");
     setIsEditingProfile(false);
   };
+
+  const toggleReminderDay = (day: number) => {
+    setReminderPreferences((current) => {
+      const isSelected = current.days.includes(day);
+      const nextDays = isSelected
+        ? current.days.filter((selectedDay) => selectedDay !== day)
+        : current.days.concat(day);
+
+      if (nextDays.length === 0) {
+        return current;
+      }
+
+      return {
+        ...current,
+        days: nextDays.sort((left, right) => left - right),
+      };
+    });
+    setReminderStatus("");
+    setReminderMessage("");
+  };
+
+  const updateReminderPreferences = (nextPreferences: Partial<ReminderPreferences>) => {
+    setReminderPreferences((current) => ({
+      ...current,
+      ...nextPreferences,
+    }));
+    setReminderStatus("");
+    setReminderMessage("");
+  };
+
+  async function handleReminderPermissionRequest() {
+    const permission = await requestReminderPermission();
+    setReminderPermission(permission);
+  }
+
+  async function handleReminderSubmit() {
+    setIsSavingReminders(true);
+    setReminderMessage("");
+
+    try {
+      const habits = reminderPreferences.enabled ? await fetchHabits() : [];
+      const result = await applyReminderSchedule(reminderPreferences, habits);
+      setReminderPermission(result.permission);
+      setReminderStatus(result.status);
+      setReminderMessage(getReminderStatusMessage(result.status, result.scheduledCount));
+    } catch (err) {
+      setReminderMessage(err instanceof Error ? err.message : "No se pudieron guardar los recordatorios.");
+    } finally {
+      setIsSavingReminders(false);
+    }
+  }
 
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -461,13 +589,115 @@ export default function ProfilePage() {
 
       {/* Settings */}
       <div className="p-0 overflow-hidden rounded-[24px] bg-white/13 border border-white/20 divide-y divide-white/10">
-        <div className="flex items-center justify-between p-[20px] bg-white/5">
-          <div className="flex items-center gap-[12px]">
-            <Bell className="size-5 text-white/74" />
-            <span className="text-[15px] font-bold text-white">Notificaciones</span>
+        <div className="p-[20px] bg-white/5 space-y-[16px]">
+          <div className="flex items-center justify-between gap-[16px]">
+            <div className="flex items-center gap-[12px] min-w-0">
+              <Bell className="size-5 text-white/74 shrink-0" />
+              <div className="min-w-0">
+                <span className="block text-[15px] font-bold text-white">Recordatorios</span>
+                <span className="block text-[12px] font-bold text-white/55">
+                  {getPermissionLabel(reminderPermission)}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => updateReminderPreferences({ enabled: !reminderPreferences.enabled })}
+              disabled={!nativeRemindersAvailable || isSavingReminders}
+              aria-pressed={reminderPreferences.enabled}
+              className={cn(
+                "w-[48px] h-[28px] rounded-full flex items-center p-[3px] transition-colors disabled:opacity-50",
+                reminderPreferences.enabled && nativeRemindersAvailable
+                  ? "bg-[var(--purple)]"
+                  : "bg-white/14",
+              )}
+            >
+              <span
+                className={cn(
+                  "size-[22px] rounded-full bg-white shadow-[0_0_8px_rgba(0,0,0,0.2)] transition-transform",
+                  reminderPreferences.enabled && nativeRemindersAvailable
+                    ? "translate-x-[20px]"
+                    : "translate-x-0",
+                )}
+              />
+            </button>
           </div>
-          <div className="w-[44px] h-[26px] bg-[var(--purple)] rounded-full flex items-center p-[2px]">
-            <div className="size-[22px] bg-white rounded-full ml-auto shadow-[0_0_8px_rgba(0,0,0,0.2)]" />
+
+          <div className="grid grid-cols-1 gap-[12px]">
+            <label className="space-y-[6px]">
+              <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-white/55">
+                Hora
+              </span>
+              <input
+                type="time"
+                value={reminderPreferences.time}
+                disabled={!nativeRemindersAvailable || isSavingReminders}
+                onChange={(event) => updateReminderPreferences({ time: event.target.value })}
+                className="h-[44px] w-full rounded-[14px] border border-white/15 bg-white/10 px-[12px] text-[15px] font-bold text-white outline-none transition-colors focus:border-[var(--purple2)] disabled:opacity-50"
+              />
+            </label>
+
+            <div className="space-y-[8px]">
+              <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-white/55">
+                Días
+              </span>
+              <div className="grid grid-cols-7 gap-[6px]">
+                {REMINDER_DAYS.map((day) => {
+                  const isSelected = reminderPreferences.days.includes(day.value);
+                  return (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => toggleReminderDay(day.value)}
+                      disabled={!nativeRemindersAvailable || isSavingReminders}
+                      className={cn(
+                        "h-[36px] rounded-[12px] border text-[12px] font-black transition-colors disabled:opacity-50",
+                        isSelected
+                          ? "border-[var(--purple2)] bg-[var(--purple)] text-white"
+                          : "border-white/15 bg-white/8 text-white/70",
+                      )}
+                    >
+                      {day.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {reminderMessage ? (
+            <p
+              className={cn(
+                "text-[12px] font-bold",
+                reminderStatus === "scheduled" || reminderStatus === "disabled"
+                  ? "text-emerald-300"
+                  : "text-yellow-200",
+              )}
+            >
+              {reminderMessage}
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap gap-[8px]">
+            <button
+              type="button"
+              onClick={handleReminderSubmit}
+              disabled={isSavingReminders}
+              className="inline-flex h-[40px] items-center justify-center gap-[8px] rounded-[14px] bg-[var(--purple)] px-[14px] text-[13px] font-bold text-white transition-transform active:scale-95 disabled:opacity-60"
+            >
+              <Save className="size-4" />
+              {isSavingReminders ? "Guardando" : "Guardar"}
+            </button>
+            {nativeRemindersAvailable && reminderPermission !== "granted" ? (
+              <button
+                type="button"
+                onClick={handleReminderPermissionRequest}
+                disabled={isSavingReminders}
+                className="inline-flex h-[40px] items-center justify-center rounded-[14px] bg-white/10 px-[14px] text-[13px] font-bold text-white transition-transform active:scale-95 disabled:opacity-60"
+              >
+                Pedir permiso
+              </button>
+            ) : null}
           </div>
         </div>
 
