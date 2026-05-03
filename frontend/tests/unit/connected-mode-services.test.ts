@@ -189,12 +189,80 @@ test("offline mode still uses local emulation only when explicitly enabled", asy
   };
 
   const createdHabit = await createHabit({ habito_id: 1 });
-  const toggleResult = await toggleCheckin({ habit_id: createdHabit.id });
   const offlineHabits = await fetchHabits();
 
   assert.equal(fetchCalls, 0);
   assert.ok(createdHabit.id < 0);
-  assert.equal(toggleResult.checked, true);
+  await assert.rejects(
+    toggleCheckin({ habit_id: createdHabit.id }),
+    /No se puede completar hábitos en modo offline/,
+  );
   assert.equal(offlineHabits.length, 1);
   assert.equal(offlineHabits[0]?.id, createdHabit.id);
+  assert.equal(window.localStorage.getItem(LOCAL_CHECKINS_KEY), null);
+});
+
+test("offline mode read cache respects weekly and custom schedules", async () => {
+  process.env.NEXT_PUBLIC_OFFLINE_MODE = "true";
+  const today = new Date().toISOString().slice(0, 10);
+  const mondayFirstToday = (new Date(`${today}T00:00:00`).getDay() + 6) % 7;
+
+  window.localStorage.setItem(
+    LOCAL_HABITS_KEY,
+    JSON.stringify([
+      {
+        id: -1,
+        user_id: 7,
+        name: "Weekly",
+        icon: "Flame",
+        habit_type: "boolean",
+        frequency: "weekly",
+        section: "fire",
+        target_duration: null,
+        pomodoro_enabled: false,
+        target_quantity: null,
+        target_unit: null,
+        created_at: "2026-04-05T00:00:00Z",
+        updated_at: "2026-04-05T00:00:00Z",
+      },
+      {
+        id: -2,
+        user_id: 7,
+        name: "Custom Today",
+        icon: "Flame",
+        habit_type: "boolean",
+        frequency: "custom",
+        schedule_days: [mondayFirstToday],
+        section: "fire",
+        target_duration: null,
+        pomodoro_enabled: false,
+        target_quantity: null,
+        target_unit: null,
+        created_at: "2026-04-05T00:00:00Z",
+        updated_at: "2026-04-05T00:00:00Z",
+      },
+      {
+        id: -3,
+        user_id: 7,
+        name: "Custom Empty",
+        icon: "Flame",
+        habit_type: "boolean",
+        frequency: "custom",
+        schedule_days: [],
+        section: "fire",
+        target_duration: null,
+        pomodoro_enabled: false,
+        target_quantity: null,
+        target_unit: null,
+        created_at: "2026-04-05T00:00:00Z",
+        updated_at: "2026-04-05T00:00:00Z",
+      },
+    ]),
+  );
+
+  const habits = await fetchTodayHabits();
+  assert.deepEqual(
+    habits.map((habit) => habit.name),
+    ["Custom Today", "Weekly"],
+  );
 });

@@ -40,7 +40,7 @@ def is_eligible_today(user_habit: UserHabit, target_date: date_type) -> bool:
 
     if freq == "custom":
         if not user_habit.schedule_days:
-            return True # Fallback if no days configured
+            return False
         enabled_weekdays = {day.weekday for day in user_habit.schedule_days}
         return target_date.weekday() in enabled_weekdays
 

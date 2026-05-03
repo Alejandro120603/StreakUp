@@ -99,6 +99,8 @@ class Habit(db.Model):
     unidad_objetivo = db.Column(db.String(40), nullable=True)
     duracion_objetivo_minutos = db.Column(db.Integer, nullable=True)
 
+    category = db.relationship("Category", backref=db.backref("habits", lazy=True))
+
     def to_dict(self) -> dict:
         """Return a JSON-safe representation for catalog consumers."""
         return {

@@ -177,6 +177,8 @@ def serialize_user_habit(user_habit: UserHabit) -> dict:
     return {
         "id": user_habit.id,
         "catalog_habit_id": catalog_habit.id,
+        "category_id": catalog_habit.categoria_id,
+        "category_name": catalog_habit.category.nombre if catalog_habit.category else None,
         "user_id": user_habit.usuario_id,
         "name": _effective_name(user_habit),
         "custom_name": custom_name,

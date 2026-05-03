@@ -126,6 +126,8 @@ def test_decimal_liters_persist_and_serialize(app, user_id, catalog_ids):
 
         assert payload["target_quantity"] == 2.5
         assert payload["target_unit"] == "litros"
+        assert payload["category_id"] is not None
+        assert payload["category_name"] == "Point A"
 
 
 def test_quantity_liters_requires_positive_quantity(app, user_id, catalog_ids):

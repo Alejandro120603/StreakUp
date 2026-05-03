@@ -157,6 +157,7 @@ export function createLocalHabit(payload: CreateHabitPayload, userId = getCurren
     pomodoro_enabled: isTimeType,
     target_quantity: targetQuantity,
     target_unit: targetUnit,
+    schedule_days: payload.frequency === "custom" ? payload.schedule_days ?? [] : [],
     created_at: now,
     updated_at: now,
   };
@@ -197,6 +198,12 @@ export function updateLocalHabit(
     custom_description: payload.description ?? allHabits[index].custom_description ?? null,
     validation_type: payload.validation_type ?? allHabits[index].validation_type ?? "foto",
     frequency: payload.frequency ?? allHabits[index].frequency,
+    schedule_days:
+      payload.frequency === "custom"
+        ? payload.schedule_days ?? allHabits[index].schedule_days ?? []
+        : payload.frequency
+        ? []
+        : payload.schedule_days ?? allHabits[index].schedule_days ?? [],
     pomodoro_enabled: (() => {
       const vt = payload.validation_type ?? allHabits[index].validation_type ?? "foto";
       return vt === "tiempo" || vt === "time";
@@ -239,7 +246,9 @@ export function cacheTodayHabits(todayHabits: TodayHabit[], userId = getCurrentU
 }
 
 export function getLocalTodayHabits(userId = getCurrentUserId(), targetDate = getTodayIso()): TodayHabit[] {
-  const habits = getLocalHabits(userId).filter((habit) => habit.frequency === "daily");
+  const habits = getLocalHabits(userId).filter((habit) =>
+    isLocalHabitEligibleOnDate(habit, targetDate, userId),
+  );
   const checkedIds = new Set(
     readAllCheckins()
       .filter((checkin) => checkin.user_id === userId && checkin.date === targetDate)
@@ -298,8 +307,18 @@ export function syncLocalCheckinResult(
   return result;
 }
 
-function countCheckinsForDate(userId: number, date: string): number {
-  return readAllCheckins().filter((checkin) => checkin.user_id === userId && checkin.date === date).length;
+function countEligibleCheckinsForDate(userId: number, date: string, habits: Habit[]): number {
+  const eligibleIds = new Set(
+    habits
+      .filter((habit) => isLocalHabitEligibleOnDate(habit, date, userId))
+      .map((habit) => habit.id),
+  );
+  return readAllCheckins().filter(
+    (checkin) =>
+      checkin.user_id === userId &&
+      checkin.date === date &&
+      eligibleIds.has(checkin.habit_id),
+  ).length;
 }
 
 function getDateIso(daysAgo: number): string {
@@ -308,21 +327,83 @@ function getDateIso(daysAgo: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+function getWeekBounds(dateIso: string): { start: string; end: string } {
+  const date = new Date(`${dateIso}T00:00:00`);
+  const mondayFirstDay = (date.getDay() + 6) % 7;
+  const start = new Date(date);
+  start.setDate(date.getDate() - mondayFirstDay);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+}
+
+function getMondayFirstWeekday(dateIso: string): number {
+  return (new Date(`${dateIso}T00:00:00`).getDay() + 6) % 7;
+}
+
+function hasLocalCheckin(userId: number, habitId: number, date: string): boolean {
+  return readAllCheckins().some(
+    (checkin) => checkin.user_id === userId && checkin.habit_id === habitId && checkin.date === date,
+  );
+}
+
+function hasLocalWeeklyCheckin(userId: number, habitId: number, date: string): boolean {
+  const { start, end } = getWeekBounds(date);
+  return readAllCheckins().some(
+    (checkin) =>
+      checkin.user_id === userId &&
+      checkin.habit_id === habitId &&
+      checkin.date >= start &&
+      checkin.date <= end,
+  );
+}
+
+function isLocalHabitEligibleOnDate(habit: Habit, targetDate: string, userId: number): boolean {
+  if (habit.frequency === "daily") {
+    return true;
+  }
+
+  if (habit.frequency === "weekly") {
+    return !hasLocalWeeklyCheckin(userId, habit.id, targetDate) || hasLocalCheckin(userId, habit.id, targetDate);
+  }
+
+  if (habit.frequency === "custom") {
+    const scheduleDays = habit.schedule_days ?? [];
+    if (scheduleDays.length === 0) {
+      return false;
+    }
+    return scheduleDays.includes(getMondayFirstWeekday(targetDate));
+  }
+
+  return false;
+}
+
 export function getLocalStats(userId = getCurrentUserId()): StatsSummary {
-  const habits = getLocalHabits(userId).filter((habit) => habit.frequency === "daily");
-  const todayTotal = habits.length;
+  const habits = getLocalHabits(userId);
   const today = getTodayIso();
+  const todayTotal = habits.filter((habit) =>
+    isLocalHabitEligibleOnDate(habit, today, userId),
+  ).length;
   const todayCompleted = Math.min(
-    countCheckinsForDate(userId, today),
+    countEligibleCheckinsForDate(userId, today, habits),
     todayTotal,
   );
 
   let weeklyCheckins = 0;
+  let weeklyOpportunities = 0;
   for (let daysAgo = 0; daysAgo < 7; daysAgo += 1) {
-    weeklyCheckins += countCheckinsForDate(userId, getDateIso(daysAgo));
+    const date = getDateIso(daysAgo);
+    weeklyCheckins += countEligibleCheckinsForDate(userId, date, habits);
+    weeklyOpportunities += habits.filter((habit) =>
+      isLocalHabitEligibleOnDate(habit, date, userId),
+    ).length;
   }
 
-  const completionRate = todayTotal > 0 ? Math.round((weeklyCheckins / (todayTotal * 7)) * 100) : 0;
+  const completionRate = weeklyOpportunities > 0 ? Math.round((weeklyCheckins / weeklyOpportunities) * 100) : 0;
 
   let streak = 0;
   let cursor = 0;
@@ -330,7 +411,7 @@ export function getLocalStats(userId = getCurrentUserId()): StatsSummary {
 
   while (true) {
     const date = getDateIso(cursor);
-    const checkins = countCheckinsForDate(userId, date);
+    const checkins = countEligibleCheckinsForDate(userId, date, habits);
 
     if (checkins > 0) {
       streak += 1;

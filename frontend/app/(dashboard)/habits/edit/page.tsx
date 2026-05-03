@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { fetchHabit, updateHabit } from "@/services/habits/habitService";
 import {
   getHabitTargetSummary,
+  FREQUENCY_LABELS,
+  WEEKDAY_LABELS,
   VALIDATION_TYPE_LABELS,
   type Habit,
   type HabitFrequency,
@@ -25,20 +27,15 @@ function isTextType(vt: string): boolean {
 }
 
 const FREQUENCIES: Array<{ value: HabitFrequency; label: string }> = [
-  { value: "daily", label: "Diaria" },
-  { value: "weekly", label: "Semanal" },
-  { value: "custom", label: "Personalizada" },
+  { value: "daily", label: FREQUENCY_LABELS.daily },
+  { value: "weekly", label: FREQUENCY_LABELS.weekly },
+  { value: "custom", label: FREQUENCY_LABELS.custom },
 ];
 
-const WEEKDAYS = [
-  { value: 0, label: "L" },
-  { value: 1, label: "M" },
-  { value: 2, label: "X" },
-  { value: 3, label: "J" },
-  { value: 4, label: "V" },
-  { value: 5, label: "S" },
-  { value: 6, label: "D" },
-];
+const WEEKDAYS = Object.entries(WEEKDAY_LABELS).map(([value, label]) => ({
+  value: Number(value),
+  label,
+}));
 
 function EditHabitPageContent() {
   const router = useRouter();

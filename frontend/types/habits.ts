@@ -7,6 +7,8 @@ export interface Habit {
   id: number;
   user_id: number;
   catalog_habit_id?: number | null;
+  category_id?: number | null;
+  category_name?: string | null;
   name: string;
   custom_name?: string | null;
   description?: string | null;
@@ -97,6 +99,45 @@ export const SECTION_ICONS: Record<string, string> = {
   plant: "Sprout",
   moon: "Moon",
 };
+
+export const FREQUENCY_LABELS: Record<HabitFrequency, string> = {
+  daily: "Diaria",
+  weekly: "Semanal",
+  custom: "Personalizada",
+};
+
+export const WEEKDAY_LABELS: Record<number, string> = {
+  0: "L",
+  1: "M",
+  2: "X",
+  3: "J",
+  4: "V",
+  5: "S",
+  6: "D",
+};
+
+export function getHabitFrequencyLabel(
+  frequencyOrHabit: HabitFrequency | Pick<Habit, "frequency" | "schedule_days">,
+  scheduleDays?: number[],
+): string {
+  const frequency =
+    typeof frequencyOrHabit === "string" ? frequencyOrHabit : frequencyOrHabit.frequency;
+  const days =
+    typeof frequencyOrHabit === "string" ? scheduleDays : frequencyOrHabit.schedule_days;
+
+  if (frequency !== "custom") {
+    return FREQUENCY_LABELS[frequency];
+  }
+
+  const labels = (days ?? [])
+    .filter((day) => day in WEEKDAY_LABELS)
+    .sort((left, right) => left - right)
+    .map((day) => WEEKDAY_LABELS[day]);
+
+  return labels.length > 0
+    ? `${FREQUENCY_LABELS.custom}: ${labels.join(", ")}`
+    : FREQUENCY_LABELS.custom;
+}
 
 export const VALIDATION_TYPE_LABELS: Record<ValidationType, string> = {
   foto: "Foto",

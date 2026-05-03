@@ -82,6 +82,31 @@ def test_custom_eligibility(app):
         if tomorrow.weekday() != weekday:
             assert is_eligible_today(habit, tomorrow) is False
 
+def test_custom_without_schedule_is_not_eligible(app):
+    with app.app_context():
+        user = User(username="test_custom_empty", email="custom-empty@test.com")
+        user.set_password("pass")
+        db.session.add(user)
+        from app.models.habit import Category
+        cat = Category(nombre="Test Cat")
+        db.session.add(cat)
+        db.session.commit()
+        habit_base = Habit(nombre="Habit Base", categoria_id=cat.id, dificultad="media", xp_base=10)
+        db.session.add(habit_base)
+        db.session.commit()
+
+        habit = UserHabit(
+            usuario_id=user.id,
+            habito_id=habit_base.id,
+            fecha_inicio=date.today(),
+            frecuencia="custom",
+            activo=True,
+        )
+        db.session.add(habit)
+        db.session.flush()
+
+        assert is_eligible_today(habit, date.today()) is False
+
 def test_weekly_eligibility(app):
     with app.app_context():
         user = User(username="test_weekly", email="weekly@test.com")

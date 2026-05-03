@@ -11,26 +11,23 @@ import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 import { Input } from "@/components/ui/input";
 import {
   getHabitTargetSummary,
+  FREQUENCY_LABELS,
+  WEEKDAY_LABELS,
   VALIDATION_TYPE_LABELS,
   type HabitCatalogItem,
   type HabitFrequency,
 } from "@/types/habits";
 
 const FREQUENCIES: Array<{ value: HabitFrequency; label: string }> = [
-  { value: "daily", label: "Diaria" },
-  { value: "weekly", label: "Semanal" },
-  { value: "custom", label: "Personalizada" },
+  { value: "daily", label: FREQUENCY_LABELS.daily },
+  { value: "weekly", label: FREQUENCY_LABELS.weekly },
+  { value: "custom", label: FREQUENCY_LABELS.custom },
 ];
 
-const WEEKDAYS = [
-  { value: 0, label: "L" },
-  { value: 1, label: "M" },
-  { value: 2, label: "X" },
-  { value: 3, label: "J" },
-  { value: 4, label: "V" },
-  { value: 5, label: "S" },
-  { value: 6, label: "D" },
-];
+const WEEKDAYS = Object.entries(WEEKDAY_LABELS).map(([value, label]) => ({
+  value: Number(value),
+  label,
+}));
 
 function isTimeType(vt: string): boolean {
   return vt === "tiempo" || vt === "time";

@@ -3,7 +3,6 @@ import {
   cacheTodayHabits,
   getLocalTodayHabits,
   syncLocalCheckinResult,
-  toggleLocalCheckin,
 } from "@/services/storage/localData";
 import type { CheckinToggleResult, TodayHabit } from "@/types/checkins";
 
@@ -33,9 +32,9 @@ export async function toggleCheckin(payload: ToggleCheckinPayload): Promise<Chec
     );
     return syncLocalCheckinResult(result);
   } catch (error) {
-    // Connected mode must fail honestly for writes; only explicit offline mode can emulate them.
+    // Completion/progress must remain backend-validated; offline mode may read cached data only.
     if (shouldUseOfflineFallback(error)) {
-      return toggleLocalCheckin(payload.habit_id, undefined, payload.date);
+      throw new Error("No se puede completar hábitos en modo offline. Conéctate para validar tu progreso.");
     }
     throw error;
   }

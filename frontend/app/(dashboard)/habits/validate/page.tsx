@@ -19,7 +19,12 @@ import { fetchTodayHabits } from "@/services/checkins/checkinService";
 import { fetchStatsSummary } from "@/services/stats/statsService";
 import { validateHabit, type ValidatePayload } from "@/services/validation/validationService";
 import type { Habit, ValidationResult } from "@/types/habits";
-import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/types/habits";
+import {
+  getHabitFrequencyLabel,
+  getHabitTargetSummary,
+  SECTION_ICONS,
+  VALIDATION_TYPE_LABELS,
+} from "@/types/habits";
 import { ClayMotionBox } from "@/components/ui/clay-motion-box";
 
 type PageStatus = "idle" | "loading" | "success" | "error";
@@ -305,7 +310,7 @@ function ValidateHabitPageContent() {
               {VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"]}
             </span>
             <span className="inline-flex items-center rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[11px]">
-              {habit.frequency === "daily" ? "Diario" : "Semanal"}
+              {getHabitFrequencyLabel(habit)}
             </span>
             {targetSummary ? (
               <span className="inline-flex items-center rounded-full bg-secondary text-foreground px-2 py-0.5 text-[11px] font-medium">
