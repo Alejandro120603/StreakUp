@@ -144,10 +144,16 @@ CREATE TABLE IF NOT EXISTS xp_logs (
     cantidad INTEGER NOT NULL,
     fuente TEXT NOT NULL CHECK (fuente IN ('checkin','checkin_undo','validation')),
     fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    habit_id INTEGER REFERENCES habitos_usuario(id) ON DELETE SET NULL,
+    event_date DATE,
+    calculated_xp INTEGER,
+    source_event TEXT NOT NULL DEFAULT 'habit' CHECK (source_event IN ('habit','achievement')),
+    cap_hit INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (usuario_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_xp_logs_usuario ON xp_logs(usuario_id);
+CREATE INDEX IF NOT EXISTS ix_xp_logs_habit_date ON xp_logs(usuario_id, habit_id, event_date);
 
 -- =====================================================
 -- POMODORO_SESSIONS

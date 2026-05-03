@@ -20,7 +20,7 @@ from app.services.achievement_service import evaluate_and_award
 from app.services.habit_service import get_user_habit
 from app.services.openai_service import analyze_habit_image, analyze_habit_text
 from app.services.streak_service import compute_current_streak
-from app.services.xp_service import award_xp
+from app.services.xp_service import award_xp, award_habit_xp
 from app.services.checkin_service import is_eligible_today
 
 _LOCAL_TIMEZONE = datetime.now().astimezone().tzinfo or timezone.utc
@@ -230,7 +230,10 @@ def validate_habit(
 
         xp_awarded = 0
         if is_approved:
-            xp_awarded = _apply_approved_progress(user_habit.id, user_id, today)
+            duration_minutes_value = None
+            if val_type in {"tiempo", "time"}:
+                duration_minutes_value = float(payload.get("duration_minutes") or 0)
+            xp_awarded = _apply_approved_progress(user_habit.id, user_id, today, duration_minutes=duration_minutes_value)
 
         status = "approved" if is_approved else "rejected"
         log.status = status
@@ -274,7 +277,12 @@ def validate_habit(
         raise
 
 
-def _apply_approved_progress(user_habit_id: int, user_id: int, today: date_type) -> int:
+def _apply_approved_progress(
+    user_habit_id: int,
+    user_id: int,
+    today: date_type,
+    duration_minutes: float | None = None,
+) -> int:
     """Materialize one approved progress row and award XP at most once per day."""
     existing_checkin = CheckIn.query.filter_by(
         habitousuario_id=user_habit_id,
@@ -284,8 +292,14 @@ def _apply_approved_progress(user_habit_id: int, user_id: int, today: date_type)
         return 0
 
     user_habit = db.session.get(UserHabit, user_habit_id)
-    base_xp = user_habit.habit.xp_base if user_habit and user_habit.habit else 10
-    awarded_xp = int(base_xp * 1.5)
+    awarded_xp = award_habit_xp(
+        user_id,
+        user_habit,
+        today,
+        duration_minutes,
+        reason="validation",
+        commit=False,
+    )
     checkin = CheckIn(
         habitousuario_id=user_habit_id,
         fecha=today,
@@ -293,6 +307,4 @@ def _apply_approved_progress(user_habit_id: int, user_id: int, today: date_type)
         xp_ganado=awarded_xp,
     )
     db.session.add(checkin)
-    if awarded_xp > 0:
-        award_xp(user_id, awarded_xp, "validation", commit=False)
     return awarded_xp

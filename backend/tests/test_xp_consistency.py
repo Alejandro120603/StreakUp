@@ -94,11 +94,11 @@ class XpConsistencyTestCase(unittest.TestCase):
         checkin = CheckIn.query.filter_by(habitousuario_id=self.user_habit.id).one()
         validation = ValidationLog.query.one()
 
-        self.assertEqual(result["xp_ganado"], 15)
+        self.assertEqual(result["xp_ganado"], 10)
         self.assertEqual(result["status"], "approved")
-        self.assertEqual(checkin.xp_ganado, 15)
-        self.assertEqual(self.user.total_xp, 15)
-        self.assertEqual(sum(log.cantidad for log in XpLog.query.all()), 15)
+        self.assertEqual(checkin.xp_ganado, 10)
+        self.assertEqual(self.user.total_xp, 10)
+        self.assertEqual(sum(log.cantidad for log in XpLog.query.all()), 10)
         self.assertIsNotNone(validation.evidencia)
         self.assertEqual(validation.status, "approved")
         self.assertTrue(validation.validado)
@@ -112,7 +112,7 @@ class XpConsistencyTestCase(unittest.TestCase):
                 "provider": "openai",
                 "reason": "evidencia valida",
                 "validation_type": "foto",
-                "xp_awarded": 15,
+                "xp_awarded": 10,
             },
         )
         self.assertEqual(ValidationLog.query.count(), 1)
@@ -250,7 +250,7 @@ class XpConsistencyTestCase(unittest.TestCase):
 
         db.session.refresh(self.user)
         self.assertEqual(first_result["status"], "approved")
-        self.assertEqual(self.user.total_xp, 15)
+        self.assertEqual(self.user.total_xp, 10)
         self.assertEqual(CheckIn.query.count(), 1)
         self.assertEqual(ValidationLog.query.count(), 1)
         self.assertEqual(XpLog.query.count(), 1)
@@ -273,7 +273,7 @@ class XpConsistencyTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": True, "razon": "evidencia valida", "confianza": 0.9},
         ), patch(
-            "app.services.validation_service.award_xp",
+            "app.services.validation_service.award_habit_xp",
             side_effect=RuntimeError("xp write failed"),
         ):
             with self.assertRaisesRegex(RuntimeError, "xp write failed"):
