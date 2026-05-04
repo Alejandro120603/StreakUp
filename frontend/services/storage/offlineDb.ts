@@ -18,12 +18,18 @@ export type PendingOperationKind =
   | "create_pomodoro"
   | "complete_pomodoro";
 
+export type PendingOperationStatus = "pending" | "in_flight" | "failed_permanent";
+
 export interface PendingOperation {
   id: string;
   kind: PendingOperationKind;
   userId: number;
   payload: Record<string, unknown>;
   createdAt: string;
+  updatedAt?: string;
+  status?: PendingOperationStatus;
+  attemptCount?: number;
+  lastError?: string;
 }
 
 export class OfflineStorageError extends Error {

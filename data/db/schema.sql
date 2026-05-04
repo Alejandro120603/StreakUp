@@ -216,6 +216,27 @@ CREATE INDEX IF NOT EXISTS ix_shared_streak_memberships_user_id
 ON shared_streak_memberships(user_id);
 
 -- =====================================================
+-- SYNC OPERATION RECEIPTS
+-- =====================================================
+CREATE TABLE IF NOT EXISTS sync_operations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    client_operation_id TEXT NOT NULL,
+    operation_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('acked','failed','conflict')),
+    response_json TEXT NOT NULL,
+    error_code TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (user_id, client_operation_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_sync_operations_user_id
+ON sync_operations(user_id);
+
+-- =====================================================
 -- NIVELES
 -- =====================================================
 CREATE TABLE IF NOT EXISTS niveles (

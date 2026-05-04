@@ -25,6 +25,9 @@ export const API_ENDPOINTS = {
     today: "/api/checkins/today",
     history: "/api/checkins/history",
   },
+  sync: {
+    push: "/api/sync",
+  },
   stats: {
     summary: "/api/stats/summary",
     xp: "/api/stats/xp",
