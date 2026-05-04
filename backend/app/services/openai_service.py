@@ -9,12 +9,15 @@ import base64
 import json
 
 from flask import current_app
+import openai
 from openai import OpenAI
 
 from app.config import is_openai_configured
 
 VALIDATION_NOT_CONFIGURED_CODE = "validation_not_configured"
 VALIDATION_PROVIDER_UNAVAILABLE_CODE = "validation_provider_unavailable"
+VALIDATION_AUTH_ERROR_CODE = "validation_auth_error"
+VALIDATION_QUOTA_EXCEEDED_CODE = "validation_quota_exceeded"
 SUPPORTED_IMAGE_MIME_TYPES = {
     "image/jpeg",
     "image/jpg",
@@ -118,6 +121,18 @@ def analyze_habit_image(habit_name: str, image_base64: str, mime_type: str | Non
             max_tokens=300,
             temperature=0.2,
         )
+    except openai.AuthenticationError as exc:
+        current_app.logger.exception("Habit validation auth error.")
+        raise ValidationUnavailableError(
+            "La llave de OpenAI es inválida o ha sido revocada.",
+            VALIDATION_AUTH_ERROR_CODE,
+        ) from exc
+    except openai.RateLimitError as exc:
+        current_app.logger.exception("Habit validation rate limit or quota exceeded.")
+        raise ValidationUnavailableError(
+            "Se han agotado los créditos o la cuota de OpenAI.",
+            VALIDATION_QUOTA_EXCEEDED_CODE,
+        ) from exc
     except Exception as exc:
         current_app.logger.exception("Habit validation provider call failed.")
         raise ValidationUnavailableError(
@@ -155,4 +170,189 @@ def analyze_habit_image(habit_name: str, image_base64: str, mime_type: str | Non
         "valido": bool(result.get("valido", False)),
         "razon": str(result.get("razon", "Sin razón proporcionada.")),
         "confianza": float(result.get("confianza", 0.0)),
+    }
+
+
+def _parse_ai_json_response(raw_content: object) -> dict:
+    if isinstance(raw_content, list):
+        raw = "".join(
+            chunk.get("text", "")
+            for chunk in raw_content
+            if isinstance(chunk, dict) and chunk.get("type") == "text"
+        ).strip()
+    else:
+        raw = str(raw_content or "").strip()
+
+    if raw.startswith("```"):
+        lines = raw.split("\n")
+        lines = [line for line in lines if not line.strip().startswith("```")]
+        raw = "\n".join(lines)
+
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        current_app.logger.warning("Habit validation provider returned invalid JSON.")
+        raise ValidationUnavailableError(
+            "La validación no está disponible temporalmente.",
+            VALIDATION_PROVIDER_UNAVAILABLE_CODE,
+        ) from exc
+
+    return {
+        "valido": bool(result.get("valido", False)),
+        "razon": str(result.get("razon", "Sin razón proporcionada.")),
+        "confianza": float(result.get("confianza", 0.0)),
+    }
+
+
+def analyze_habit_text(habit_name: str, text_content: str) -> dict:
+    """Analyze text using OpenAI to validate a habit.
+
+    Returns:
+        dict with keys: valido (bool), razon (str), confianza (float).
+    """
+    if not is_openai_configured(current_app.config):
+        raise ValidationUnavailableError(
+            "La validación de texto no está disponible en este entorno.",
+            VALIDATION_NOT_CONFIGURED_CODE,
+        )
+
+    api_key = str(current_app.config.get("OPENAI_API_KEY") or "").strip()
+    prompt = (
+        "Eres un sistema que valida evidencia textual de hábitos.\n\n"
+        f"Hábito: {habit_name}\n\n"
+        f"Texto del usuario:\n{text_content}\n\n"
+        "Analiza el texto y responde SOLO en JSON válido con este formato:\n"
+        "{\n"
+        '  "valido": true o false,\n'
+        '  "razon": "explicación breve en español",\n'
+        '  "confianza": número entre 0 y 1\n'
+        "}\n\n"
+        "Reglas:\n"
+        "- Determina si el texto muestra evidencia razonable de que la persona "
+        "realizó o está realizando el hábito indicado.\n"
+        "- Sé flexible pero honesto. Si el texto no tiene relación, marca como inválido.\n"
+        "- Responde ÚNICAMENTE con el JSON, sin texto adicional."
+    )
+
+    try:
+        client = OpenAI(api_key=api_key, timeout=20.0)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            response_format={"type": "json_object"},
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+            temperature=0.2,
+        )
+    except openai.AuthenticationError as exc:
+        current_app.logger.exception("Habit text validation auth error.")
+        raise ValidationUnavailableError(
+            "La llave de OpenAI es inválida o ha sido revocada.",
+            VALIDATION_AUTH_ERROR_CODE,
+        ) from exc
+    except openai.RateLimitError as exc:
+        current_app.logger.exception("Habit text validation rate limit or quota exceeded.")
+        raise ValidationUnavailableError(
+            "Se han agotado los créditos o la cuota de OpenAI.",
+            VALIDATION_QUOTA_EXCEEDED_CODE,
+        ) from exc
+    except Exception as exc:
+        current_app.logger.exception("Habit text validation provider call failed.")
+        raise ValidationUnavailableError(
+            "La validación de texto no está disponible temporalmente.",
+            VALIDATION_PROVIDER_UNAVAILABLE_CODE,
+        ) from exc
+
+    return _parse_ai_json_response(response.choices[0].message.content)
+
+
+def analyze_habit_difficulty(
+    habit_name: str,
+    *,
+    current_difficulty: str,
+    context: dict,
+) -> dict:
+    """Ask OpenAI for advisory habit difficulty metadata.
+
+    Returns:
+        dict with keys: level (facil|media|dificil), explanation (str), confidence (float).
+    """
+    if not is_openai_configured(current_app.config):
+        raise ValidationUnavailableError(
+            "La recomendación de dificultad no está disponible en este entorno.",
+            VALIDATION_NOT_CONFIGURED_CODE,
+        )
+
+    api_key = str(current_app.config.get("OPENAI_API_KEY") or "").strip()
+    prompt = (
+        "Eres un sistema que recomienda dificultad de hábitos solo como metadata informativa.\n\n"
+        f"Hábito: {habit_name}\n"
+        f"Dificultad actual: {current_difficulty}\n"
+        f"Contexto JSON: {json.dumps(context, ensure_ascii=False, sort_keys=True)}\n\n"
+        "Responde SOLO en JSON válido con este formato:\n"
+        "{\n"
+        '  "level": "facil" | "media" | "dificil",\n'
+        '  "explanation": "explicación breve en español",\n'
+        '  "confidence": número entre 0 y 1\n'
+        "}\n\n"
+        "Reglas:\n"
+        "- No recomiendes XP ni recompensas.\n"
+        "- Basa la recomendación en el contexto recibido.\n"
+        "- La recomendación es consultiva y no debe controlar premios."
+    )
+
+    try:
+        client = OpenAI(api_key=api_key, timeout=10.0)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            response_format={"type": "json_object"},
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=180,
+            temperature=0.2,
+        )
+    except openai.AuthenticationError as exc:
+        current_app.logger.exception("Habit difficulty auth error.")
+        raise ValidationUnavailableError(
+            "La llave de OpenAI es inválida o ha sido revocada.",
+            VALIDATION_AUTH_ERROR_CODE,
+        ) from exc
+    except openai.RateLimitError as exc:
+        current_app.logger.exception("Habit difficulty rate limit or quota exceeded.")
+        raise ValidationUnavailableError(
+            "Se han agotado los créditos o la cuota de OpenAI.",
+            VALIDATION_QUOTA_EXCEEDED_CODE,
+        ) from exc
+    except Exception as exc:
+        current_app.logger.exception("Habit difficulty provider call failed.")
+        raise ValidationUnavailableError(
+            "La recomendación de dificultad no está disponible temporalmente.",
+            VALIDATION_PROVIDER_UNAVAILABLE_CODE,
+        ) from exc
+
+    raw = response.choices[0].message.content
+    if isinstance(raw, list):
+        content = "".join(
+            chunk.get("text", "")
+            for chunk in raw
+            if isinstance(chunk, dict) and chunk.get("type") == "text"
+        ).strip()
+    else:
+        content = str(raw or "").strip()
+
+    if content.startswith("```"):
+        lines = content.split("\n")
+        content = "\n".join(line for line in lines if not line.strip().startswith("```"))
+
+    try:
+        result = json.loads(content)
+    except json.JSONDecodeError as exc:
+        current_app.logger.warning("Habit difficulty provider returned invalid JSON.")
+        raise ValidationUnavailableError(
+            "La recomendación de dificultad no está disponible temporalmente.",
+            VALIDATION_PROVIDER_UNAVAILABLE_CODE,
+        ) from exc
+
+    return {
+        "level": str(result.get("level", current_difficulty)),
+        "explanation": str(result.get("explanation", "Sin explicación proporcionada.")),
+        "confidence": float(result.get("confidence", 0.0)),
     }

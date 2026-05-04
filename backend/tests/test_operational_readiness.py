@@ -75,10 +75,10 @@ class OperationalReadinessTestCase(unittest.TestCase):
         self.assertEqual(first.exit_code, 0, msg=first.output)
         self.assertEqual(second.exit_code, 0, msg=second.output)
         self.assertIn("categories_created=3", first.output)
-        self.assertIn("habits_created=12", first.output)
+        self.assertIn("habits_created=11", first.output)
         self.assertIn("categories_created=0", second.output)
         self.assertIn("habits_created=0", second.output)
-        self.assertEqual(Habit.query.count(), 12)
+        self.assertEqual(Habit.query.filter_by(activo=True).count(), 11)
 
     def test_healthz_and_readyz_report_real_state(self) -> None:
         health = self.client.get("/healthz")
@@ -98,7 +98,7 @@ class OperationalReadinessTestCase(unittest.TestCase):
         self.assertTrue(payload["checks"]["database"]["ready"])
         self.assertTrue(payload["checks"]["catalog"]["ready"])
         self.assertEqual(payload["checks"]["catalog"]["categories"], 3)
-        self.assertEqual(payload["checks"]["catalog"]["habits"], 12)
+        self.assertEqual(payload["checks"]["catalog"]["habits"], 11)
         self.assertEqual(
             payload["checks"]["validation"],
             {
@@ -125,6 +125,29 @@ class OperationalReadinessTestCase(unittest.TestCase):
                 "message": "OpenAI API key is configured; provider availability is verified at request time.",
             },
         )
+
+    def test_client_error_telemetry_accepts_and_redacts_sensitive_data(self) -> None:
+        with patch("app.routes.ops_routes.logger.warning") as warning:
+            response = self.client.post(
+                "/api/telemetry/errors",
+                json={
+                    "message": "Request failed with password=super-secret and Bearer abc.def.ghi",
+                    "name": "Error",
+                    "url": "/profile",
+                    "password": "super-secret",
+                    "authorization": "Bearer abc.def.ghi",
+                    "ignored": "not included",
+                },
+            )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.get_json(), {"status": "accepted"})
+        self.assertTrue(warning.called)
+        output = str(warning.call_args)
+        self.assertIn("[REDACTED]", output)
+        self.assertNotIn("super-secret", output)
+        self.assertNotIn("abc.def.ghi", output)
+        self.assertNotIn("not included", output)
 
     def test_validation_returns_safe_503_when_openai_is_missing(self) -> None:
         self._seed_catalog()

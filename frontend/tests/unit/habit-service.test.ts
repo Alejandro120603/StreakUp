@@ -3,6 +3,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import { createHabit, fetchHabit, updateHabit } from "@/services/habits/habitService";
 import { AppError } from "@/services/api/client";
 import { persistSession, clearStoredSession } from "@/services/auth/session";
+import { getHabitFrequencyLabel } from "@/types/habits";
 
 const originalFetch = globalThis.fetch;
 const originalWindow = globalThis.window;
@@ -286,5 +287,15 @@ test("updateHabit surfaces network failure in connected mode", async () => {
   await assert.rejects(
     updateHabit(1, { custom_name: "Test" }),
     (error: unknown) => error instanceof AppError && error.code === "network_unavailable",
+  );
+});
+
+test("getHabitFrequencyLabel formats custom schedules explicitly", () => {
+  assert.equal(getHabitFrequencyLabel("daily"), "Diaria");
+  assert.equal(getHabitFrequencyLabel("weekly"), "Semanal");
+  assert.equal(getHabitFrequencyLabel("custom"), "Personalizada");
+  assert.equal(
+    getHabitFrequencyLabel({ frequency: "custom", schedule_days: [4, 0, 2] }),
+    "Personalizada: L, X, V",
   );
 });

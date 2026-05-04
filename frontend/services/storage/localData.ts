@@ -1,4 +1,6 @@
 import { getSession } from "@/services/auth/authService";
+import { DB_KEYS, dbRead, dbWrite } from "@/services/storage/offlineDb";
+import { runMigrationsOnce } from "@/services/storage/localMigrations";
 import type { CheckinToggleResult, TodayHabit } from "@/types/checkins";
 import type { Habit, CreateHabitPayload, UpdateHabitPayload } from "@/types/habits";
 import type { CreatePomodoroSessionPayload, PomodoroSession } from "@/types/pomodoro";
@@ -13,41 +15,6 @@ interface StoredCheckin {
   user_id: number;
   habit_id: number;
   date: string;
-}
-
-const STORAGE_KEYS = {
-  habits: "streakup.local.habits",
-  checkins: "streakup.local.checkins",
-  pomodoroSessions: "streakup.local.pomodoroSessions",
-} as const;
-
-function canUseStorage(): boolean {
-  return typeof window !== "undefined";
-}
-
-function readStorage<T>(key: string, fallback: T): T {
-  if (!canUseStorage()) {
-    return fallback;
-  }
-
-  const rawValue = window.localStorage.getItem(key);
-  if (!rawValue) {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(rawValue) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStorage<T>(key: string, value: T): void {
-  if (!canUseStorage()) {
-    return;
-  }
-
-  window.localStorage.setItem(key, JSON.stringify(value));
 }
 
 function getCurrentUserId(): number {
@@ -78,27 +45,30 @@ function nextNegativeId(existingIds: number[]): number {
 }
 
 function readAllHabits(): Habit[] {
-  return readStorage<Habit[]>(STORAGE_KEYS.habits, []);
+  runMigrationsOnce();
+  return dbRead<Habit[]>(DB_KEYS.habits, []);
 }
 
 function writeAllHabits(habits: Habit[]): void {
-  writeStorage(STORAGE_KEYS.habits, habits);
+  dbWrite(DB_KEYS.habits, habits);
 }
 
 function readAllCheckins(): StoredCheckin[] {
-  return readStorage<StoredCheckin[]>(STORAGE_KEYS.checkins, []);
+  runMigrationsOnce();
+  return dbRead<StoredCheckin[]>(DB_KEYS.checkins, []);
 }
 
 function writeAllCheckins(checkins: StoredCheckin[]): void {
-  writeStorage(STORAGE_KEYS.checkins, checkins);
+  dbWrite(DB_KEYS.checkins, checkins);
 }
 
 function readAllPomodoroSessions(): PomodoroSession[] {
-  return readStorage<PomodoroSession[]>(STORAGE_KEYS.pomodoroSessions, []);
+  runMigrationsOnce();
+  return dbRead<PomodoroSession[]>(DB_KEYS.pomodoroSessions, []);
 }
 
 function writeAllPomodoroSessions(sessions: PomodoroSession[]): void {
-  writeStorage(STORAGE_KEYS.pomodoroSessions, sessions);
+  dbWrite(DB_KEYS.pomodoroSessions, sessions);
 }
 
 export function cacheHabits(habits: Habit[], userId = getCurrentUserId()): Habit[] {
@@ -133,8 +103,9 @@ export function createLocalHabit(payload: CreateHabitPayload, userId = getCurren
   const targetDuration = payload.target_duration ?? null;
   const targetQuantity = payload.target_quantity ?? null;
   const targetUnit = payload.target_unit ?? null;
+  const isTimeType = validationType === "tiempo" || validationType === "time";
   const habitType =
-    validationType === "tiempo" || targetDuration !== null
+    isTimeType || targetDuration !== null
       ? "time"
       : targetQuantity !== null
       ? "quantity"
@@ -153,9 +124,10 @@ export function createLocalHabit(payload: CreateHabitPayload, userId = getCurren
     frequency: payload.frequency ?? "daily",
     section: "fire",
     target_duration: targetDuration,
-    pomodoro_enabled: validationType === "tiempo",
+    pomodoro_enabled: isTimeType,
     target_quantity: targetQuantity,
     target_unit: targetUnit,
+    schedule_days: payload.frequency === "custom" ? payload.schedule_days ?? [] : [],
     created_at: now,
     updated_at: now,
   };
@@ -196,15 +168,23 @@ export function updateLocalHabit(
     custom_description: payload.description ?? allHabits[index].custom_description ?? null,
     validation_type: payload.validation_type ?? allHabits[index].validation_type ?? "foto",
     frequency: payload.frequency ?? allHabits[index].frequency,
-    pomodoro_enabled:
-      (payload.validation_type ?? allHabits[index].validation_type ?? "foto") === "tiempo",
-    habit_type:
-      (payload.validation_type ?? allHabits[index].validation_type ?? "foto") === "tiempo" ||
-      (payload.target_duration ?? allHabits[index].target_duration) !== null
-        ? "time"
-        : (payload.target_quantity ?? allHabits[index].target_quantity) !== null
-        ? "quantity"
-        : "boolean",
+    schedule_days:
+      payload.frequency === "custom"
+        ? payload.schedule_days ?? allHabits[index].schedule_days ?? []
+        : payload.frequency
+        ? []
+        : payload.schedule_days ?? allHabits[index].schedule_days ?? [],
+    pomodoro_enabled: (() => {
+      const vt = payload.validation_type ?? allHabits[index].validation_type ?? "foto";
+      return vt === "tiempo" || vt === "time";
+    })(),
+    habit_type: (() => {
+      const vt = payload.validation_type ?? allHabits[index].validation_type ?? "foto";
+      const isTime = vt === "tiempo" || vt === "time";
+      const dur = payload.target_duration ?? allHabits[index].target_duration;
+      const qty = payload.target_quantity ?? allHabits[index].target_quantity;
+      return isTime || dur !== null ? "time" : qty !== null ? "quantity" : "boolean";
+    })(),
     updated_at: getNowIso(),
   };
 
@@ -236,7 +216,9 @@ export function cacheTodayHabits(todayHabits: TodayHabit[], userId = getCurrentU
 }
 
 export function getLocalTodayHabits(userId = getCurrentUserId(), targetDate = getTodayIso()): TodayHabit[] {
-  const habits = getLocalHabits(userId).filter((habit) => habit.frequency === "daily");
+  const habits = getLocalHabits(userId).filter((habit) =>
+    isLocalHabitEligibleOnDate(habit, targetDate, userId),
+  );
   const checkedIds = new Set(
     readAllCheckins()
       .filter((checkin) => checkin.user_id === userId && checkin.date === targetDate)
@@ -295,8 +277,18 @@ export function syncLocalCheckinResult(
   return result;
 }
 
-function countCheckinsForDate(userId: number, date: string): number {
-  return readAllCheckins().filter((checkin) => checkin.user_id === userId && checkin.date === date).length;
+function countEligibleCheckinsForDate(userId: number, date: string, habits: Habit[]): number {
+  const eligibleIds = new Set(
+    habits
+      .filter((habit) => isLocalHabitEligibleOnDate(habit, date, userId))
+      .map((habit) => habit.id),
+  );
+  return readAllCheckins().filter(
+    (checkin) =>
+      checkin.user_id === userId &&
+      checkin.date === date &&
+      eligibleIds.has(checkin.habit_id),
+  ).length;
 }
 
 function getDateIso(daysAgo: number): string {
@@ -305,21 +297,83 @@ function getDateIso(daysAgo: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+function getWeekBounds(dateIso: string): { start: string; end: string } {
+  const date = new Date(`${dateIso}T00:00:00`);
+  const mondayFirstDay = (date.getDay() + 6) % 7;
+  const start = new Date(date);
+  start.setDate(date.getDate() - mondayFirstDay);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+}
+
+function getMondayFirstWeekday(dateIso: string): number {
+  return (new Date(`${dateIso}T00:00:00`).getDay() + 6) % 7;
+}
+
+function hasLocalCheckin(userId: number, habitId: number, date: string): boolean {
+  return readAllCheckins().some(
+    (checkin) => checkin.user_id === userId && checkin.habit_id === habitId && checkin.date === date,
+  );
+}
+
+function hasLocalWeeklyCheckin(userId: number, habitId: number, date: string): boolean {
+  const { start, end } = getWeekBounds(date);
+  return readAllCheckins().some(
+    (checkin) =>
+      checkin.user_id === userId &&
+      checkin.habit_id === habitId &&
+      checkin.date >= start &&
+      checkin.date <= end,
+  );
+}
+
+function isLocalHabitEligibleOnDate(habit: Habit, targetDate: string, userId: number): boolean {
+  if (habit.frequency === "daily") {
+    return true;
+  }
+
+  if (habit.frequency === "weekly") {
+    return !hasLocalWeeklyCheckin(userId, habit.id, targetDate) || hasLocalCheckin(userId, habit.id, targetDate);
+  }
+
+  if (habit.frequency === "custom") {
+    const scheduleDays = habit.schedule_days ?? [];
+    if (scheduleDays.length === 0) {
+      return false;
+    }
+    return scheduleDays.includes(getMondayFirstWeekday(targetDate));
+  }
+
+  return false;
+}
+
 export function getLocalStats(userId = getCurrentUserId()): StatsSummary {
-  const habits = getLocalHabits(userId).filter((habit) => habit.frequency === "daily");
-  const todayTotal = habits.length;
+  const habits = getLocalHabits(userId);
   const today = getTodayIso();
+  const todayTotal = habits.filter((habit) =>
+    isLocalHabitEligibleOnDate(habit, today, userId),
+  ).length;
   const todayCompleted = Math.min(
-    countCheckinsForDate(userId, today),
+    countEligibleCheckinsForDate(userId, today, habits),
     todayTotal,
   );
 
   let weeklyCheckins = 0;
+  let weeklyOpportunities = 0;
   for (let daysAgo = 0; daysAgo < 7; daysAgo += 1) {
-    weeklyCheckins += countCheckinsForDate(userId, getDateIso(daysAgo));
+    const date = getDateIso(daysAgo);
+    weeklyCheckins += countEligibleCheckinsForDate(userId, date, habits);
+    weeklyOpportunities += habits.filter((habit) =>
+      isLocalHabitEligibleOnDate(habit, date, userId),
+    ).length;
   }
 
-  const completionRate = todayTotal > 0 ? Math.round((weeklyCheckins / (todayTotal * 7)) * 100) : 0;
+  const completionRate = weeklyOpportunities > 0 ? Math.round((weeklyCheckins / weeklyOpportunities) * 100) : 0;
 
   let streak = 0;
   let cursor = 0;
@@ -327,7 +381,7 @@ export function getLocalStats(userId = getCurrentUserId()): StatsSummary {
 
   while (true) {
     const date = getDateIso(cursor);
-    const checkins = countCheckinsForDate(userId, date);
+    const checkins = countEligibleCheckinsForDate(userId, date, habits);
 
     if (checkins > 0) {
       streak += 1;
@@ -394,6 +448,8 @@ export function createLocalPomodoroSession(
     break_minutes: payload.break_minutes ?? 5,
     cycles: payload.cycles ?? 4,
     completed: false,
+    interruption_count: 0,
+    bonus_xp_awarded: null,
     started_at: getNowIso(),
     completed_at: null,
   };

@@ -6,6 +6,11 @@ export interface StatsSummary {
   total_xp: number;
   level: number;
   validations_today: number;
+  feedback?: {
+    message: string;
+    tone: string;
+    context?: Record<string, unknown>;
+  };
 }
 
 export interface ProfileStats extends StatsSummary {

@@ -44,14 +44,20 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     from app.routes.pomodoro_routes import pomodoro_bp
     from app.routes.validation_routes import validation_bp
     from app.routes.achievement_routes import achievements_bp
+    from app.routes.user_routes import user_bp
+    from app.routes.social_routes import social_bp
+    from app.routes.sync_routes import sync_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(habits_bp, url_prefix="/api")
     app.register_blueprint(checkins_bp, url_prefix="/api/checkins")
     app.register_blueprint(stats_bp, url_prefix="/api/stats")
     app.register_blueprint(pomodoro_bp, url_prefix="/api/pomodoro")
-    app.register_blueprint(validation_bp, url_prefix="/api/habits")
+    app.register_blueprint(validation_bp, url_prefix="/api")
     app.register_blueprint(achievements_bp, url_prefix="/api")
+    app.register_blueprint(user_bp, url_prefix="/api/users")
+    app.register_blueprint(social_bp, url_prefix="/api/social")
+    app.register_blueprint(sync_bp, url_prefix="/api/sync")
     app.register_blueprint(ops_bp)
 
     with app.app_context():
@@ -63,6 +69,10 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         from app.models.validation_log import ValidationLog  # noqa: F401
         from app.models.xp_log import XpLog  # noqa: F401
         from app.models.achievement import Achievement, UserAchievement  # noqa: F401
+        from app.models.user_habit_schedule import UserHabitScheduleDay  # noqa: F401
+        from app.models.social import SharedStreakGroup, SharedStreakMembership  # noqa: F401
+        from app.models.sync_operation import SyncOperation  # noqa: F401
+        from app.models.token_blocklist import TokenBlocklist  # noqa: F401
 
         # Seed achievement catalog if the table exists (skipped during migrations)
         try:

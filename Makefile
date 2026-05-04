@@ -21,8 +21,10 @@ APK_DEBUG_PATH := $(ANDROID_DIR)/app/build/outputs/apk/debug/app-debug.apk
 
 GRADLE_USER_HOME ?= /tmp/streakup-gradle
 OFFLINE_MODE ?= false
+API_URL ?=
 
 .PHONY: help venv install_requirements run_backend run_backend_prod run_frontend run_local dev \
+	test_backend lint_frontend test_frontend_unit test_frontend_e2e test_frontend_perf phase6_validate \
 	build_frontend build_frontend_mobile sync_android open_android build_apk update-apk-auto \
 	db-init db-init-demo db-bootstrap-catalog db-open db-clean db-reset db-dump db-backup db-psql
 
@@ -78,15 +80,36 @@ dev:
 	wait
 
 # ================================
+# VALIDATION
+# ================================
+test_backend:
+	cd $(BACKEND_DIR) && ./.venv/bin/python -m pytest
+
+lint_frontend:
+	cd $(FRONTEND_DIR) && $(NPM) run lint
+
+test_frontend_unit:
+	cd $(FRONTEND_DIR) && $(NPM) test
+
+test_frontend_e2e:
+	cd $(FRONTEND_DIR) && $(NPM) run test:e2e
+
+test_frontend_perf:
+	cd $(FRONTEND_DIR) && $(NPM) run test:perf
+
+phase6_validate: test_backend lint_frontend test_frontend_unit test_frontend_perf build_frontend build_frontend_mobile build_apk
+	@echo "Phase 6 validation complete"
+
+# ================================
 # FRONT BUILD
 # ================================
 build_frontend:
 	@echo "Building frontend..."
-	cd $(FRONTEND_DIR) && NEXT_PUBLIC_OFFLINE_MODE="$(OFFLINE_MODE)" $(NPM) run build
+	cd $(FRONTEND_DIR) && NEXT_PUBLIC_OFFLINE_MODE="$(OFFLINE_MODE)" NEXT_PUBLIC_API_URL="$(API_URL)" $(NPM) run build
 
 build_frontend_mobile:
 	@echo "Building frontend for Capacitor..."
-	cd $(FRONTEND_DIR) && NEXT_PUBLIC_OFFLINE_MODE="$(OFFLINE_MODE)" $(NPM) run build:mobile
+	cd $(FRONTEND_DIR) && NEXT_PUBLIC_OFFLINE_MODE="$(OFFLINE_MODE)" NEXT_PUBLIC_API_URL="$(API_URL)" $(NPM) run build:mobile
 
 # ================================
 # ANDROID
@@ -158,3 +181,6 @@ db-backup:
 	@ts=$$(date +"%Y-%m-%d_%H%M%S"); \
 	cp $(DB_PATH) data/backups/app_$$ts.sqlite && \
 	echo "Backup saved"
+
+open-db: ## Open Supabase/Postgres DB using DATABASE_URL from backend/.env.local
+	set -a; . backend/.env.local; set +a; psql "$$DATABASE_URL"

@@ -122,7 +122,7 @@ class AchievementTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": True, "razon": "ok", "confianza": 0.9},
         ):
-            result = validate_habit(self.user.id, self.user_habit.id, "img-data")
+            result = validate_habit(self.user.id, self.user_habit.id, {"image_base64": "img-data"})
 
         self.assertIn("new_achievements", result)
         keys = [a["key"] for a in result["new_achievements"]]
@@ -146,7 +146,7 @@ class AchievementTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": True, "razon": "ok", "confianza": 0.9},
         ):
-            result = validate_habit(self.user.id, self.user_habit.id, "img-data")
+            result = validate_habit(self.user.id, self.user_habit.id, {"image_base64": "img-data"})
 
         db.session.refresh(self.user)
         # base xp (habit.xp_base * 1.5 = 15) + bonus

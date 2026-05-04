@@ -10,6 +10,7 @@ import {
   shouldUseOfflineFallback,
 } from "@/services/api/client";
 import { isOfflineModeActive } from "@/services/config/runtime";
+import { resetCredentialStore } from "@/services/auth/credentialProvider";
 
 const originalFetch = globalThis.fetch;
 const originalNavigator = globalThis.navigator;
@@ -48,6 +49,7 @@ function createStorage(): Storage {
 function createWindow() {
   return {
     localStorage: createStorage(),
+    sessionStorage: createStorage(),
     location: {
       href: "",
     },
@@ -67,6 +69,7 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  resetCredentialStore();
   Capacitor.isNativePlatform = originalIsNativePlatform;
   Object.defineProperty(globalThis, "navigator", {
     configurable: true,
@@ -136,7 +139,7 @@ test("apiRequest still attempts fetch when navigator reports offline", async () 
 });
 
 test("apiRequest adds the bearer token when a saved session exists", async () => {
-  window.localStorage.setItem("access_token", "saved-access");
+  window.sessionStorage.setItem("access_token", "saved-access");
 
   globalThis.fetch = async (_input, init) => {
     assert.equal(init?.headers instanceof Headers, false);
@@ -246,8 +249,8 @@ test("apiRequest accepts a LAN IP for native apps", async () => {
 });
 
 test("apiRequest clears session and throws on 401 responses", async () => {
-  window.localStorage.setItem("access_token", "expired-token");
-  window.localStorage.setItem("refresh_token", "expired-refresh");
+  window.sessionStorage.setItem("access_token", "expired-token");
+  window.sessionStorage.setItem("refresh_token", "expired-refresh");
   window.localStorage.setItem("user", JSON.stringify({ id: 7, email: "test@example.com" }));
 
   globalThis.fetch = async () =>
@@ -269,8 +272,8 @@ test("apiRequest clears session and throws on 401 responses", async () => {
     },
   );
 
-  assert.equal(window.localStorage.getItem("access_token"), null);
-  assert.equal(window.localStorage.getItem("refresh_token"), null);
+  assert.equal(window.sessionStorage.getItem("access_token"), null);
+  assert.equal(window.sessionStorage.getItem("refresh_token"), null);
   assert.equal(window.localStorage.getItem("user"), null);
 });
 

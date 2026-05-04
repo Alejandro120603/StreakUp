@@ -162,7 +162,7 @@ def evaluate_and_award(user_id: int, current_streak: int = 0) -> list[dict]:
         db.session.add(user_achievement)
 
         if achievement.xp_bonus > 0:
-            award_xp(user_id, achievement.xp_bonus, "validation", commit=False)
+            award_xp(user_id, achievement.xp_bonus, "validation", source_event="achievement", commit=False)
 
         db.session.flush()
         newly_earned.append({

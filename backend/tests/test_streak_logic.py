@@ -54,7 +54,9 @@ def habit(app):
 @pytest.fixture
 def user_habit(app, user, habit):
     with app.app_context():
-        uh = UserHabit(usuario_id=user, habito_id=habit, fecha_inicio=date.today(), tipo_validacion="foto")
+        # Set fecha_inicio to 5 days ago to allow simulated past check-ins
+        past_date = date.today() - timedelta(days=5)
+        uh = UserHabit(usuario_id=user, habito_id=habit, fecha_inicio=past_date, tipo_validacion="foto")
         db.session.add(uh)
         db.session.commit()
         return uh.id
@@ -108,8 +110,9 @@ def test_streak_with_approved_and_rejected_validations(app, user, user_habit):
         db.session.add(log_rejected)
         db.session.commit()
 
-        # Streak should break to 0 because of the rejection today
-        assert compute_current_streak(uh_ids, today) == 0
+        # Phase 6: A rejected validation today NO LONGER breaks the streak instantly.
+        # User is allowed to re-validate before the day ends.
+        assert compute_current_streak(uh_ids, today) == 2
 
 def test_no_double_counting(app, user, user_habit):
     with app.app_context():

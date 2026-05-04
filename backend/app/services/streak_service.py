@@ -18,9 +18,10 @@ from datetime import date as date_type, datetime, timedelta, timezone
 
 from app.models.checkin import CheckIn
 from app.models.validation_log import ValidationLog
+from app.models.user_habit import UserHabit
+from app.extensions import db
 
 _LOCAL_TIMEZONE = datetime.now().astimezone().tzinfo or timezone.utc
-
 
 def _to_local_date(value: datetime | None) -> date_type | None:
     if value is None:
@@ -30,74 +31,94 @@ def _to_local_date(value: datetime | None) -> date_type | None:
     return value.astimezone(_LOCAL_TIMEZONE).date()
 
 
-def has_rejected_validation_today(uh_ids: list[int], today: date_type) -> bool:
-    """Return whether any active habit has a rejected validation today."""
-    if not uh_ids:
-        return False
+def _compute_habit_streaks(user_habit: UserHabit, today: date_type) -> tuple[int, int]:
+    """Compute the current and longest streak for a single habit based on its frequency."""
+    freq = user_habit.frecuencia or "daily"
+    fecha_inicio = user_habit.fecha_inicio
+    if not fecha_inicio:
+        return 0, 0
+    
+    # fetch all approved checkins for this habit up to today
+    checkins = CheckIn.query.filter(
+        CheckIn.habitousuario_id == user_habit.id,
+        CheckIn.completado == True,
+        CheckIn.fecha >= fecha_inicio,
+        CheckIn.fecha <= today
+    ).all()
+    checkin_dates = {c.fecha for c in checkins}
 
-    # Filter by status and date range at the database level for efficiency
-    start_of_day = datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
-    end_of_day = datetime.combine(today, datetime.max.time(), tzinfo=timezone.utc)
+    current_streak = 0
+    longest_streak = 0
 
-    rejected_exists = ValidationLog.query.filter(
-        ValidationLog.habitousuario_id.in_(uh_ids),
-        ValidationLog.status == "rejected",
-        ValidationLog.fecha >= start_of_day,
-        ValidationLog.fecha <= end_of_day,
-    ).first()
+    if freq in ("daily", "custom"):
+        if freq == "custom" and user_habit.schedule_days:
+            enabled_weekdays = {sd.weekday for sd in user_habit.schedule_days}
+        else:
+            enabled_weekdays = set(range(7))
 
-    return rejected_exists is not None
+        curr_date = fecha_inicio
+        while curr_date <= today:
+            if curr_date.weekday() in enabled_weekdays:
+                if curr_date in checkin_dates:
+                    current_streak += 1
+                    if current_streak > longest_streak:
+                        longest_streak = current_streak
+                else:
+                    if curr_date < today:
+                        current_streak = 0
+            curr_date += timedelta(days=1)
+            
+    elif freq == "weekly":
+        iso_y, iso_w, _ = fecha_inicio.isocalendar()
+        curr_week_start = date_type.fromisocalendar(iso_y, iso_w, 1)
+        
+        iso_y_end, iso_w_end, _ = today.isocalendar()
+        end_week_start = date_type.fromisocalendar(iso_y_end, iso_w_end, 1)
+        
+        while curr_week_start <= end_week_start:
+            curr_week_end = curr_week_start + timedelta(days=6)
+            checked = any(curr_week_start <= d <= curr_week_end for d in checkin_dates)
+            
+            if checked:
+                current_streak += 1
+                if current_streak > longest_streak:
+                    longest_streak = current_streak
+            else:
+                if curr_week_start < end_week_start:
+                    current_streak = 0
+            
+            curr_week_start += timedelta(weeks=1)
+
+    return current_streak, longest_streak
 
 
 def compute_current_streak(uh_ids: list[int], today: date_type) -> int:
-    """Compute consecutive approved days unless today's validation was rejected."""
+    """Compute the global current streak (max of all individual current streaks)."""
     if not uh_ids:
         return 0
-    if has_rejected_validation_today(uh_ids, today):
-        return 0
 
-    streak = 0
-    check_date = today
-    while True:
-        day_checkins = CheckIn.query.filter(
-            CheckIn.habitousuario_id.in_(uh_ids),
-            CheckIn.fecha == check_date,
-        ).count()
-        if day_checkins > 0:
-            streak += 1
-            check_date -= timedelta(days=1)
-            continue
+    user_habits = db.session.query(UserHabit).filter(UserHabit.id.in_(uh_ids)).all()
+    
+    max_streak = 0
+    for uh in user_habits:
+        curr, _ = _compute_habit_streaks(uh, today)
+        if curr > max_streak:
+            max_streak = curr
 
-        if check_date == today and streak == 0:
-            check_date -= timedelta(days=1)
-            continue
-        break
-
-    return streak
+    return max_streak
 
 
 def compute_longest_streak(uh_ids: list[int]) -> int:
-    """Compute longest streak from approved progress rows only."""
+    """Compute the global longest streak (max of all individual longest streaks)."""
     if not uh_ids:
         return 0
 
-    dates = (
-        CheckIn.query.with_entities(CheckIn.fecha)
-        .filter(CheckIn.habitousuario_id.in_(uh_ids))
-        .distinct()
-        .order_by(CheckIn.fecha)
-        .all()
-    )
-    if not dates:
-        return 0
+    user_habits = db.session.query(UserHabit).filter(UserHabit.id.in_(uh_ids)).all()
+    
+    max_longest = 0
+    for uh in user_habits:
+        _, longest = _compute_habit_streaks(uh, date_type.today())
+        if longest > max_longest:
+            max_longest = longest
 
-    sorted_dates = [row[0] for row in dates]
-    longest = 1
-    current = 1
-    for index in range(1, len(sorted_dates)):
-        if sorted_dates[index] - sorted_dates[index - 1] == timedelta(days=1):
-            current += 1
-            longest = max(longest, current)
-        else:
-            current = 1
-    return longest
+    return max_longest

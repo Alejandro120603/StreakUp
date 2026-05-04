@@ -84,32 +84,37 @@ class XpConsistencyTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": True, "razon": "evidencia valida", "confianza": 0.9},
         ):
-            result = validate_habit(self.user.id, self.user_habit.id, "image-base64")
+            result = validate_habit(
+                self.user.id,
+                self.user_habit.id,
+                {"image_base64": "image-base64"},
+            )
 
         db.session.refresh(self.user)
         checkin = CheckIn.query.filter_by(habitousuario_id=self.user_habit.id).one()
         validation = ValidationLog.query.one()
 
-        self.assertEqual(result["xp_ganado"], 15)
+        self.assertEqual(result["xp_ganado"], 10)
         self.assertEqual(result["status"], "approved")
-        self.assertEqual(checkin.xp_ganado, 15)
-        self.assertEqual(self.user.total_xp, 15)
-        self.assertEqual(sum(log.cantidad for log in XpLog.query.all()), 15)
+        self.assertEqual(checkin.xp_ganado, 10)
+        self.assertEqual(self.user.total_xp, 10)
+        self.assertEqual(sum(log.cantidad for log in XpLog.query.all()), 10)
         self.assertIsNotNone(validation.evidencia)
         self.assertEqual(validation.status, "approved")
         self.assertTrue(validation.validado)
         evidence = json.loads(validation.evidencia)
+        self.assertEqual(evidence["confidence"], 0.9)
         self.assertEqual(
-            evidence,
-            {
-                "confidence": 0.9,
-                "image_sha256": hashlib.sha256("image-base64".encode("utf-8")).hexdigest(),
-                "mime_type": "image/jpeg",
-                "provider": "openai",
-                "reason": "evidencia valida",
-                "xp_awarded": 15,
-            },
+            evidence["image_sha256"],
+            hashlib.sha256("image-base64".encode("utf-8")).hexdigest(),
         )
+        self.assertEqual(evidence["mime_type"], "image/jpeg")
+        self.assertEqual(evidence["provider"], "openai")
+        self.assertEqual(evidence["reason"], "evidencia valida")
+        self.assertEqual(evidence["validation_type"], "foto")
+        self.assertEqual(evidence["xp_awarded"], 10)
+        self.assertTrue(evidence["difficulty_recommendation"]["advisory"])
+        self.assertEqual(evidence["feedback"]["context"]["xp_awarded"], 10)
         self.assertEqual(ValidationLog.query.count(), 1)
 
     def test_validation_day_filter_binds_postgres_date_param(self) -> None:
@@ -140,7 +145,11 @@ class XpConsistencyTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": True, "razon": "evidencia valida", "confianza": 0.95},
         ):
-            result = validate_habit(self.user.id, self.user_habit.id, "image-base64")
+            result = validate_habit(
+                self.user.id,
+                self.user_habit.id,
+                {"image_base64": "image-base64"},
+            )
 
         db.session.refresh(self.user)
         checkin = CheckIn.query.filter_by(habitousuario_id=self.user_habit.id).one()
@@ -199,7 +208,11 @@ class XpConsistencyTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": False, "razon": "evidencia invalida", "confianza": 0.2},
         ):
-            result = validate_habit(self.user.id, self.user_habit.id, "image-base64")
+            result = validate_habit(
+                self.user.id,
+                self.user_habit.id,
+                {"image_base64": "image-base64"},
+            )
 
         db.session.refresh(self.user)
         validation = ValidationLog.query.order_by(ValidationLog.id.desc()).first()
@@ -223,13 +236,21 @@ class XpConsistencyTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": True, "razon": "evidencia valida", "confianza": 0.9},
         ):
-            first_result = validate_habit(self.user.id, self.user_habit.id, "image-base64")
+            first_result = validate_habit(
+                self.user.id,
+                self.user_habit.id,
+                {"image_base64": "image-base64"},
+            )
             with self.assertRaisesRegex(ValueError, "Ya validaste este habito hoy"):
-                validate_habit(self.user.id, self.user_habit.id, "image-base64")
+                validate_habit(
+                    self.user.id,
+                    self.user_habit.id,
+                    {"image_base64": "image-base64"},
+                )
 
         db.session.refresh(self.user)
         self.assertEqual(first_result["status"], "approved")
-        self.assertEqual(self.user.total_xp, 15)
+        self.assertEqual(self.user.total_xp, 10)
         self.assertEqual(CheckIn.query.count(), 1)
         self.assertEqual(ValidationLog.query.count(), 1)
         self.assertEqual(XpLog.query.count(), 1)
@@ -252,16 +273,22 @@ class XpConsistencyTestCase(unittest.TestCase):
             "app.services.validation_service.analyze_habit_image",
             return_value={"valido": True, "razon": "evidencia valida", "confianza": 0.9},
         ), patch(
-            "app.services.validation_service.award_xp",
+            "app.services.validation_service.award_habit_xp",
             side_effect=RuntimeError("xp write failed"),
         ):
             with self.assertRaisesRegex(RuntimeError, "xp write failed"):
-                validate_habit(self.user.id, self.user_habit.id, "image-base64")
+                validate_habit(
+                    self.user.id,
+                    self.user_habit.id,
+                    {"image_base64": "image-base64"},
+                )
 
         db.session.refresh(self.user)
         self.assertEqual(self.user.total_xp, 0)
         self.assertEqual(CheckIn.query.count(), 0)
-        self.assertEqual(ValidationLog.query.count(), 0)
+        validation = ValidationLog.query.one()
+        self.assertEqual(validation.status, "pending")
+        self.assertFalse(validation.validado)
         self.assertEqual(XpLog.query.count(), 0)
 
 
