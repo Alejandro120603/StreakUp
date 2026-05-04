@@ -10,9 +10,10 @@ interface HabitRowProps {
   checked: boolean;
   onToggle: () => void;
   onView?: () => void;
+  pending?: boolean;
 }
 
-export function HabitRow({ icon, name, subtitle, checked, onToggle, onView }: HabitRowProps) {
+export function HabitRow({ icon, name, subtitle, checked, onToggle, onView, pending }: HabitRowProps) {
   return (
     <div className="flex items-center gap-[14px] mb-[12px] p-[16px] rounded-[24px] bg-white/13 border border-white/20">
       <div className="w-[58px] h-[58px] rounded-[18px] bg-white/18 grid place-items-center text-[34px] text-primary">
@@ -20,7 +21,10 @@ export function HabitRow({ icon, name, subtitle, checked, onToggle, onView }: Ha
       </div>
       <div className="flex-1">
         <h3 className="text-[18px] font-bold leading-tight">{name}</h3>
-        <p className="text-white/74 text-[13px]">{subtitle}</p>
+        <p className="text-white/74 text-[13px]">
+          {pending ? <span className="text-yellow-300 mr-1" aria-label="Pendiente de sincronización">⏳</span> : null}
+          {subtitle}
+        </p>
       </div>
       <div className="flex gap-[8px]">
         {onView && (

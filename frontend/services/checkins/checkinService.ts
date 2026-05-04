@@ -1,14 +1,23 @@
 import { apiGet, apiPost, API_ENDPOINTS, shouldUseOfflineFallback } from "@/services/api/client";
+import { getSession } from "@/services/auth/authService";
 import {
   cacheTodayHabits,
+  getLocalHabitById,
   getLocalTodayHabits,
   syncLocalCheckinResult,
+  toggleLocalCheckin,
 } from "@/services/storage/localData";
+import { enqueueOrCancelToggleCheckin } from "@/services/sync/syncQueue";
+import type { ValidationType } from "@/types/habits";
 import type { CheckinToggleResult, TodayHabit } from "@/types/checkins";
 
 interface ToggleCheckinPayload {
   habit_id: number;
   date?: string;
+}
+
+function isValidationGated(validationType?: ValidationType | null): boolean {
+  return Boolean(validationType) && validationType !== "check";
 }
 
 export async function fetchTodayHabits(): Promise<TodayHabit[]> {
@@ -32,9 +41,22 @@ export async function toggleCheckin(payload: ToggleCheckinPayload): Promise<Chec
     );
     return syncLocalCheckinResult(result);
   } catch (error) {
-    // Completion/progress must remain backend-validated; offline mode may read cached data only.
     if (shouldUseOfflineFallback(error)) {
-      throw new Error("No se puede completar hábitos en modo offline. Conéctate para validar tu progreso.");
+      const today = new Date().toISOString().slice(0, 10);
+      const date = payload.date ?? today;
+      const session = getSession();
+      const userId = Number(session?.user.id ?? 0);
+      const habit = getLocalHabitById(payload.habit_id, userId);
+
+      if (isValidationGated(habit?.validation_type)) {
+        throw new Error(
+          "Este hábito requiere validación del servidor. Conéctate para registrar tu progreso.",
+        );
+      }
+
+      const result = toggleLocalCheckin(payload.habit_id, userId, date);
+      enqueueOrCancelToggleCheckin(payload.habit_id, date, userId);
+      return result;
     }
     throw error;
   }

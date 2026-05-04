@@ -18,6 +18,8 @@ import {
 import { fetchHabitHistory } from "@/services/history/historyService";
 import { fetchDetailedStats } from "@/services/stats/statsService";
 import { getStatsViewState } from "@/services/stats/statsViewState";
+import { getSession } from "@/services/auth/authService";
+import { getPendingOpsCount } from "@/services/sync/syncQueue";
 import { StatCard } from "@/components/ui/StatCard";
 import type { HabitHistoryEvent, HabitHistoryStatus } from "@/types/history";
 
@@ -262,6 +264,7 @@ export default function StatsPage() {
   const [historyEvents, setHistoryEvents] = useState<HabitHistoryEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [offlinePendingCount, setOfflinePendingCount] = useState(0);
 
   async function fetchStats() {
     try {
@@ -282,6 +285,9 @@ export default function StatsPage() {
           ? error.message
           : "No se pudieron cargar tus estadísticas reales. Intenta de nuevo en unos momentos.",
       );
+      const session = getSession();
+      const userId = Number(session?.user.id ?? 0);
+      setOfflinePendingCount(userId > 0 ? getPendingOpsCount(userId) : 0);
     } finally {
       setLoading(false);
     }
@@ -313,6 +319,11 @@ export default function StatsPage() {
           <div className="space-y-2">
             <h2 className="text-[18px] font-bold text-white">{viewState.title}</h2>
             <p className="text-[14px] text-white/74">{viewState.message}</p>
+            {offlinePendingCount > 0 ? (
+              <p className="text-[13px] text-yellow-300 font-medium">
+                ⏳ {offlinePendingCount} cambio{offlinePendingCount === 1 ? "" : "s"} pendiente{offlinePendingCount === 1 ? "" : "s"} de sincronización
+              </p>
+            ) : null}
           </div>
 
           {viewState.kind === "empty" ? (

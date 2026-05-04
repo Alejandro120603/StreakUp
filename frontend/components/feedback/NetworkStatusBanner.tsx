@@ -13,6 +13,8 @@
 
 import { useEffect, useState } from "react";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { getSession } from "@/services/auth/authService";
+import { getPendingOpsCount } from "@/services/sync/syncQueue";
 import { WifiOff, Wifi } from "lucide-react";
 
 const RECONNECTED_BANNER_DURATION_MS = 3_000;
@@ -20,6 +22,17 @@ const RECONNECTED_BANNER_DURATION_MS = 3_000;
 export function NetworkStatusBanner() {
   const { isOffline } = useNetworkStatus();
   const [justReconnected, setJustReconnected] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (isOffline) {
+      const session = getSession();
+      const userId = Number(session?.user.id ?? 0);
+      setPendingCount(userId > 0 ? getPendingOpsCount(userId) : 0);
+    } else {
+      setPendingCount(0);
+    }
+  }, [isOffline]);
 
   // When the device goes back online, briefly show the "reconnected" banner.
   useEffect(() => {
@@ -60,7 +73,10 @@ export function NetworkStatusBanner() {
       {isOffline ? (
         <>
           <WifiOff className="size-4 shrink-0" aria-hidden="true" />
-          <span>Sin conexión — algunas funciones no están disponibles</span>
+          <span>
+            Sin conexión
+            {pendingCount > 0 ? ` — ${pendingCount} cambio${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}` : " — algunas funciones no están disponibles"}
+          </span>
         </>
       ) : (
         <>

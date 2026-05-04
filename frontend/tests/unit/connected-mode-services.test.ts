@@ -195,9 +195,10 @@ test("offline mode still uses local emulation only when explicitly enabled", asy
 
   assert.equal(fetchCalls, 0);
   assert.ok(createdHabit.id < 0);
+  // Habit created offline defaults to validation_type "foto" — must reject with validation-gated message
   await assert.rejects(
     toggleCheckin({ habit_id: createdHabit.id }),
-    /No se puede completar hábitos en modo offline/,
+    /requiere validación del servidor/,
   );
   assert.equal(offlineHabits.length, 1);
   assert.equal(offlineHabits[0]?.id, createdHabit.id);

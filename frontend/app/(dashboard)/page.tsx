@@ -7,6 +7,8 @@ import { Settings, Plus, icons } from "lucide-react";
 import { fetchTodayHabits, toggleCheckin } from "@/services/checkins/checkinService";
 import { fetchStatsSummary } from "@/services/stats/statsService";
 import { showAchievementToast } from "@/components/feedback/AchievementToast";
+import { getSession } from "@/services/auth/authService";
+import { getPendingOps } from "@/services/sync/syncQueue";
 import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/types/habits";
 import type { TodayHabit } from "@/types/checkins";
 import type { StatsSummary } from "@/types/stats";
@@ -40,6 +42,23 @@ export default function DashboardHomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingHabitId, setUpdatingHabitId] = useState<number | null>(null);
+  const [pendingHabitIds, setPendingHabitIds] = useState<Set<number>>(new Set());
+
+  function refreshPendingIds(habits?: TodayHabit[]) {
+    const session = getSession();
+    const userId = Number(session?.user.id ?? 0);
+    if (userId <= 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const ops = getPendingOps(userId);
+    const ids = new Set(
+      ops
+        .filter((op) => op.kind === "toggle_checkin" && op.payload.date === today)
+        .map((op) => op.payload.habit_id as number),
+    );
+    // Only mark habits that are currently checked (visible as pending)
+    const checkedIds = new Set((habits ?? todayHabits).filter((h) => h.checked_today).map((h) => h.id));
+    setPendingHabitIds(new Set([...ids].filter((id) => checkedIds.has(id))));
+  }
 
   const fetchData = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -48,11 +67,13 @@ export default function DashboardHomePage() {
       setStats(statsData);
       setTodayHabits(habitsData);
       setError("");
+      refreshPendingIds(habitsData);
     } catch (err) {
       setError(err instanceof Error && err.message.trim() ? err.message : "No se pudieron cargar tus datos reales.");
     } finally {
       if (showSpinner) setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -64,9 +85,13 @@ export default function DashboardHomePage() {
     setError("");
     try {
       const result = await toggleCheckin({ habit_id: habitId });
-      setTodayHabits((currentHabits) =>
-        currentHabits.map((habit) => (habit.id === result.habit_id ? { ...habit, checked_today: result.checked } : habit))
-      );
+      setTodayHabits((currentHabits) => {
+        const updated = currentHabits.map((habit) =>
+          habit.id === result.habit_id ? { ...habit, checked_today: result.checked } : habit,
+        );
+        refreshPendingIds(updated);
+        return updated;
+      });
       result.new_achievements?.forEach((achievement) => showAchievementToast(achievement));
       try {
         setStats(await fetchStatsSummary());
@@ -208,6 +233,7 @@ export default function DashboardHomePage() {
                     name={habit.name}
                     subtitle={subtitle}
                     checked={habit.checked_today}
+                    pending={pendingHabitIds.has(habit.id)}
                     onToggle={() => handleHabitAction(habit)}
                   />
                 </div>
