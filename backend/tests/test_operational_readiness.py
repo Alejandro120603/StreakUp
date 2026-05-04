@@ -126,6 +126,29 @@ class OperationalReadinessTestCase(unittest.TestCase):
             },
         )
 
+    def test_client_error_telemetry_accepts_and_redacts_sensitive_data(self) -> None:
+        with patch("app.routes.ops_routes.logger.warning") as warning:
+            response = self.client.post(
+                "/api/telemetry/errors",
+                json={
+                    "message": "Request failed with password=super-secret and Bearer abc.def.ghi",
+                    "name": "Error",
+                    "url": "/profile",
+                    "password": "super-secret",
+                    "authorization": "Bearer abc.def.ghi",
+                    "ignored": "not included",
+                },
+            )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.get_json(), {"status": "accepted"})
+        self.assertTrue(warning.called)
+        output = str(warning.call_args)
+        self.assertIn("[REDACTED]", output)
+        self.assertNotIn("super-secret", output)
+        self.assertNotIn("abc.def.ghi", output)
+        self.assertNotIn("not included", output)
+
     def test_validation_returns_safe_503_when_openai_is_missing(self) -> None:
         self._seed_catalog()
         user = self._create_user()

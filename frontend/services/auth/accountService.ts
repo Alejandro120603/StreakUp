@@ -4,10 +4,23 @@
  * Handles account-level actions for the authenticated user.
  */
 
-import { apiDelete, API_ENDPOINTS } from "@/services/api/client";
+import { apiDelete, apiGet, API_ENDPOINTS } from "@/services/api/client";
+import { clearOfflineData } from "@/services/storage/offlineDb";
 
 export interface DeleteAccountResponse {
   message: string;
+}
+
+export interface AccountExport {
+  profile: Record<string, unknown>;
+  habits: Array<Record<string, unknown>>;
+  checkins: Array<Record<string, unknown>>;
+  pomodoro_sessions: Array<Record<string, unknown>>;
+  achievements: Array<Record<string, unknown>>;
+  xp_logs: Array<Record<string, unknown>>;
+  social_memberships: Array<Record<string, unknown>>;
+  owned_social_groups: Array<Record<string, unknown>>;
+  validation_records: Array<Record<string, unknown>>;
 }
 
 /**
@@ -17,4 +30,12 @@ export interface DeleteAccountResponse {
  */
 export async function deleteAccount(): Promise<DeleteAccountResponse> {
   return apiDelete<DeleteAccountResponse>(API_ENDPOINTS.user.delete);
+}
+
+export async function exportAccountData(): Promise<AccountExport> {
+  return apiGet<AccountExport>(API_ENDPOINTS.user.export);
+}
+
+export function clearAccountLocalData(): void {
+  clearOfflineData();
 }

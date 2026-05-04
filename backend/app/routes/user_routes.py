@@ -16,6 +16,8 @@ from app.extensions import db
 from app.models.achievement import UserAchievement
 from app.models.checkin import CheckIn
 from app.models.pomodoro_session import PomodoroSession
+from app.models.social import SharedStreakGroup, SharedStreakMembership
+from app.models.sync_operation import SyncOperation
 from app.models.user import User
 from app.models.user_habit import UserHabit
 from app.models.validation_log import ValidationLog
@@ -25,6 +27,67 @@ from app.services.user_service import update_user_profile
 from app.utils.error_handler import error_response
 
 user_bp = Blueprint("users", __name__)
+
+
+def _iso_date(value):
+    return value.isoformat() if value else None
+
+
+def _export_user_habit(user_habit: UserHabit) -> dict:
+    return {
+        "id": user_habit.id,
+        "catalog_habit_id": user_habit.habito_id,
+        "start_date": _iso_date(user_habit.fecha_inicio),
+        "end_date": _iso_date(user_habit.fecha_fin),
+        "active": bool(user_habit.activo),
+        "custom_name": user_habit.nombre_personalizado,
+        "custom_description": user_habit.descripcion_personalizada,
+        "validation_type": user_habit.tipo_validacion,
+        "frequency": user_habit.frecuencia,
+        "target_quantity": float(user_habit.cantidad_objetivo)
+        if user_habit.cantidad_objetivo is not None
+        else None,
+        "target_unit": user_habit.unidad_objetivo,
+        "target_duration": user_habit.duracion_objetivo_minutos,
+        "created_at": _iso_date(user_habit.fecha_creacion),
+        "updated_at": _iso_date(user_habit.fecha_actualizacion),
+    }
+
+
+def _export_xp_log(log: XpLog) -> dict:
+    return {
+        "id": log.id,
+        "amount": log.cantidad,
+        "reason": log.razon,
+        "created_at": _iso_date(log.fecha),
+        "habit_id": log.habit_id,
+        "event_date": _iso_date(log.event_date),
+        "calculated_xp": log.calculated_xp,
+        "source_event": log.source_event,
+        "cap_hit": bool(log.cap_hit),
+    }
+
+
+def _export_social_membership(membership: SharedStreakMembership) -> dict:
+    return {
+        "id": membership.id,
+        "group_id": membership.group_id,
+        "status": membership.status,
+        "share_progress": bool(membership.share_progress),
+        "joined_at": _iso_date(membership.joined_at),
+        "left_at": _iso_date(membership.left_at),
+    }
+
+
+def _export_social_group(group: SharedStreakGroup) -> dict:
+    return {
+        "id": group.id,
+        "name": group.name,
+        "invite_code": group.invite_code,
+        "active": bool(group.active),
+        "created_at": _iso_date(group.created_at),
+        "updated_at": _iso_date(group.updated_at),
+    }
 
 
 @user_bp.route("/me", methods=["GET"])
@@ -59,6 +122,78 @@ def update_me():
         return error_response(str(exc), 409)
 
 
+@user_bp.route("/me/export", methods=["GET"])
+@jwt_required()
+def export_me():
+    """Return an authenticated user's portable data export."""
+    user_id = int(get_jwt_identity())
+    user = db.session.get(User, user_id)
+
+    if user is None:
+        return error_response("Usuario no encontrado.", 404)
+
+    user_habits = UserHabit.query.filter_by(usuario_id=user_id).order_by(UserHabit.id).all()
+    user_habit_ids = [habit.id for habit in user_habits]
+
+    checkins = (
+        CheckIn.query.filter(CheckIn.habitousuario_id.in_(user_habit_ids))
+        .order_by(CheckIn.id)
+        .all()
+        if user_habit_ids
+        else []
+    )
+    validations = (
+        ValidationLog.query.filter(ValidationLog.habitousuario_id.in_(user_habit_ids))
+        .order_by(ValidationLog.id)
+        .all()
+        if user_habit_ids
+        else []
+    )
+
+    payload = {
+        "profile": user.to_dict(),
+        "habits": [_export_user_habit(habit) for habit in user_habits],
+        "checkins": [checkin.to_dict() for checkin in checkins],
+        "pomodoro_sessions": [
+            session.to_dict()
+            for session in PomodoroSession.query.filter_by(user_id=user_id).order_by(PomodoroSession.id).all()
+        ],
+        "achievements": [
+            achievement.to_dict()
+            for achievement in UserAchievement.query.filter_by(user_id=user_id).order_by(UserAchievement.id).all()
+        ],
+        "xp_logs": [
+            _export_xp_log(log)
+            for log in XpLog.query.filter_by(user_id=user_id).order_by(XpLog.id).all()
+        ],
+        "social_memberships": [
+            _export_social_membership(membership)
+            for membership in SharedStreakMembership.query.filter_by(user_id=user_id)
+            .order_by(SharedStreakMembership.id)
+            .all()
+        ],
+        "owned_social_groups": [
+            _export_social_group(group)
+            for group in SharedStreakGroup.query.filter_by(owner_user_id=user_id).order_by(SharedStreakGroup.id).all()
+        ],
+        "validation_records": [
+            {
+                "id": validation.id,
+                "habit_id": validation.habitousuario_id,
+                "validation_type": validation.tipo_validacion,
+                "status": validation.status,
+                "valid": bool(validation.validado),
+                "created_at": _iso_date(validation.fecha),
+                "evidence_present": bool(validation.evidencia),
+                "time_seconds": validation.tiempo_segundos,
+            }
+            for validation in validations
+        ],
+    }
+
+    return jsonify(payload), 200
+
+
 @user_bp.route("/me", methods=["DELETE"])
 @jwt_required()
 def delete_account():
@@ -87,7 +222,7 @@ def delete_account():
         # 2. Gather user_habit IDs for child-table cleanup
         user_habit_ids = [
             row.id
-            for row in UserHabit.query.filter_by(user_id=user_id).with_entities(UserHabit.id).all()
+            for row in UserHabit.query.filter_by(usuario_id=user_id).with_entities(UserHabit.id).all()
         ]
 
         if user_habit_ids:
@@ -107,10 +242,15 @@ def delete_account():
         # 4. Achievements
         UserAchievement.query.filter_by(user_id=user_id).delete(synchronize_session=False)
 
-        # 5. User habits
-        UserHabit.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+        # 5. Social sharing and sync receipts
+        SharedStreakMembership.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+        SharedStreakGroup.query.filter_by(owner_user_id=user_id).delete(synchronize_session=False)
+        SyncOperation.query.filter_by(user_id=user_id).delete(synchronize_session=False)
 
-        # 6. User itself
+        # 6. User habits
+        UserHabit.query.filter_by(usuario_id=user_id).delete(synchronize_session=False)
+
+        # 7. User itself
         db.session.delete(user)
         db.session.commit()
 

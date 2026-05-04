@@ -6,6 +6,7 @@ import {
   SCHEMA_VERSION,
   SCHEMA_VERSION_KEY,
   OfflineStorageError,
+  clearOfflineData,
   dbRead,
   dbWrite,
   getSchemaVersion,
@@ -202,4 +203,20 @@ test("cached reads remain user-scoped", () => {
   assert.equal(habits7[0]?.user_id, 7);
   assert.equal(habits8.length, 1);
   assert.equal(habits8[0]?.user_id, 8);
+});
+
+test("clearOfflineData removes local caches and schema version", () => {
+  window.localStorage.setItem(DB_KEYS.habits, JSON.stringify([{ id: 1 }]));
+  window.localStorage.setItem(DB_KEYS.checkins, JSON.stringify([{ habit_id: 1 }]));
+  window.localStorage.setItem(DB_KEYS.pendingOps, JSON.stringify([{ id: "op-1" }]));
+  window.localStorage.setItem(SCHEMA_VERSION_KEY, String(SCHEMA_VERSION));
+  window.localStorage.setItem("user", JSON.stringify({ id: 7 }));
+
+  clearOfflineData();
+
+  assert.equal(window.localStorage.getItem(DB_KEYS.habits), null);
+  assert.equal(window.localStorage.getItem(DB_KEYS.checkins), null);
+  assert.equal(window.localStorage.getItem(DB_KEYS.pendingOps), null);
+  assert.equal(window.localStorage.getItem(SCHEMA_VERSION_KEY), null);
+  assert.notEqual(window.localStorage.getItem("user"), null);
 });

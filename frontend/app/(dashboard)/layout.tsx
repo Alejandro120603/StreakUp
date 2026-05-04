@@ -47,7 +47,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <AchievementToast />
 
       {/* Main content - handles the scrolling area like the .screen class in HTML */}
-      <main id="main-content" aria-label="Contenido principal" className="absolute inset-0 overflow-y-auto overflow-x-hidden pt-7 px-[22px] pb-[100px] z-10 animate-[enter_0.28s_ease_both]">
+      <main id="main-content" tabIndex={-1} aria-label="Contenido principal" className="absolute inset-0 overflow-y-auto overflow-x-hidden pt-7 px-[22px] pb-[100px] z-10 animate-[enter_0.28s_ease_both]">
         {children}
       </main>
 

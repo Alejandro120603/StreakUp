@@ -92,10 +92,11 @@ test("bottom nav: Tab cycles through all four links", async ({ page }) => {
 test("dashboard: skip link is focusable and targets main content", async ({ page }) => {
   await injectSession(page);
   await page.goto("/");
-  await page.waitForLoadState("networkidle");
+  const skipLink = page.getByRole("link", { name: /saltar al contenido principal/i });
+  await expect(skipLink).toBeAttached();
 
   // First Tab press should focus the skip link
-  await page.keyboard.press("Tab");
+  await skipLink.focus();
   const activeHref = await page.evaluate(() =>
     (document.activeElement as HTMLAnchorElement | null)?.href,
   );

@@ -72,6 +72,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         from app.models.user_habit_schedule import UserHabitScheduleDay  # noqa: F401
         from app.models.social import SharedStreakGroup, SharedStreakMembership  # noqa: F401
         from app.models.sync_operation import SyncOperation  # noqa: F401
+        from app.models.token_blocklist import TokenBlocklist  # noqa: F401
 
         # Seed achievement catalog if the table exists (skipped during migrations)
         try:

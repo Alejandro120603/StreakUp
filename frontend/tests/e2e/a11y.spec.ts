@@ -152,7 +152,10 @@ test.describe("Offline banner — axe scan", () => {
   test("no critical/serious violations when offline", async ({ page }) => {
     await injectSession(page);
 
-    // Simulate offline state via service worker / CDPSession
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    // Simulate offline state after the app shell is loaded.
     const client = await page.context().newCDPSession(page);
     await client.send("Network.enable");
     await client.send("Network.emulateNetworkConditions", {
@@ -161,8 +164,7 @@ test.describe("Offline banner — axe scan", () => {
       downloadThroughput: 0,
       uploadThroughput: 0,
     });
-
-    await page.goto("/");
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
     await page.waitForTimeout(500);
 
     const results = await new AxeBuilder({ page })

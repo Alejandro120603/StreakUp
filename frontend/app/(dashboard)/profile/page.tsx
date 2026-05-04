@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { fetchProfileStats, fetchXpInfo, fetchDetailedStats } from "@/services/stats/statsService";
 import { getSession, clearSession } from "@/services/auth/authService";
-import { deleteAccount } from "@/services/auth/accountService";
+import { clearAccountLocalData, deleteAccount } from "@/services/auth/accountService";
 import { fetchCurrentUser, updateProfile } from "@/services/auth/profileService";
 import { fetchAchievements } from "@/services/achievements/achievementService";
 import type { AchievementItem } from "@/services/achievements/achievementService";
@@ -300,6 +300,7 @@ export default function ProfilePage() {
 
   async function handleDeleteAccount() {
     await deleteAccount();
+    clearAccountLocalData();
     clearSession();
     router.push("/login");
   }

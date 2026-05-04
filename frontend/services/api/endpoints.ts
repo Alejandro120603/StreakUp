@@ -12,6 +12,11 @@ export const API_ENDPOINTS = {
     update: "/api/users/me",
     /** Permanently delete the authenticated user's account */
     delete: "/api/users/me",
+    /** Export the authenticated user's portable data */
+    export: "/api/users/me/export",
+  },
+  telemetry: {
+    errors: "/api/telemetry/errors",
   },
   habits: {
     list: "/api/habits",

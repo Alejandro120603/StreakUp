@@ -258,6 +258,24 @@ Notas operativas:
 - `schema.sql` queda como bootstrap local SQLite; el despliegue hosteado debe usar Alembic.
 - `seed.sql` sigue siendo solo una conveniencia local SQLite; en produccion la ruta recomendada es `flask seed-catalog`.
 - El importador legado recalcula `users.total_xp`, `level` y `xp_in_level` desde `xp_logs`.
+
+# Validacion operacional y privacidad
+
+Documentacion de soporte para RNF-02, RNF-08, RNF-09 y RNF-12:
+
+- `docs/privacy.md`
+- `docs/data-retention.md`
+- `docs/availability-runbook.md`
+- `docs/incident-runbook.md`
+- `docs/release-checklist.md`
+
+Endpoints operativos y de privacidad:
+
+- `GET /healthz`
+- `GET /readyz`
+- `POST /api/telemetry/errors`
+- `GET /api/users/me/export`
+- `DELETE /api/users/me`
 - El importador exige que la base target este vacia antes de cargar datos.
 
 Endpoints operativos mínimos:

@@ -1,8 +1,19 @@
 import unittest
+from datetime import date
+import json
 
 from app import create_app
 from app.extensions import db
+from app.models.achievement import Achievement, UserAchievement
+from app.models.checkin import CheckIn
+from app.models.habit import Category, Habit
+from app.models.pomodoro_session import PomodoroSession
+from app.models.social import SharedStreakGroup, SharedStreakMembership
+from app.models.sync_operation import SyncOperation
 from app.models.user import User
+from app.models.user_habit import UserHabit
+from app.models.validation_log import ValidationLog
+from app.models.xp_log import XpLog
 
 
 class ProfileTestCase(unittest.TestCase):
@@ -113,6 +124,83 @@ class ProfileTestCase(unittest.TestCase):
 
         self.assertEqual(get_response.status_code, 401)
         self.assertEqual(put_response.status_code, 401)
+
+    def _seed_user_owned_data(self) -> UserHabit:
+        category = Category(nombre="Salud")
+        habit = Habit(
+            category=category,
+            nombre="Tomar agua",
+            descripcion="Beber agua",
+            dificultad="facil",
+            xp_base=10,
+            tipo_validacion="check",
+            frecuencia="daily",
+        )
+        user_habit = UserHabit(
+            usuario_id=self.user.id,
+            habit=habit,
+            fecha_inicio=date.today(),
+            activo=True,
+        )
+        achievement = Achievement(
+            key="privacy_test",
+            name="Privacy Test",
+            description="Test achievement",
+            emoji="*",
+            xp_bonus=5,
+        )
+        group = SharedStreakGroup(
+            owner_user_id=self.user.id,
+            name="Grupo privado",
+            invite_code="ABC123",
+        )
+        db.session.add_all([category, habit, user_habit, achievement, group])
+        db.session.flush()
+        db.session.add_all(
+            [
+                CheckIn(habitousuario_id=user_habit.id, fecha=date.today(), completado=True, xp_ganado=10),
+                ValidationLog(
+                    habitousuario_id=user_habit.id,
+                    tipo_validacion="foto",
+                    evidencia="base64-private-evidence",
+                    status="approved",
+                    validado=True,
+                ),
+                PomodoroSession(user_id=self.user.id, habit_id=user_habit.id, completed=True),
+                UserAchievement(user_id=self.user.id, achievement_id=achievement.id),
+                XpLog(user_id=self.user.id, cantidad=10, razon="checkin", habit_id=user_habit.id, event_date=date.today()),
+                SharedStreakMembership(group_id=group.id, user_id=self.user.id, status="active", share_progress=True),
+                SyncOperation(
+                    user_id=self.user.id,
+                    client_operation_id="client-op-1",
+                    operation_type="toggle_checkin",
+                    payload_json=json.dumps({"habit_id": user_habit.id}),
+                    status="acked",
+                    response_json=json.dumps({"ok": True}),
+                ),
+            ]
+        )
+        db.session.commit()
+        return user_habit
+
+    def test_delete_account_cascades_user_owned_data(self) -> None:
+        user_habit = self._seed_user_owned_data()
+        user_habit_id = user_habit.id
+        headers = self._auth_headers()
+
+        response = self.client.delete("/api/users/me", headers=headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(db.session.get(User, self.user.id))
+        self.assertEqual(UserHabit.query.filter_by(usuario_id=self.user.id).count(), 0)
+        self.assertEqual(CheckIn.query.filter_by(habitousuario_id=user_habit_id).count(), 0)
+        self.assertEqual(ValidationLog.query.filter_by(habitousuario_id=user_habit_id).count(), 0)
+        self.assertEqual(PomodoroSession.query.filter_by(user_id=self.user.id).count(), 0)
+        self.assertEqual(UserAchievement.query.filter_by(user_id=self.user.id).count(), 0)
+        self.assertEqual(XpLog.query.filter_by(user_id=self.user.id).count(), 0)
+        self.assertEqual(SharedStreakMembership.query.filter_by(user_id=self.user.id).count(), 0)
+        self.assertEqual(SharedStreakGroup.query.filter_by(owner_user_id=self.user.id).count(), 0)
+        self.assertEqual(SyncOperation.query.filter_by(user_id=self.user.id).count(), 0)
 
 
 if __name__ == "__main__":

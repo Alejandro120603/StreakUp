@@ -104,3 +104,14 @@ export function setSchemaVersion(version: number): void {
   }
   window.localStorage.setItem(SCHEMA_VERSION_KEY, String(version));
 }
+
+export function clearOfflineData(): void {
+  if (!canUseStorage()) {
+    return;
+  }
+
+  for (const key of Object.values(DB_KEYS)) {
+    window.localStorage.removeItem(key);
+  }
+  window.localStorage.removeItem(SCHEMA_VERSION_KEY);
+}
