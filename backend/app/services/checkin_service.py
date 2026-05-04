@@ -12,7 +12,7 @@ from app.extensions import db
 from app.models.checkin import CheckIn
 from app.models.user_habit import UserHabit
 from app.services.habit_service import list_active_user_habits, serialize_user_habit
-from app.services.xp_service import award_xp, revoke_xp
+from app.services.xp_service import award_xp, award_habit_xp, revoke_xp
 
 def is_eligible_today(user_habit: UserHabit, target_date: date_type) -> bool:
     """Determine if a habit is eligible to be completed on a given date based on its frequency."""
@@ -40,7 +40,7 @@ def is_eligible_today(user_habit: UserHabit, target_date: date_type) -> bool:
 
     if freq == "custom":
         if not user_habit.schedule_days:
-            return True # Fallback if no days configured
+            return False
         enabled_weekdays = {day.weekday for day in user_habit.schedule_days}
         return target_date.weekday() in enabled_weekdays
 
@@ -49,10 +49,18 @@ def is_eligible_today(user_habit: UserHabit, target_date: date_type) -> bool:
 
 def _is_validation_driven(user_habit: UserHabit) -> bool:
     validation_type = user_habit.tipo_validacion or user_habit.habit.tipo_validacion
-    return validation_type in {"foto", "texto", "tiempo"}
+    if validation_type == "check" and not user_habit.deadline_time:
+        return False
+    return validation_type in {"foto", "texto", "tiempo", "photo", "text_ai", "time", "check"}
 
 
-def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = None) -> dict:
+def toggle_checkin(
+    user_id: int,
+    habit_id: int,
+    target_date: date_type | None = None,
+    *,
+    commit: bool = True,
+) -> dict:
     """Toggle a check-in for a habit on a given date."""
     if target_date is None:
         target_date = date_type.today()
@@ -82,19 +90,24 @@ def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = 
             db.session.delete(existing)
             if xp_to_revoke > 0:
                 revoke_xp(user_id, xp_to_revoke, "checkin_undo", commit=False)
-            db.session.commit()
+            if commit:
+                db.session.commit()
+            else:
+                db.session.flush()
             return {"checked": False, "habit_id": habit_id, "date": target_date.isoformat()}
 
-        xp_base = user_habit.habit.xp_base if user_habit.habit else 10
+        awarded_xp = award_habit_xp(user_id, user_habit, target_date, reason="checkin", commit=False)
         checkin = CheckIn(
             habitousuario_id=user_habit.id,
             fecha=target_date,
             completado=True,
-            xp_ganado=xp_base,
+            xp_ganado=awarded_xp,
         )
         db.session.add(checkin)
-        award_xp(user_id, xp_base, "checkin", commit=False)
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return {"checked": True, "habit_id": habit_id, "date": target_date.isoformat()}
     except Exception:
         db.session.rollback()

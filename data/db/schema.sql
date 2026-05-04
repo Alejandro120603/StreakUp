@@ -46,9 +46,13 @@ CREATE TABLE IF NOT EXISTS habitos (
     descripcion TEXT,
     dificultad TEXT NOT NULL CHECK (dificultad IN ('facil','media','dificil')),
     xp_base INTEGER NOT NULL CHECK (xp_base >= 0),
-    tipo_validacion TEXT NOT NULL DEFAULT 'foto' CHECK (tipo_validacion IN ('foto','texto','tiempo')),
+    meta_type TEXT NOT NULL DEFAULT 'boolean',
+    xp_rate INTEGER NOT NULL DEFAULT 0 CHECK (xp_rate >= 0),
+    max_xp_per_day INTEGER NOT NULL DEFAULT 0 CHECK (max_xp_per_day >= 0),
+    activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+    tipo_validacion TEXT NOT NULL DEFAULT 'foto' CHECK (tipo_validacion IN ('foto','texto','tiempo','photo','text_ai','time','check')),
     frecuencia TEXT NOT NULL DEFAULT 'daily' CHECK (frecuencia IN ('daily','weekly')),
-    cantidad_objetivo INTEGER CHECK (cantidad_objetivo IS NULL OR cantidad_objetivo >= 0),
+    cantidad_objetivo NUMERIC(8,2) CHECK (cantidad_objetivo IS NULL OR cantidad_objetivo >= 0),
     unidad_objetivo TEXT,
     duracion_objetivo_minutos INTEGER CHECK (duracion_objetivo_minutos IS NULL OR duracion_objetivo_minutos >= 0),
     FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE CASCADE
@@ -68,11 +72,13 @@ CREATE TABLE IF NOT EXISTS habitos_usuario (
     activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
     nombre_personalizado TEXT,
     descripcion_personalizada TEXT,
-    tipo_validacion TEXT CHECK (tipo_validacion IS NULL OR tipo_validacion IN ('foto','texto','tiempo')),
-    frecuencia TEXT CHECK (frecuencia IS NULL OR frecuencia IN ('daily','weekly')),
-    cantidad_objetivo INTEGER CHECK (cantidad_objetivo IS NULL OR cantidad_objetivo >= 0),
+    tipo_validacion TEXT CHECK (tipo_validacion IS NULL OR tipo_validacion IN ('foto','texto','tiempo','photo','text_ai','time','check')),
+    frecuencia TEXT CHECK (frecuencia IS NULL OR frecuencia IN ('daily','weekly','custom')),
+    cantidad_objetivo NUMERIC(8,2) CHECK (cantidad_objetivo IS NULL OR cantidad_objetivo >= 0),
     unidad_objetivo TEXT,
     duracion_objetivo_minutos INTEGER CHECK (duracion_objetivo_minutos IS NULL OR duracion_objetivo_minutos >= 0),
+    deadline_time TEXT CHECK (deadline_time IS NULL OR deadline_time GLOB '[0-2][0-9]:[0-5][0-9]'),
+    min_text_length INTEGER CHECK (min_text_length IS NULL OR min_text_length >= 0),
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -82,6 +88,20 @@ CREATE TABLE IF NOT EXISTS habitos_usuario (
 
 CREATE INDEX IF NOT EXISTS idx_habitos_usuario_usuario ON habitos_usuario(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_habitos_usuario_habito ON habitos_usuario(habito_id);
+
+-- =====================================================
+-- HABITOS_USUARIO_SCHEDULE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS habitos_usuario_schedule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    habitousuario_id INTEGER NOT NULL,
+    weekday INTEGER NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+    FOREIGN KEY (habitousuario_id) REFERENCES habitos_usuario(id) ON DELETE CASCADE,
+    UNIQUE (habitousuario_id, weekday)
+);
+
+CREATE INDEX IF NOT EXISTS idx_habitos_usuario_schedule_habitousuario
+ON habitos_usuario_schedule(habitousuario_id);
 
 -- =====================================================
 -- REGISTRO_HABITOS
@@ -124,10 +144,16 @@ CREATE TABLE IF NOT EXISTS xp_logs (
     cantidad INTEGER NOT NULL,
     fuente TEXT NOT NULL CHECK (fuente IN ('checkin','checkin_undo','validation')),
     fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    habit_id INTEGER REFERENCES habitos_usuario(id) ON DELETE SET NULL,
+    event_date DATE,
+    calculated_xp INTEGER,
+    source_event TEXT NOT NULL DEFAULT 'habit' CHECK (source_event IN ('habit','achievement')),
+    cap_hit INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (usuario_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_xp_logs_usuario ON xp_logs(usuario_id);
+CREATE INDEX IF NOT EXISTS ix_xp_logs_habit_date ON xp_logs(usuario_id, habit_id, event_date);
 
 -- =====================================================
 -- POMODORO_SESSIONS
@@ -151,6 +177,66 @@ CREATE INDEX IF NOT EXISTS idx_pomodoro_sessions_user_started
 ON pomodoro_sessions(user_id, started_at);
 
 -- =====================================================
+-- SHARED STREAK SOCIAL GROUPS
+-- =====================================================
+CREATE TABLE IF NOT EXISTS shared_streak_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id INTEGER NOT NULL,
+    name TEXT NOT NULL CHECK (length(name) >= 3),
+    invite_code TEXT NOT NULL UNIQUE,
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS ix_shared_streak_groups_owner_user_id
+ON shared_streak_groups(owner_user_id);
+
+CREATE INDEX IF NOT EXISTS ix_shared_streak_groups_invite_code
+ON shared_streak_groups(invite_code);
+
+CREATE TABLE IF NOT EXISTS shared_streak_memberships (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','left')),
+    share_progress INTEGER NOT NULL DEFAULT 1 CHECK (share_progress IN (0,1)),
+    joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    left_at DATETIME,
+    FOREIGN KEY (group_id) REFERENCES shared_streak_groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (group_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_shared_streak_memberships_group_id
+ON shared_streak_memberships(group_id);
+
+CREATE INDEX IF NOT EXISTS ix_shared_streak_memberships_user_id
+ON shared_streak_memberships(user_id);
+
+-- =====================================================
+-- SYNC OPERATION RECEIPTS
+-- =====================================================
+CREATE TABLE IF NOT EXISTS sync_operations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    client_operation_id TEXT NOT NULL,
+    operation_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('acked','failed','conflict')),
+    response_json TEXT NOT NULL,
+    error_code TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (user_id, client_operation_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_sync_operations_user_id
+ON sync_operations(user_id);
+
+-- =====================================================
 -- NIVELES
 -- =====================================================
 CREATE TABLE IF NOT EXISTS niveles (
@@ -162,3 +248,15 @@ CREATE TABLE IF NOT EXISTS niveles (
     descripcion TEXT,
     CHECK (xp_minimo < xp_maximo)
 );
+
+-- =====================================================
+-- TOKEN BLOCKLIST (logout / revocation)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS token_blocklist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    jti TEXT NOT NULL UNIQUE,
+    token_type TEXT NOT NULL DEFAULT 'access',
+    revoked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS ix_token_blocklist_jti ON token_blocklist(jti);

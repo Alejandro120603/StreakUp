@@ -388,9 +388,28 @@ def _assert_target_is_empty() -> None:
         ) from exc
 
     non_empty = {table: count for table, count in table_counts.items() if count > 0}
-    if non_empty:
-        details = ", ".join(f"{table}={count}" for table, count in sorted(non_empty.items()))
-        raise ValueError(f"Target database is not empty: {details}")
+    if not non_empty:
+        return
+
+    seed_only_state = (
+        table_counts["users"] == 0
+        and table_counts["habitos_usuario"] == 0
+        and table_counts["registro_habitos"] == 0
+        and table_counts["validaciones"] == 0
+        and table_counts["xp_logs"] == 0
+        and table_counts["pomodoro_sessions"] == 0
+        and table_counts["niveles"] == 0
+        and table_counts["categorias"] == 3
+        and table_counts["habitos"] == 11
+    )
+    if seed_only_state:
+        db.session.execute(text("DELETE FROM habitos"))
+        db.session.execute(text("DELETE FROM categorias"))
+        db.session.commit()
+        return
+
+    details = ", ".join(f"{table}={count}" for table, count in sorted(non_empty.items()))
+    raise ValueError(f"Target database is not empty: {details}")
 
 
 def _parse_date(raw_value: Any) -> date | None:

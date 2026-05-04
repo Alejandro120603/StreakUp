@@ -3,13 +3,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Flame, Clock, TrendingUp, Plus, Check, Timer, Snowflake, Hourglass, icons } from "lucide-react";
+import { Settings, Plus, icons } from "lucide-react";
 import { fetchTodayHabits, toggleCheckin } from "@/services/checkins/checkinService";
 import { fetchStatsSummary } from "@/services/stats/statsService";
-import { ClayMotionBox } from "@/components/ui/clay-motion-box";
+import { showAchievementToast } from "@/components/feedback/AchievementToast";
+import { getSession } from "@/services/auth/authService";
+import { getPendingOps } from "@/services/sync/syncQueue";
 import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/types/habits";
 import type { TodayHabit } from "@/types/checkins";
 import type { StatsSummary } from "@/types/stats";
+
+import { Button } from "@/components/ui/button";
+import { Mascot } from "@/components/Mascot";
+import { StatCard } from "@/components/ui/StatCard";
+import { HabitRow } from "@/components/ui/HabitRow";
 
 const EMPTY_STATS: StatsSummary = {
   streak: 0,
@@ -21,21 +28,11 @@ const EMPTY_STATS: StatsSummary = {
   validations_today: 0,
 };
 
-function formatDate(): string {
-  const now = new Date();
-  const options: Intl.DateTimeFormatOptions = {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  };
-  return now.toLocaleDateString("es-MX", options);
-}
-
 const POMODORO_THEMES = [
-  { key: "fire", label: "Fuego", Icon: Flame },
-  { key: "candle", label: "Vela", Icon: Timer },
-  { key: "ice", label: "Hielo", Icon: Snowflake },
-  { key: "hourglass", label: "Reloj", Icon: Hourglass },
+  { key: "fire", label: "Fuego", emoji: "🔥", animationClass: "animate-[fireFlicker_0.8s_ease-in-out_infinite]" },
+  { key: "candle", label: "Vela", emoji: "🕯️", animationClass: "animate-[candleBurn_3.5s_ease-in-out_infinite]" },
+  { key: "ice", label: "Hielo", emoji: "🧊", animationClass: "animate-[iceMelt_3.2s_ease-in-out_infinite]" },
+  { key: "hourglass", label: "Reloj", emoji: "⏳", animationClass: "animate-[clockFlip_2.2s_ease-in-out_infinite]" },
 ];
 
 export default function DashboardHomePage() {
@@ -45,32 +42,38 @@ export default function DashboardHomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingHabitId, setUpdatingHabitId] = useState<number | null>(null);
+  const [pendingHabitIds, setPendingHabitIds] = useState<Set<number>>(new Set());
+
+  function refreshPendingIds(habits?: TodayHabit[]) {
+    const session = getSession();
+    const userId = Number(session?.user.id ?? 0);
+    if (userId <= 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const ops = getPendingOps(userId);
+    const ids = new Set(
+      ops
+        .filter((op) => op.kind === "toggle_checkin" && op.payload.date === today)
+        .map((op) => op.payload.habit_id as number),
+    );
+    // Only mark habits that are currently checked (visible as pending)
+    const checkedIds = new Set((habits ?? todayHabits).filter((h) => h.checked_today).map((h) => h.id));
+    setPendingHabitIds(new Set([...ids].filter((id) => checkedIds.has(id))));
+  }
 
   const fetchData = useCallback(async (showSpinner = false) => {
-    if (showSpinner) {
-      setLoading(true);
-    }
-
+    if (showSpinner) setLoading(true);
     try {
-      const [statsData, habitsData] = await Promise.all([
-        fetchStatsSummary(),
-        fetchTodayHabits(),
-      ]);
-
+      const [statsData, habitsData] = await Promise.all([fetchStatsSummary(), fetchTodayHabits()]);
       setStats(statsData);
       setTodayHabits(habitsData);
       setError("");
+      refreshPendingIds(habitsData);
     } catch (err) {
-      setError(
-        err instanceof Error && err.message.trim()
-          ? err.message
-          : "No se pudieron cargar tus datos reales. Intenta de nuevo en unos momentos.",
-      );
+      setError(err instanceof Error && err.message.trim() ? err.message : "No se pudieron cargar tus datos reales.");
     } finally {
-      if (showSpinner) {
-        setLoading(false);
-      }
+      if (showSpinner) setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -80,202 +83,162 @@ export default function DashboardHomePage() {
   async function handleToggleHabit(habitId: number) {
     setUpdatingHabitId(habitId);
     setError("");
-
     try {
       const result = await toggleCheckin({ habit_id: habitId });
-
-      setTodayHabits((currentHabits) =>
-        currentHabits.map((habit) =>
+      setTodayHabits((currentHabits) => {
+        const updated = currentHabits.map((habit) =>
           habit.id === result.habit_id ? { ...habit, checked_today: result.checked } : habit,
-        ),
-      );
-
+        );
+        refreshPendingIds(updated);
+        return updated;
+      });
+      result.new_achievements?.forEach((achievement) => showAchievementToast(achievement));
       try {
         setStats(await fetchStatsSummary());
       } catch (err) {
-        setError(
-          err instanceof Error && err.message.trim()
-            ? `${err.message} El check-in sí se guardó correctamente.`
-            : "El check-in se guardó, pero no se pudieron refrescar las estadísticas.",
-        );
+        setError(err instanceof Error && err.message.trim() ? `${err.message} El check-in sí se guardó correctamente.` : "El check-in se guardó, pero no se pudieron refrescar las estadísticas.");
       }
     } catch (err) {
-      setError(
-        err instanceof Error && err.message.trim()
-          ? err.message
-          : "No se pudo actualizar el check-in.",
-      );
+      setError(err instanceof Error && err.message.trim() ? err.message : "No se pudo actualizar el check-in.");
     } finally {
       setUpdatingHabitId(null);
     }
   }
 
   function handleHabitAction(habit: TodayHabit) {
-    if (updatingHabitId !== null) {
-      return;
-    }
-
+    if (updatingHabitId !== null) return;
     if (habit.validation_type) {
       router.push(`/habits/validate?id=${habit.id}`);
       return;
     }
-
     void handleToggleHabit(habit.id);
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="size-8 border-2 border-[#5D5FEF] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (error && todayHabits.length === 0 && stats === EMPTY_STATS) {
-    return (
-      <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
-        <div>
-          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Streak Up</h1>
-          <p className="text-sm text-clay-frozen font-medium capitalize">{formatDate()}</p>
-        </div>
-
-        <ClayMotionBox variant="frozen" active={false} className="p-6 space-y-4 text-center">
-          <div className="space-y-2">
-            <h2 className="text-lg font-semibold text-foreground">Inicio no disponible</h2>
-            <p className="text-sm text-muted-foreground">{error}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void fetchData(true)}
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Reintentar
-          </button>
-        </ClayMotionBox>
+      <div className="flex items-center justify-center min-h-[60vh]" role="status" aria-label="Cargando datos">
+        <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" />
       </div>
     );
   }
 
   return (
-    <div className="py-6 space-y-8 max-w-lg mx-auto px-4 @container">
-      <div>
-        <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Streak Up</h1>
-        <p className="text-sm text-clay-frozen font-medium capitalize">{formatDate()}</p>
+    <div className="space-y-[24px]">
+      {/* Top Header */}
+      <div className="flex items-center justify-between gap-[14px]">
+        <div>
+          <h2 className="text-[30px] leading-[1.05] font-bold">Streak Up</h2>
+          <p className="text-white/74 text-[15px]">Hoy es un gran día para avanzar</p>
+        </div>
+        <button onClick={() => router.push("/profile")} aria-label="Ir a perfil y configuración" className="w-[48px] h-[48px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80">
+          <Settings className="size-6" aria-hidden="true" />
+        </button>
       </div>
 
-      {error ? (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+      {error && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {error}
+        </div>
+      )}
+
+      {stats.feedback?.message ? (
+        <div className="rounded-[20px] border border-white/18 bg-white/12 px-4 py-3 text-sm text-white/86">
+          {stats.feedback.message}
         </div>
       ) : null}
 
-      <div className="grid grid-cols-3 gap-3">
-        <ClayMotionBox variant="primary" active={false} className="p-4 text-center space-y-1">
-          <div className="flex justify-center mb-1">
-            <Flame className="size-6 text-orange-400 drop-shadow-md" />
-          </div>
-          <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Racha</p>
-          <p className="text-xl font-black text-foreground">{stats.streak}</p>
-        </ClayMotionBox>
-
-        <ClayMotionBox variant="primary" active={false} className="p-4 text-center space-y-1">
-          <div className="flex justify-center mb-1">
-            <Clock className="size-6 text-clay-blue drop-shadow-md" />
-          </div>
-          <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Hoy</p>
-          <p className="text-xl font-black text-foreground">
-            {stats.today_completed}/{stats.today_total}
-          </p>
-        </ClayMotionBox>
-
-        <ClayMotionBox variant="primary" active={false} className="p-4 text-center space-y-1">
-          <div className="flex justify-center mb-1">
-            <TrendingUp className="size-6 text-clay-purple drop-shadow-md" />
-          </div>
-          <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Tasa</p>
-          <p className="text-xl font-black text-foreground">{stats.completion_rate}%</p>
-        </ClayMotionBox>
+      {/* Hero Card */}
+      <div className="bg-white/14 border border-white/20 rounded-[28px] shadow-[0_22px_55px_rgba(18,5,72,0.32)] backdrop-blur-[18px] relative overflow-hidden text-center px-[22px] pt-[28px] pb-[24px]">
+        <span className="absolute text-[var(--yellow)] text-[24px] [text-shadow:0_0_15px_currentColor] animate-[twinkle_1.7s_infinite] left-[18px] top-[66px]">✦</span>
+        <span className="absolute text-[var(--yellow)] text-[24px] [text-shadow:0_0_15px_currentColor] animate-[twinkle_1.7s_infinite] right-[42px] top-[16px] [animation-delay:0.5s]">✦</span>
+        <span className="absolute text-[var(--yellow)] text-[24px] [text-shadow:0_0_15px_currentColor] animate-[twinkle_1.7s_infinite] right-[46px] bottom-[48px] [animation-delay:0.9s]">✦</span>
+        
+        <h1 className="text-[40px] leading-[1.02] tracking-[-1px] font-bold">
+          Boost Your<br />
+          <span className="text-[var(--yellow)] [text-shadow:0_4px_0_rgba(95,35,0,0.16)]">Productivity!</span>
+        </h1>
+        
+        <Mascot />
+        
+        <Button variant="sacro" size="sacro" onClick={() => router.push("/pomodoro")}>
+          Start Your Streak!
+        </Button>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Clock className="size-5 text-clay-frozen" />
-          <h2 className="text-lg font-bold text-foreground">Modo Pomodoro</h2>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 gap-[14px]">
+        <StatCard emoji="🔥" label="Racha" value={`${stats.streak} días`} />
+        <StatCard emoji="🎯" label="Hoy" value={`${stats.today_completed}/${stats.today_total}`} />
+        <StatCard emoji="🏆" label="XP" value={stats.total_xp} />
+        <StatCard emoji="📈" label="Tasa" value={`${stats.completion_rate}%`} />
+      </div>
+
+      {/* Pomodoro Modes */}
+      <div>
+        <div className="flex items-center justify-between mt-[24px] mb-[12px]">
+          <h3 className="text-[18px] font-bold">Modo Pomodoro</h3>
+          <button onClick={() => router.push("/pomodoro")} aria-label="Ir al temporizador Pomodoro" className="w-[48px] h-[48px] rounded-full bg-white/18 text-[24px] grid place-items-center cursor-pointer transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80">
+            <span aria-hidden="true">⏱️</span>
+          </button>
         </div>
-        <div className="grid grid-cols-2 @xs:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-[12px]">
           {POMODORO_THEMES.map((theme) => (
             <Link key={theme.key} href={`/pomodoro?theme=${theme.key}`}>
-              <ClayMotionBox variant="primary" className="flex flex-col items-center gap-2 p-5 text-center cursor-pointer">
-                <span className="flex items-center justify-center text-primary drop-shadow-lg"><theme.Icon className="size-8" /></span>
-                <span className="text-xs font-bold text-foreground">{theme.label}</span>
-              </ClayMotionBox>
+              <div className="p-[18px] rounded-[24px] text-center border border-white/18 bg-white/14 cursor-pointer min-h-[112px] hover:bg-white/20 transition-colors">
+                <span className={`block text-[54px] mb-[8px] leading-none ${theme.animationClass}`}>{theme.emoji}</span>
+                <b className="text-[16px] font-bold">{theme.label}</b>
+              </div>
             </Link>
           ))}
         </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">Mis Hábitos</h2>
-          <Link
-            href="/habits/new"
-            className="flex items-center justify-center p-2 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors"
-          >
-            <Plus className="size-5" />
-          </Link>
+      {/* Habits List */}
+      <div>
+        <div className="flex items-center justify-between mt-[24px] mb-[12px]">
+          <h3 className="text-[18px] font-bold">Hoy</h3>
+          <button onClick={() => router.push("/habits/new")} aria-label="Crear nuevo hábito" className="w-[48px] h-[48px] rounded-full bg-white/18 text-[24px] grid place-items-center cursor-pointer transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80">
+            <Plus className="size-6 text-white" aria-hidden="true" />
+          </button>
         </div>
 
         {todayHabits.length === 0 ? (
-          <ClayMotionBox variant="frozen" active={false} className="text-center p-8 text-foreground/80">
-            <p className="text-sm mb-3">No tienes hábitos diarios aún.</p>
-            <Link
-              href="/habits/new"
-              className="inline-flex items-center px-4 py-2 rounded-xl bg-clay-blue text-white font-bold text-sm"
-            >
-              Crear tu primer hábito
-            </Link>
-          </ClayMotionBox>
+          <div className="text-center p-8 bg-white/10 rounded-[24px] border border-white/20">
+            <p className="text-white/80 mb-4">No tienes hábitos diarios aún.</p>
+            <Button variant="sacro-ghost" onClick={() => router.push("/habits/new")}>
+              Crear hábito
+            </Button>
+          </div>
         ) : (
-          <div className="grid grid-cols-2 @md:grid-cols-3 gap-4">
-            {todayHabits.map((habit) => (
-              <ClayMotionBox
-                key={habit.id}
-                onClick={() => handleHabitAction(habit)}
-                active={habit.checked_today}
-                variant={habit.checked_today ? "vibrant-orange" : "frozen"}
-                className={`flex flex-col items-center justify-center gap-3 text-center min-h-[140px] ${
-                  updatingHabitId === habit.id ? "cursor-wait opacity-70" : "cursor-pointer"
-                }`}
-                role="button"
-              >
-                <div className="flex items-center justify-center p-3 text-primary drop-shadow-xl">
-                  {(() => {
-                    let IconComp = icons.Circle;
-                    if (habit.icon && icons[habit.icon as keyof typeof icons]) {
-                      IconComp = icons[habit.icon as keyof typeof icons] as never;
-                    } else {
-                      const sectionKey = SECTION_ICONS[habit.section];
-                      if (sectionKey && icons[sectionKey as keyof typeof icons]) {
-                        IconComp = icons[sectionKey as keyof typeof icons] as never;
-                      }
-                    }
-                    return <IconComp className="size-10" />;
-                  })()}
+          <div>
+            {todayHabits.map((habit) => {
+              let IconComp = icons.Circle;
+              const targetSummary = getHabitTargetSummary(habit);
+              const validationLabel = VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"];
+              const subtitle = targetSummary ? `${validationLabel} · ${targetSummary}` : validationLabel;
+
+              if (habit.icon && icons[habit.icon as keyof typeof icons]) {
+                IconComp = icons[habit.icon as keyof typeof icons] as never;
+              } else {
+                const sectionKey = SECTION_ICONS[habit.section];
+                if (sectionKey && icons[sectionKey as keyof typeof icons]) {
+                  IconComp = icons[sectionKey as keyof typeof icons] as never;
+                }
+              }
+
+              return (
+                <div key={habit.id} className={`${updatingHabitId === habit.id ? "opacity-50 pointer-events-none" : ""}`}>
+                  <HabitRow
+                    icon={<IconComp className="size-[34px]" />}
+                    name={habit.name}
+                    subtitle={subtitle}
+                    checked={habit.checked_today}
+                    pending={pendingHabitIds.has(habit.id)}
+                    onToggle={() => handleHabitAction(habit)}
+                  />
                 </div>
-                <div>
-                  <p className="text-sm font-bold leading-tight">{habit.name}</p>
-                  <p className="text-[11px] text-foreground/70 mt-1">
-                    {VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"]}
-                    {getHabitTargetSummary(habit) ? ` · ${getHabitTargetSummary(habit)}` : ""}
-                  </p>
-                </div>
-                {habit.checked_today ? (
-                  <div className="absolute top-3 right-3 bg-white/20 rounded-full p-1 shadow-inner">
-                    <Check className="size-4 text-white drop-shadow" />
-                  </div>
-                ) : null}
-              </ClayMotionBox>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

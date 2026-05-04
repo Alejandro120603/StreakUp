@@ -177,6 +177,8 @@ class MigrationReadinessTestCase(unittest.TestCase):
                 "validaciones",
                 "niveles",
                 "pomodoro_sessions",
+                "shared_streak_groups",
+                "shared_streak_memberships",
             }.issubset(set(inspector.get_table_names()))
         )
 
@@ -233,6 +235,11 @@ class MigrationReadinessTestCase(unittest.TestCase):
 
         validation_columns = {column["name"] for column in inspector.get_columns("validaciones")}
         self.assertIn("status", validation_columns)
+
+        social_membership_columns = {
+            column["name"] for column in inspector.get_columns("shared_streak_memberships")
+        }
+        self.assertTrue({"group_id", "user_id", "status", "share_progress"}.issubset(social_membership_columns))
 
     def test_seed_sql_is_idempotent_on_sqlite(self) -> None:
         schema_path = Path(__file__).resolve().parents[2] / "data" / "db" / "schema.sql"

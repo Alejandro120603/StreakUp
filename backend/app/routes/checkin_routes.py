@@ -11,6 +11,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.services.checkin_service import get_today_habits, toggle_checkin
+from app.services.history_service import HistoryQueryError, get_habit_history
 from app.utils.error_handler import error_response
 
 checkins_bp = Blueprint("checkins", __name__)
@@ -54,3 +55,15 @@ def today():
     user_id = int(get_jwt_identity())
     habits = get_today_habits(user_id)
     return jsonify(habits), 200
+
+
+@checkins_bp.route("/history", methods=["GET"])
+@jwt_required()
+def history():
+    """Return event-level habit history for the authenticated user."""
+    user_id = int(get_jwt_identity())
+    try:
+        result = get_habit_history(user_id, request.args.to_dict())
+    except HistoryQueryError as exc:
+        return error_response(str(exc), 400)
+    return jsonify(result), 200

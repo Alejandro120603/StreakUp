@@ -10,6 +10,9 @@ from datetime import datetime, timezone
 from app.extensions import db
 
 
+POMODORO_BONUS_XP = 10
+
+
 class PomodoroSession(db.Model):
     """A Pomodoro timer session."""
 
@@ -18,6 +21,7 @@ class PomodoroSession(db.Model):
         db.CheckConstraint("study_minutes > 0", name="ck_pomodoro_study_minutes_positive"),
         db.CheckConstraint("break_minutes >= 0", name="ck_pomodoro_break_minutes_non_negative"),
         db.CheckConstraint("cycles > 0", name="ck_pomodoro_cycles_positive"),
+        db.CheckConstraint("interruption_count >= 0", name="ck_pomodoro_interruption_count_non_negative"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -37,6 +41,8 @@ class PomodoroSession(db.Model):
     break_minutes = db.Column(db.Integer, nullable=False, default=5)
     cycles = db.Column(db.Integer, nullable=False, default=4)
     completed = db.Column(db.Boolean, nullable=False, default=False)
+    interruption_count = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    bonus_xp_awarded = db.Column(db.Integer, nullable=True)
     started_at = db.Column(
         db.DateTime,
         nullable=False,
@@ -57,6 +63,8 @@ class PomodoroSession(db.Model):
             "break_minutes": self.break_minutes,
             "cycles": self.cycles,
             "completed": self.completed,
+            "interruption_count": self.interruption_count,
+            "bonus_xp_awarded": self.bonus_xp_awarded,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }

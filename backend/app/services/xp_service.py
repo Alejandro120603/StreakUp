@@ -6,21 +6,30 @@ Responsibility:
 - Keep user XP aggregates consistent with xp_logs.
 """
 
+from __future__ import annotations
+
 from collections.abc import Iterable
 from datetime import date as date_type
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 from sqlalchemy import func
 
 from app.extensions import db
+from app.models.habit import Habit
 from app.models.user import User
 from app.models.xp_log import XpLog
+
+if TYPE_CHECKING:
+    from app.models.user_habit import UserHabit
 
 XP_PER_LEVEL = 250
 _XP_REASON_ALIASES = {
     "checkin": "checkin",
     "checkin_undo": "checkin_undo",
     "validation": "validation",
+    "pomodoro": "pomodoro",
+    "pomodoro_bonus": "pomodoro_bonus",
     "uncheck": "checkin_undo",
     "revocation": "checkin_undo",
 }
@@ -84,7 +93,49 @@ def recompute_all_users_xp(user_ids: Iterable[int] | None = None, *, commit: boo
     return len(selected_ids)
 
 
-def award_xp(user_id: int, amount: int, reason: str = "validation", *, commit: bool = True) -> None:
+def calculate_habit_xp(habit: Habit, duration_minutes: float | None = None) -> int:
+    """Return raw XP from formula before daily cap.
+
+    Time habits: min(max_xp_per_day, xp_base + minutes * xp_rate) when cap > 0.
+    Non-time habits: xp_base.
+    """
+    is_time = habit.tipo_validacion in {"tiempo", "time"} or getattr(habit, "meta_type", "") == "time"
+    if is_time:
+        minutes = float(duration_minutes or 0)
+        raw = int(habit.xp_base) + int(minutes * int(habit.xp_rate or 0))
+        cap = int(habit.max_xp_per_day or 0)
+        return min(cap, raw) if cap > 0 else raw
+    return int(habit.xp_base)
+
+
+def get_daily_xp_used(user_id: int, habit_id: int, event_date: date_type) -> int:
+    """Sum already-awarded habit XP for user+habit on event_date (for cap auditing)."""
+    total = (
+        db.session.query(func.coalesce(func.sum(XpLog.cantidad), 0))
+        .filter(
+            XpLog.user_id == user_id,
+            XpLog.habit_id == habit_id,
+            XpLog.event_date == event_date,
+            XpLog.source_event == "habit",
+            XpLog.cantidad > 0,
+        )
+        .scalar()
+    )
+    return max(0, int(total or 0))
+
+
+def award_xp(
+    user_id: int,
+    amount: int,
+    reason: str = "validation",
+    *,
+    habit_id: int | None = None,
+    event_date: date_type | None = None,
+    source_event: str = "habit",
+    cap_hit: bool = False,
+    calculated_xp: int | None = None,
+    commit: bool = True,
+) -> None:
     """Award XP to a user and handle leveling up."""
     if amount < 0:
         raise ValueError("XP amount must be non-negative.")
@@ -98,7 +149,16 @@ def award_xp(user_id: int, amount: int, reason: str = "validation", *, commit: b
     user.total_xp += amount
     user.level, user.xp_in_level = calculate_level_state(user.total_xp)
 
-    log = XpLog(user_id=user_id, cantidad=amount, razon=canonical_reason)
+    log = XpLog(
+        user_id=user_id,
+        cantidad=amount,
+        razon=canonical_reason,
+        habit_id=habit_id,
+        event_date=event_date,
+        source_event=source_event,
+        cap_hit=cap_hit,
+        calculated_xp=calculated_xp if calculated_xp is not None else amount,
+    )
     db.session.add(log)
 
     if commit:
@@ -121,13 +181,81 @@ def revoke_xp(user_id: int, amount: int, reason: str = "checkin_undo", *, commit
     user.total_xp = max(0, user.total_xp - amount)
     user.level, user.xp_in_level = calculate_level_state(user.total_xp)
 
-    log = XpLog(user_id=user_id, cantidad=-amount, razon=canonical_reason)
+    log = XpLog(
+        user_id=user_id,
+        cantidad=-amount,
+        razon=canonical_reason,
+        habit_id=None,
+        event_date=None,
+        source_event="habit",
+        cap_hit=False,
+        calculated_xp=-amount,
+    )
     db.session.add(log)
 
     if commit:
         db.session.commit()
     else:
         db.session.flush()
+
+
+def award_habit_xp(
+    user_id: int,
+    user_habit: "UserHabit",
+    event_date: date_type,
+    duration_minutes: float | None = None,
+    reason: str = "validation",
+    *,
+    commit: bool = True,
+) -> int:
+    """Calculate, enforce daily cap, and award XP for one habit completion.
+
+    Returns awarded amount (0 if cap reached or habit has no XP).
+    """
+    habit = user_habit.habit
+    if habit is None:
+        return 0
+
+    calculated = calculate_habit_xp(habit, duration_minutes)
+    daily_cap = int(habit.max_xp_per_day or 0)
+
+    if daily_cap > 0:
+        used = get_daily_xp_used(user_id, user_habit.id, event_date)
+        remaining = max(0, daily_cap - used)
+        awarded = min(calculated, remaining)
+        cap_hit = awarded == 0 and calculated > 0
+    else:
+        awarded = calculated
+        cap_hit = False
+
+    if awarded == 0:
+        if cap_hit:
+            log = XpLog(
+                user_id=user_id,
+                cantidad=0,
+                razon=normalize_xp_reason(reason),
+                habit_id=user_habit.id,
+                event_date=event_date,
+                source_event="habit",
+                cap_hit=True,
+                calculated_xp=calculated,
+            )
+            db.session.add(log)
+            db.session.flush()
+        return 0
+
+    award_xp(
+        user_id,
+        awarded,
+        reason,
+        habit_id=user_habit.id,
+        event_date=event_date,
+        source_event="habit",
+        cap_hit=False,
+        calculated_xp=calculated,
+        commit=commit,
+    )
+    return awarded
 
 
 def get_user_xp(user_id: int) -> dict:

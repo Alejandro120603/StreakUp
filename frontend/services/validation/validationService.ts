@@ -15,6 +15,14 @@ function mapValidationError(error: unknown): Error {
     return new Error("La validación de fotos no está disponible en este entorno.");
   }
 
+  if (error.apiCode === "validation_auth_error") {
+    return new Error("Problema con la llave de OpenAI. Verifica que esté bien configurada.");
+  }
+
+  if (error.apiCode === "validation_quota_exceeded") {
+    return new Error("Se han agotado los créditos o la cuota de la API de OpenAI.");
+  }
+
   if (error.apiCode === "validation_provider_unavailable") {
     return new Error("La validación de fotos no está disponible temporalmente. Inténtalo más tarde.");
   }

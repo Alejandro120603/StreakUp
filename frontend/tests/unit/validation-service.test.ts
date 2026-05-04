@@ -130,7 +130,7 @@ test("validation service maps provider-unavailable responses to a controlled mes
     );
 
   await assert.rejects(
-    validateHabit(1, "image-base64"),
+    validateHabit({ habit_id: 1, image_base64: "image-base64" }),
     /La validación de fotos no está disponible temporalmente\. Inténtalo más tarde\./,
   );
 });
@@ -141,7 +141,7 @@ test("validation service maps backend-unreachable failures to a friendly network
   };
 
   await assert.rejects(
-    validateHabit(1, "image-base64"),
+    validateHabit({ habit_id: 1, image_base64: "image-base64" }),
     /No se pudo contactar el servicio de validación/,
   );
 });
@@ -159,7 +159,25 @@ test("validation service sends mime_type with the image payload", async () => {
     );
 
     return new Response(
-      JSON.stringify({ valido: true, razon: "ok", confianza: 0.9, xp_ganado: 15, nueva_racha: 2 }),
+      JSON.stringify({
+        valido: true,
+        razon: "ok",
+        confianza: 0.9,
+        xp_ganado: 15,
+        nueva_racha: 2,
+        difficulty_recommendation: {
+          level: "media",
+          confidence: 0.7,
+          explanation: "Buen nivel para este hábito.",
+          source: "deterministic",
+          advisory: true,
+        },
+        feedback: {
+          message: "Validaste el hábito con progreso concreto.",
+          tone: "progress",
+          context: { today_completed: 1 },
+        },
+      }),
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -167,8 +185,14 @@ test("validation service sends mime_type with the image payload", async () => {
     );
   };
 
-  const result = await validateHabit(3, "image-base64", "image/png");
+  const result = await validateHabit({
+    habit_id: 3,
+    image_base64: "image-base64",
+    mime_type: "image/png",
+  });
 
   assert.equal(result.valido, true);
   assert.equal(result.xp_ganado, 15);
+  assert.equal(result.difficulty_recommendation?.advisory, true);
+  assert.equal(result.feedback?.message, "Validaste el hábito con progreso concreto.");
 });

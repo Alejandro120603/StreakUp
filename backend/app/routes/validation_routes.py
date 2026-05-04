@@ -19,6 +19,7 @@ validation_bp = Blueprint("validation", __name__)
 
 
 @validation_bp.route("/validate", methods=["POST"])
+@validation_bp.route("/habits/validate", methods=["POST"])
 @jwt_required()
 def validate():
     """Validate a habit via explicit payload types."""
@@ -44,4 +45,3 @@ def validate():
         from flask import current_app
         current_app.logger.exception("Unhandled exception in validation route")
         return error_response("Error interno en la validación.", 500)
-

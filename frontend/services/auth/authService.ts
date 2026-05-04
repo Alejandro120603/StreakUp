@@ -2,10 +2,13 @@ import { apiPost, API_ENDPOINTS, isAppErrorCode } from "@/services/api/client";
 import {
   clearStoredSession,
   getStoredSession,
+  getStoredAccessToken,
   hasStoredSession,
   persistSession,
+  updateStoredUser,
 } from "@/services/auth/session";
-import type { AuthSession } from "@/types/auth";
+import { DB_KEYS, dbWrite } from "@/services/storage/offlineDb";
+import type { AuthSession, AuthUser } from "@/types/auth";
 
 const OFFLINE_LOGIN_ERROR = "No hay conexión. Usa una sesión guardada previamente.";
 const OFFLINE_REGISTER_ERROR = "No hay conexión. El registro requiere internet.";
@@ -101,6 +104,62 @@ export function clearSession(): void {
   clearStoredSession();
 }
 
+export function updateSessionUser(user: AuthUser): void {
+  updateStoredUser(user);
+}
+
 export function hasSavedSession(): boolean {
   return hasStoredSession();
+}
+
+/**
+ * Full logout: revokes the server-side token, clears credentials, and wipes
+ * all local offline caches and pending sync operations.
+ */
+export async function logoutAndClear(): Promise<void> {
+  const token = getStoredAccessToken();
+  if (token) {
+    try {
+      await apiPost(API_ENDPOINTS.auth.logout);
+    } catch {
+      // Best-effort server revocation — always clear local state regardless.
+    }
+  }
+
+  clearStoredSession();
+
+  // Wipe offline caches so the next user starts with a clean slate.
+  for (const key of Object.values(DB_KEYS)) {
+    try {
+      dbWrite(key, []);
+    } catch {
+      // Quota errors are ignored during logout cleanup.
+    }
+  }
+}
+
+/**
+ * Exchange a stored refresh token for a fresh access token.
+ * Clears the session if the refresh token is missing or rejected.
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  const { getCredentialStore } = await import("@/services/auth/credentialProvider");
+  const refreshToken = getCredentialStore().get("refresh_token");
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  try {
+    const result = await apiPost<{ access_token: string }>(
+      API_ENDPOINTS.auth.refresh,
+      JSON.stringify({ refresh_token: refreshToken }),
+      { headers: { Authorization: "" } },
+    );
+    getCredentialStore().set("access_token", result.access_token);
+    return result.access_token;
+  } catch {
+    clearStoredSession();
+    return null;
+  }
 }

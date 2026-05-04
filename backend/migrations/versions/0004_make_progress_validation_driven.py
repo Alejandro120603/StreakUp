@@ -34,7 +34,7 @@ def upgrade() -> None:
         """
         UPDATE validaciones
         SET status = CASE
-            WHEN validado = 1 THEN 'approved'
+            WHEN validado = true THEN 'approved'
             ELSE 'rejected'
         END
         """

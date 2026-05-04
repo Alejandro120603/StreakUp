@@ -45,6 +45,16 @@ export async function createPomodoroSession(
   }
 }
 
+export async function interruptPomodoroSession(sessionId: number): Promise<PomodoroSession> {
+  try {
+    const session = await apiPut<PomodoroSession>(API_ENDPOINTS.pomodoro.interrupt(sessionId));
+    return upsertLocalPomodoroSession(session);
+  } catch {
+    // Interruption signals are best-effort — swallow errors silently.
+    return Promise.reject(new Error("Interrupt failed"));
+  }
+}
+
 export async function completePomodoroSession(sessionId: number): Promise<PomodoroSession> {
   try {
     const session = await apiPut<PomodoroSession>(API_ENDPOINTS.pomodoro.complete(sessionId));

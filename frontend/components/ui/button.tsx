@@ -5,7 +5,7 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 active:scale-95",
   {
     variants: {
       variant: {
@@ -19,6 +19,9 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
+        sacro: "bg-[linear-gradient(180deg,var(--yellow),var(--orange)_55%,var(--orange2))] text-white text-[18px] font-[900] shadow-[0_16px_28px_rgba(255,119,20,0.32)] hover:opacity-90 [text-shadow:0_2px_4px_rgba(0,0,0,0.18)]",
+        "sacro-purple": "bg-[linear-gradient(180deg,#9187ff,#665cff)] text-white text-[18px] font-[900] shadow-[0_16px_28px_rgba(80,70,255,0.28)] hover:opacity-90 [text-shadow:0_2px_4px_rgba(0,0,0,0.18)]",
+        "sacro-ghost": "bg-white/18 border border-white/20 text-white text-[18px] font-[900] hover:bg-white/25",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",
@@ -29,6 +32,7 @@ const buttonVariants = cva(
         "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",
         "icon-lg": "size-10",
+        sacro: "w-full h-[62px] rounded-[22px]",
       },
     },
     defaultVariants: {
