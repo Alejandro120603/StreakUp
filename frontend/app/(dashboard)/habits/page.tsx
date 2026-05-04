@@ -77,11 +77,12 @@ export default function HabitsPage() {
             {habits.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <button 
+        <button
           onClick={() => window.location.href = "/habits/new"}
-          className="w-[48px] h-[48px] rounded-full bg-white/18 text-[24px] grid place-items-center cursor-pointer transition-transform active:scale-95"
+          aria-label="Crear nuevo hábito"
+          className="w-[48px] h-[48px] rounded-full bg-white/18 text-[24px] grid place-items-center cursor-pointer transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
         >
-          <Plus className="size-6 text-white" />
+          <Plus className="size-6 text-white" aria-hidden="true" />
         </button>
       </div>
 
@@ -161,17 +162,19 @@ export default function HabitsPage() {
 
                 {/* Actions */}
                 {confirmingDeleteId === habit.id ? (
-                  <div className="flex flex-col gap-2 shrink-0">
+                  <div className="flex flex-col gap-2 shrink-0" role="group" aria-label={`Confirmar eliminación de ${habit.name}`}>
                     <button
                       onClick={() => handleDelete(habit.id)}
                       disabled={deleting}
-                      className="px-3 py-1 rounded-full text-xs font-bold bg-red-500 hover:bg-red-600 text-white transition-colors"
+                      aria-label={`Confirmar eliminar ${habit.name}`}
+                      className="px-3 py-1 rounded-full text-xs font-bold bg-red-500 hover:bg-red-600 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                     >
                       {deleting ? "..." : "Sí"}
                     </button>
                     <button
                       onClick={() => setConfirmingDeleteId(null)}
-                      className="px-3 py-1 rounded-full text-xs font-bold bg-white/20 hover:bg-white/30 text-white transition-colors"
+                      aria-label={`Cancelar eliminación de ${habit.name}`}
+                      className="px-3 py-1 rounded-full text-xs font-bold bg-white/20 hover:bg-white/30 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                     >
                       No
                     </button>
@@ -181,22 +184,25 @@ export default function HabitsPage() {
                     {habit.validation_type && (
                       <Link
                         href={`/habits/validate?id=${habit.id}`}
-                        className="w-[40px] h-[40px] rounded-full bg-[var(--purple)]/20 text-[var(--purple2)] grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-[var(--purple)]/40"
+                        aria-label={`Validar ${habit.name}`}
+                        className="w-[40px] h-[40px] rounded-full bg-[var(--purple)]/20 text-[var(--purple2)] grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-[var(--purple)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                       >
-                        <Camera className="size-4" />
+                        <Camera className="size-4" aria-hidden="true" />
                       </Link>
                     )}
                     <Link
                       href={`/habits/edit?id=${habit.id}`}
-                      className="w-[40px] h-[40px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-white/25"
+                      aria-label={`Editar ${habit.name}`}
+                      className="w-[40px] h-[40px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                     >
-                      <Pencil className="size-4" />
+                      <Pencil className="size-4" aria-hidden="true" />
                     </Link>
                     <button
                       onClick={() => setConfirmingDeleteId(habit.id)}
-                      className="w-[40px] h-[40px] rounded-full bg-red-500/20 text-red-200 grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-red-500/40"
+                      aria-label={`Eliminar ${habit.name}`}
+                      className="w-[40px] h-[40px] rounded-full bg-red-500/20 text-red-200 grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-red-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                     >
-                      <Trash2 className="size-4" />
+                      <Trash2 className="size-4" aria-hidden="true" />
                     </button>
                   </div>
                 )}

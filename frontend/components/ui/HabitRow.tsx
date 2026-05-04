@@ -30,18 +30,21 @@ export function HabitRow({ icon, name, subtitle, checked, onToggle, onView, pend
         {onView && (
           <button
             onClick={onView}
-            className="w-[40px] h-[40px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-white/25"
+            aria-label={`Ver detalles de ${name}`}
+            className="w-[40px] h-[40px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
           >
-            <Eye className="size-5" />
+            <Eye className="size-5" aria-hidden="true" />
           </button>
         )}
         <button
           onClick={onToggle}
-          className={`w-[40px] h-[40px] rounded-full grid place-items-center cursor-pointer transition-all active:scale-95 ${
+          aria-label={checked ? `Desmarcar ${name}` : `Marcar ${name} como completado`}
+          aria-pressed={checked}
+          className={`w-[40px] h-[40px] rounded-full grid place-items-center cursor-pointer transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
             checked ? "bg-[#36d98f] text-white" : "bg-white/18 text-white hover:bg-white/25"
           }`}
         >
-          {checked ? <Check className="size-5" /> : <span className="text-xl leading-none">○</span>}
+          {checked ? <Check className="size-5" aria-hidden="true" /> : <span className="text-xl leading-none" aria-hidden="true">○</span>}
         </button>
       </div>
     </div>

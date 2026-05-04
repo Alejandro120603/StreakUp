@@ -5,6 +5,7 @@ import { saveSession } from "@/services/auth/authService";
 import { DB_KEYS } from "@/services/storage/offlineDb";
 import { drainSyncQueue, recoverInterruptedSync } from "@/services/sync/syncService";
 import { getPendingOps, getSyncableOps } from "@/services/sync/syncQueue";
+import { resetCredentialStore } from "@/services/auth/credentialProvider";
 
 const originalFetch = globalThis.fetch;
 const originalWindow = globalThis.window;
@@ -35,7 +36,7 @@ function createStorage(): Storage {
 }
 
 function createWindow() {
-  return { localStorage: createStorage(), location: { href: "" } };
+  return { localStorage: createStorage(), sessionStorage: createStorage(), location: { href: "" } };
 }
 
 function createDocument() {
@@ -89,6 +90,7 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  resetCredentialStore();
   Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
   Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
 

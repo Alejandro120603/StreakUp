@@ -77,7 +77,12 @@ const CompletionRing = memo(function CompletionRing({ rate }: { rate: number }) 
 
   return (
     <div className="relative size-36 mx-auto">
-      <svg className="w-full h-full -rotate-90" viewBox="0 0 128 128">
+      <svg
+        className="w-full h-full -rotate-90"
+        viewBox="0 0 128 128"
+        role="img"
+        aria-label={`Tasa de completado: ${rate}%`}
+      >
         <circle
           cx="64"
           cy="64"
@@ -106,7 +111,7 @@ const CompletionRing = memo(function CompletionRing({ rate }: { rate: number }) 
           </linearGradient>
         </defs>
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
+      <div className="absolute inset-0 flex flex-col items-center justify-center" aria-hidden="true">
         <span className="text-[32px] font-bold text-white leading-none">{rate}%</span>
         <span className="text-[11px] text-white/74 uppercase font-bold tracking-wider mt-1">Completado</span>
       </div>

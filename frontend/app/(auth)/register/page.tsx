@@ -49,60 +49,64 @@ export default function RegisterPage() {
         <div className="p-[24px] rounded-[28px] bg-[linear-gradient(145deg,rgba(255,255,255,0.20),rgba(255,255,255,0.10))] border border-white/20 shadow-[0_22px_55px_rgba(18,5,72,0.32)] backdrop-blur-[18px]">
           <form onSubmit={handleSubmit}>
             {error && (
-              <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300 text-left">
+              <div role="alert" className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300 text-left">
                 {error}
               </div>
             )}
-            
+
             <div className="text-left mb-[16px]">
-              <label className="block font-[900] mb-[8px]">Nombre de usuario</label>
-              <input 
-                type="text" 
-                placeholder="tu_usuario" 
+              <label htmlFor="reg-username" className="block font-[900] mb-[8px]">Nombre de usuario</label>
+              <input
+                id="reg-username"
+                type="text"
+                placeholder="tu_usuario"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 disabled={isLoading}
-                className="w-full h-[58px] rounded-[20px] border border-white/14 bg-[#27125e8c] text-white text-[17px] px-[18px] outline-none placeholder:text-white/55"
+                className="w-full h-[58px] rounded-[20px] border border-white/14 bg-[#27125e8c] text-white text-[17px] px-[18px] outline-none placeholder:text-white/55 focus-visible:ring-2 focus-visible:ring-white/60"
               />
             </div>
 
             <div className="text-left mb-[16px]">
-              <label className="block font-[900] mb-[8px]">Correo</label>
-              <input 
-                type="email" 
-                placeholder="tu@email.com" 
+              <label htmlFor="reg-email" className="block font-[900] mb-[8px]">Correo</label>
+              <input
+                id="reg-email"
+                type="email"
+                placeholder="tu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
-                className="w-full h-[58px] rounded-[20px] border border-white/14 bg-[#27125e8c] text-white text-[17px] px-[18px] outline-none placeholder:text-white/55"
+                className="w-full h-[58px] rounded-[20px] border border-white/14 bg-[#27125e8c] text-white text-[17px] px-[18px] outline-none placeholder:text-white/55 focus-visible:ring-2 focus-visible:ring-white/60"
               />
             </div>
-            
+
             <div className="text-left mb-[16px]">
-              <label className="block font-[900] mb-[8px]">Contraseña</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
+              <label htmlFor="reg-password" className="block font-[900] mb-[8px]">Contraseña</label>
+              <input
+                id="reg-password"
+                type="password"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
-                className="w-full h-[58px] rounded-[20px] border border-white/14 bg-[#27125e8c] text-white text-[17px] px-[18px] outline-none placeholder:text-white/55"
+                className="w-full h-[58px] rounded-[20px] border border-white/14 bg-[#27125e8c] text-white text-[17px] px-[18px] outline-none placeholder:text-white/55 focus-visible:ring-2 focus-visible:ring-white/60"
               />
             </div>
 
             <div className="text-left mb-[24px]">
-              <label className="block font-[900] mb-[8px]">Confirmar contraseña</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
+              <label htmlFor="reg-confirm-password" className="block font-[900] mb-[8px]">Confirmar contraseña</label>
+              <input
+                id="reg-confirm-password"
+                type="password"
+                placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={isLoading}
-                className="w-full h-[58px] rounded-[20px] border border-white/14 bg-[#27125e8c] text-white text-[17px] px-[18px] outline-none placeholder:text-white/55"
+                className="w-full h-[58px] rounded-[20px] border border-white/14 bg-[#27125e8c] text-white text-[17px] px-[18px] outline-none placeholder:text-white/55 focus-visible:ring-2 focus-visible:ring-white/60"
               />
             </div>
             

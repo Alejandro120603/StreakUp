@@ -349,5 +349,83 @@ class AuthFlowTestCase(unittest.TestCase):
         self.assertEqual(payload["target_unit"], None)
         self.assertEqual(payload["target_duration"], None)
 
+    def test_refresh_returns_new_access_token_for_valid_refresh_token(self) -> None:
+        login_payload = self._login("daniel@correo.com", "daniel-password").get_json()
+        refresh_token = login_payload["refresh_token"]
+
+        response = self.client.post(
+            "/api/auth/refresh",
+            json={"refresh_token": refresh_token},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertIn("access_token", payload)
+        self.assertNotEqual(payload["access_token"], login_payload["access_token"])
+
+    def test_refresh_rejects_access_token_used_as_refresh_token(self) -> None:
+        login_payload = self._login("daniel@correo.com", "daniel-password").get_json()
+        access_token = login_payload["access_token"]
+
+        response = self.client.post(
+            "/api/auth/refresh",
+            json={"refresh_token": access_token},
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_refresh_rejects_missing_token(self) -> None:
+        response = self.client.post("/api/auth/refresh", json={})
+        self.assertEqual(response.status_code, 400)
+
+    def test_logout_revokes_access_token(self) -> None:
+        login_payload = self._login("daniel@correo.com", "daniel-password").get_json()
+        access_token = login_payload["access_token"]
+        headers = self._auth_headers(access_token)
+
+        logout_response = self.client.post("/api/auth/logout", headers=headers)
+        self.assertEqual(logout_response.status_code, 200)
+
+        # Token must now be rejected on protected routes
+        protected_response = self.client.get("/api/habits", headers=headers)
+        self.assertEqual(protected_response.status_code, 401)
+
+    def test_revoked_token_rejected_after_logout(self) -> None:
+        login_payload = self._login("daniel@correo.com", "daniel-password").get_json()
+        headers = self._auth_headers(login_payload["access_token"])
+
+        # Confirm token works before logout
+        before = self.client.get("/api/habits", headers=headers)
+        self.assertEqual(before.status_code, 200)
+
+        self.client.post("/api/auth/logout", headers=headers)
+
+        # Confirm token is rejected after logout
+        after = self.client.get("/api/habits", headers=headers)
+        self.assertEqual(after.status_code, 401)
+
+    def test_logout_requires_valid_token(self) -> None:
+        response = self.client.post(
+            "/api/auth/logout",
+            headers={"Authorization": "Bearer not-a-jwt"},
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_refreshed_token_works_on_protected_routes(self) -> None:
+        login_payload = self._login("daniel@correo.com", "daniel-password").get_json()
+
+        refresh_response = self.client.post(
+            "/api/auth/refresh",
+            json={"refresh_token": login_payload["refresh_token"]},
+        )
+        new_token = refresh_response.get_json()["access_token"]
+
+        response = self.client.get(
+            "/api/habits",
+            headers=self._auth_headers(new_token),
+        )
+        self.assertEqual(response.status_code, 200)
+
+
 if __name__ == "__main__":
     unittest.main()

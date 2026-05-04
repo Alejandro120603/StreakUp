@@ -7,6 +7,7 @@ import { createHabit, fetchHabits } from "@/services/habits/habitService";
 import { createPomodoroSession } from "@/services/pomodoro/pomodoroService";
 import { applyReminderSchedule } from "@/services/reminders/reminderService";
 import { fetchStatsSummary } from "@/services/stats/statsService";
+import { resetCredentialStore } from "@/services/auth/credentialProvider";
 
 const originalFetch = globalThis.fetch;
 const originalWindow = globalThis.window;
@@ -60,6 +61,7 @@ function createStorage(): Storage {
 function createWindow() {
   return {
     localStorage: createStorage(),
+    sessionStorage: createStorage(),
     location: {
       href: "",
     },
@@ -112,6 +114,7 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  resetCredentialStore();
 
   Object.defineProperty(globalThis, "window", {
     configurable: true,

@@ -186,6 +186,28 @@ class RuntimeSecurityTestCase(unittest.TestCase):
         self.assertEqual(allowed.headers.get("Access-Control-Allow-Origin"), "https://app.example.com")
         self.assertIsNone(blocked.headers.get("Access-Control-Allow-Origin"))
 
+    def test_logout_permanently_blocks_token_on_all_protected_routes(self) -> None:
+        user = User(username="RevocationTest", email="revoke@example.com", role="user")
+        user.set_password("secure-password")
+        db.session.add(user)
+        db.session.commit()
+
+        login = self.client.post(
+            "/api/auth/login",
+            json={"email": "revoke@example.com", "password": "secure-password"},
+        )
+        self.assertEqual(login.status_code, 200)
+        access_token = login.get_json()["access_token"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        self.client.post("/api/auth/logout", headers=headers)
+
+        habits = self.client.get("/api/habits", headers=headers)
+        stats = self.client.get("/api/stats/summary", headers=headers)
+
+        self.assertEqual(habits.status_code, 401)
+        self.assertEqual(stats.status_code, 401)
+
 
 if __name__ == "__main__":
     unittest.main()

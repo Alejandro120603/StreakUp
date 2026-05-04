@@ -1,4 +1,5 @@
 import type { AuthSession, AuthUser } from "@/types/auth";
+import { getCredentialStore } from "@/services/auth/credentialProvider";
 
 export const ACCESS_TOKEN_STORAGE_KEY = "access_token";
 export const REFRESH_TOKEN_STORAGE_KEY = "refresh_token";
@@ -118,11 +119,7 @@ export function clearSessionCookie(): void {
 }
 
 export function getStoredAccessToken(): string | null {
-  if (!canUseLocalStorage()) {
-    return null;
-  }
-
-  return window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+  return getCredentialStore().get(ACCESS_TOKEN_STORAGE_KEY);
 }
 
 export function persistSession(data: {
@@ -130,19 +127,23 @@ export function persistSession(data: {
   refreshToken?: string;
   user: AuthUser;
 }): void {
-  if (!canUseLocalStorage()) {
-    return;
-  }
+  const store = getCredentialStore();
 
-  window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, data.accessToken);
+  // Tokens go to the credential store (sessionStorage on web, Keystore on native).
+  // They are intentionally NOT written to localStorage.
+  store.set(ACCESS_TOKEN_STORAGE_KEY, data.accessToken);
 
   if (data.refreshToken) {
-    window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
+    store.set(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
   } else {
-    window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    store.remove(REFRESH_TOKEN_STORAGE_KEY);
   }
 
-  window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(data.user));
+  // User profile is non-sensitive; keep in localStorage for offline reads.
+  if (canUseLocalStorage()) {
+    window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(data.user));
+  }
+
   setSessionCookie(data.accessToken);
 }
 
@@ -155,9 +156,10 @@ export function updateStoredUser(user: AuthUser): void {
 }
 
 export function clearStoredSession(): void {
+  const store = getCredentialStore();
+  store.clear([ACCESS_TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY]);
+
   if (canUseLocalStorage()) {
-    window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-    window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
     window.localStorage.removeItem(USER_STORAGE_KEY);
   }
 
@@ -165,12 +167,11 @@ export function clearStoredSession(): void {
 }
 
 export function getStoredSession(): AuthSession | null {
-  if (!canUseLocalStorage()) {
-    return null;
-  }
-
-  const token = window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
-  const userJson = window.localStorage.getItem(USER_STORAGE_KEY);
+  const store = getCredentialStore();
+  const token = store.get(ACCESS_TOKEN_STORAGE_KEY);
+  const userJson = canUseLocalStorage()
+    ? window.localStorage.getItem(USER_STORAGE_KEY)
+    : null;
 
   if (!token || !userJson) {
     clearSessionCookie();
@@ -189,7 +190,7 @@ export function getStoredSession(): AuthSession | null {
 
     return {
       accessToken: token,
-      refreshToken: window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) ?? undefined,
+      refreshToken: store.get(REFRESH_TOKEN_STORAGE_KEY) ?? undefined,
       user,
     };
   } catch {

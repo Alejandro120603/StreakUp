@@ -178,4 +178,17 @@
 @keyframes hourglassFloat {0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 @keyframes sandTop {0%{height:70%}100%{height:8%}}
 @keyframes sandBottom {0%{height:18%}100%{height:72%}}
+
+/* Accessibility: suppress default outline only when focus-visible is used instead */
+:focus:not(:focus-visible) { outline: none; }
+:focus-visible { outline: 2px solid rgba(255,255,255,0.8); outline-offset: 2px; }
+
+/* Screen reader only utility */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
+.focus\:not-sr-only:focus { position: static; width: auto; height: auto; padding: revert; margin: revert; overflow: visible; clip: auto; white-space: normal; }
+
+/* Safe-area support for main content area (Android/iOS notch) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+}
 @keyframes sandStream {0%,100%{opacity:.45;transform:translateX(-50%) scaleY(.8)}50%{opacity:1;transform:translateX(-50%) scaleY(1.15)}}

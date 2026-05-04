@@ -32,6 +32,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <>
+      {/* Skip to main content — keyboard and AT users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-[#1c0f3d]"
+      >
+        Saltar al contenido principal
+      </a>
+
       {/* Red online/offline indicator — visible on all pages */}
       <NetworkStatusBanner />
 
@@ -39,7 +47,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <AchievementToast />
 
       {/* Main content - handles the scrolling area like the .screen class in HTML */}
-      <main className="absolute inset-0 overflow-y-auto overflow-x-hidden pt-7 px-[22px] pb-[100px] z-10 animate-[enter_0.28s_ease_both]">
+      <main id="main-content" aria-label="Contenido principal" className="absolute inset-0 overflow-y-auto overflow-x-hidden pt-7 px-[22px] pb-[100px] z-10 animate-[enter_0.28s_ease_both]">
         {children}
       </main>
 

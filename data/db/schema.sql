@@ -248,3 +248,15 @@ CREATE TABLE IF NOT EXISTS niveles (
     descripcion TEXT,
     CHECK (xp_minimo < xp_maximo)
 );
+
+-- =====================================================
+-- TOKEN BLOCKLIST (logout / revocation)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS token_blocklist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    jti TEXT NOT NULL UNIQUE,
+    token_type TEXT NOT NULL DEFAULT 'access',
+    revoked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS ix_token_blocklist_jti ON token_blocklist(jti);

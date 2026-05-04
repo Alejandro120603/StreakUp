@@ -48,3 +48,12 @@ def init_extensions(app) -> None:
     jwt.init_app(app)
     migrate_dir = Path(__file__).resolve().parents[1] / "migrations"
     migrate.init_app(app, db, directory=str(migrate_dir))
+
+    @jwt.token_in_blocklist_loader
+    def check_if_token_revoked(_jwt_header, jwt_payload) -> bool:
+        from app.models.token_blocklist import TokenBlocklist
+
+        jti = jwt_payload.get("jti")
+        if not jti:
+            return False
+        return TokenBlocklist.query.filter_by(jti=jti).first() is not None

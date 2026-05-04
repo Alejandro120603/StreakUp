@@ -116,8 +116,8 @@ export default function DashboardHomePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center min-h-[60vh]" role="status" aria-label="Cargando datos">
+        <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" />
       </div>
     );
   }
@@ -130,8 +130,8 @@ export default function DashboardHomePage() {
           <h2 className="text-[30px] leading-[1.05] font-bold">Streak Up</h2>
           <p className="text-white/74 text-[15px]">Hoy es un gran día para avanzar</p>
         </div>
-        <button onClick={() => router.push("/profile")} className="w-[48px] h-[48px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95">
-          <Settings className="size-6" />
+        <button onClick={() => router.push("/profile")} aria-label="Ir a perfil y configuración" className="w-[48px] h-[48px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80">
+          <Settings className="size-6" aria-hidden="true" />
         </button>
       </div>
 
@@ -177,8 +177,8 @@ export default function DashboardHomePage() {
       <div>
         <div className="flex items-center justify-between mt-[24px] mb-[12px]">
           <h3 className="text-[18px] font-bold">Modo Pomodoro</h3>
-          <button onClick={() => router.push("/pomodoro")} className="w-[48px] h-[48px] rounded-full bg-white/18 text-[24px] grid place-items-center cursor-pointer transition-transform active:scale-95">
-            ⏱️
+          <button onClick={() => router.push("/pomodoro")} aria-label="Ir al temporizador Pomodoro" className="w-[48px] h-[48px] rounded-full bg-white/18 text-[24px] grid place-items-center cursor-pointer transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80">
+            <span aria-hidden="true">⏱️</span>
           </button>
         </div>
         <div className="grid grid-cols-2 gap-[12px]">
@@ -197,8 +197,8 @@ export default function DashboardHomePage() {
       <div>
         <div className="flex items-center justify-between mt-[24px] mb-[12px]">
           <h3 className="text-[18px] font-bold">Hoy</h3>
-          <button onClick={() => router.push("/habits/new")} className="w-[48px] h-[48px] rounded-full bg-white/18 text-[24px] grid place-items-center cursor-pointer transition-transform active:scale-95">
-            <Plus className="size-6 text-white" />
+          <button onClick={() => router.push("/habits/new")} aria-label="Crear nuevo hábito" className="w-[48px] h-[48px] rounded-full bg-white/18 text-[24px] grid place-items-center cursor-pointer transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80">
+            <Plus className="size-6 text-white" aria-hidden="true" />
           </button>
         </div>
 
