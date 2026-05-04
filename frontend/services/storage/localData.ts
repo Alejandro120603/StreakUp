@@ -1,4 +1,6 @@
 import { getSession } from "@/services/auth/authService";
+import { DB_KEYS, dbRead, dbWrite } from "@/services/storage/offlineDb";
+import { runMigrationsOnce } from "@/services/storage/localMigrations";
 import type { CheckinToggleResult, TodayHabit } from "@/types/checkins";
 import type { Habit, CreateHabitPayload, UpdateHabitPayload } from "@/types/habits";
 import type { CreatePomodoroSessionPayload, PomodoroSession } from "@/types/pomodoro";
@@ -13,41 +15,6 @@ interface StoredCheckin {
   user_id: number;
   habit_id: number;
   date: string;
-}
-
-const STORAGE_KEYS = {
-  habits: "streakup.local.habits",
-  checkins: "streakup.local.checkins",
-  pomodoroSessions: "streakup.local.pomodoroSessions",
-} as const;
-
-function canUseStorage(): boolean {
-  return typeof window !== "undefined";
-}
-
-function readStorage<T>(key: string, fallback: T): T {
-  if (!canUseStorage()) {
-    return fallback;
-  }
-
-  const rawValue = window.localStorage.getItem(key);
-  if (!rawValue) {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(rawValue) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStorage<T>(key: string, value: T): void {
-  if (!canUseStorage()) {
-    return;
-  }
-
-  window.localStorage.setItem(key, JSON.stringify(value));
 }
 
 function getCurrentUserId(): number {
@@ -78,27 +45,30 @@ function nextNegativeId(existingIds: number[]): number {
 }
 
 function readAllHabits(): Habit[] {
-  return readStorage<Habit[]>(STORAGE_KEYS.habits, []);
+  runMigrationsOnce();
+  return dbRead<Habit[]>(DB_KEYS.habits, []);
 }
 
 function writeAllHabits(habits: Habit[]): void {
-  writeStorage(STORAGE_KEYS.habits, habits);
+  dbWrite(DB_KEYS.habits, habits);
 }
 
 function readAllCheckins(): StoredCheckin[] {
-  return readStorage<StoredCheckin[]>(STORAGE_KEYS.checkins, []);
+  runMigrationsOnce();
+  return dbRead<StoredCheckin[]>(DB_KEYS.checkins, []);
 }
 
 function writeAllCheckins(checkins: StoredCheckin[]): void {
-  writeStorage(STORAGE_KEYS.checkins, checkins);
+  dbWrite(DB_KEYS.checkins, checkins);
 }
 
 function readAllPomodoroSessions(): PomodoroSession[] {
-  return readStorage<PomodoroSession[]>(STORAGE_KEYS.pomodoroSessions, []);
+  runMigrationsOnce();
+  return dbRead<PomodoroSession[]>(DB_KEYS.pomodoroSessions, []);
 }
 
 function writeAllPomodoroSessions(sessions: PomodoroSession[]): void {
-  writeStorage(STORAGE_KEYS.pomodoroSessions, sessions);
+  dbWrite(DB_KEYS.pomodoroSessions, sessions);
 }
 
 export function cacheHabits(habits: Habit[], userId = getCurrentUserId()): Habit[] {
