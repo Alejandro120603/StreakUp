@@ -2,11 +2,23 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, X, Camera, icons } from "lucide-react";
+import { Plus, Pencil, Trash2, Camera, icons } from "lucide-react";
 import { fetchHabits, deleteHabit } from "@/services/habits/habitService";
 import type { Habit } from "@/types/habits";
-import { SECTION_ICONS } from "@/types/habits";
-import { ClayMotionBox } from "@/components/ui/clay-motion-box";
+import { getHabitTargetSummary, SECTION_ICONS, VALIDATION_TYPE_LABELS } from "@/types/habits";
+import { Button } from "@/components/ui/button";
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+  facil: "Fácil",
+  media: "Media",
+  dificil: "Difícil",
+};
+
+const DIFFICULTY_COLORS: Record<string, string> = {
+  facil: "bg-emerald-500/20 text-emerald-200",
+  media: "bg-amber-500/20 text-amber-200",
+  dificil: "bg-red-500/20 text-red-200",
+};
 
 export default function HabitsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -20,8 +32,13 @@ export default function HabitsPage() {
       setLoading(true);
       const data = await fetchHabits();
       setHabits(data);
-    } catch {
-      setError("Error al cargar hábitos.");
+      setError("");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : "No se pudieron cargar los hábitos.",
+      );
     } finally {
       setLoading(false);
     }
@@ -38,34 +55,40 @@ export default function HabitsPage() {
       await deleteHabit(id);
       setHabits((prev) => prev.filter((h) => h.id !== id));
       setConfirmingDeleteId(null);
-    } catch {
-      setError("Error al eliminar hábito.");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : "No se pudo eliminar el hábito.",
+      );
     } finally {
       setDeleting(false);
     }
   }
 
   return (
-    <div className="pt-8 pb-4 max-w-lg mx-auto px-4 @container">
+    <div className="space-y-[24px]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-[14px]">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Hábitos</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {habits.length} hábito{habits.length !== 1 ? "s" : ""} activo{habits.length !== 1 ? "s" : ""}
+          <h2 className="text-[30px] leading-[1.05] font-bold">Mis Hábitos</h2>
+          <p className="text-white/74 text-[15px]">
+            {habits.length} hábito{habits.length !== 1 ? "s" : ""} activo
+            {habits.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Link
-          href="/habits/new"
-          className="flex items-center justify-center size-12 rounded-full bg-primary hover:bg-primary/90 text-white shadow-[0_0_20px_rgba(93,95,239,0.4)] transition-all duration-300"
+        <button
+          onClick={() => window.location.href = "/habits/new"}
+          aria-label="Crear nuevo hábito"
+          className="w-[48px] h-[48px] rounded-full bg-white/18 text-[24px] grid place-items-center cursor-pointer transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
         >
-          <Plus className="size-6" />
-        </Link>
+          <Plus className="size-6 text-white" aria-hidden="true" />
+        </button>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400 mb-4">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
           {error}
         </div>
       )}
@@ -73,99 +96,121 @@ export default function HabitsPage() {
       {/* Loading */}
       {loading && (
         <div className="flex justify-center py-12">
-          <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
       {/* Empty State */}
       {!loading && habits.length === 0 && !error && (
-        <div className="text-center py-16 text-muted-foreground">
-          <p className="text-lg mb-2">No tienes hábitos aún</p>
-          <p className="text-sm">Presiona + para crear tu primer hábito</p>
+        <div className="text-center p-8 bg-white/10 rounded-[24px] border border-white/20">
+          <p className="text-white/80 mb-4">No tienes hábitos aún.</p>
+          <Button variant="sacro-ghost" onClick={() => window.location.href = "/habits/new"}>
+            Agregar hábito
+          </Button>
         </div>
       )}
 
       {/* Habits List */}
       {!loading && habits.length > 0 && (
-        <div className="space-y-3">
-          {habits.map((habit) => (
-            <ClayMotionBox
-              key={habit.id}
-              className="flex items-center gap-3 p-4 transition-colors hover:border-primary/50"
-            >
-              {/* Icon */}
-              <div className="flex items-center justify-center size-11 rounded-2xl bg-secondary shrink-0 text-primary">
-                {(() => {
-                  let IconComp = icons.Circle;
-                  if (habit.icon && icons[habit.icon as keyof typeof icons]) {
-                    IconComp = icons[habit.icon as keyof typeof icons] as never;
-                  } else {
-                    const sectionKey = SECTION_ICONS[habit.section];
-                    if (sectionKey && icons[sectionKey as keyof typeof icons]) {
-                      IconComp = icons[sectionKey as keyof typeof icons] as never;
+        <div className="space-y-[12px]">
+          {habits.map((habit) => {
+            const targetSummary = getHabitTargetSummary(habit);
+            const difficultyKey = habit.difficulty ?? "facil";
+            const difficultyLabel = DIFFICULTY_LABELS[difficultyKey] ?? difficultyKey;
+            const difficultyColor = DIFFICULTY_COLORS[difficultyKey] ?? "bg-white/10 text-white";
+
+            return (
+              <div
+                key={habit.id}
+                className="flex items-center gap-[14px] p-[16px] rounded-[24px] bg-white/13 border border-white/20 transition-colors hover:bg-white/20"
+              >
+                {/* Icon */}
+                <div className="w-[58px] h-[58px] shrink-0 rounded-[18px] bg-white/18 grid place-items-center text-[34px] text-primary">
+                  {(() => {
+                    let IconComp = icons.Circle;
+                    if (habit.icon && icons[habit.icon as keyof typeof icons]) {
+                      IconComp = icons[habit.icon as keyof typeof icons] as never;
+                    } else {
+                      const sectionKey = SECTION_ICONS[habit.section];
+                      if (sectionKey && icons[sectionKey as keyof typeof icons]) {
+                        IconComp = icons[sectionKey as keyof typeof icons] as never;
+                      }
                     }
-                  }
-                  return <IconComp className="size-6" />;
-                })()}
-              </div>
-
-              {/* Name & Frequency */}
-              <div className="flex-1 min-w-0">
-                <p className="text-foreground font-semibold text-sm truncate">
-                  {habit.name}
-                </p>
-                <p className="text-muted-foreground text-xs capitalize">
-                  {habit.frequency === "daily" ? "Diario" : "Semanal"}
-                </p>
-              </div>
-
-              {/* Actions */}
-              {confirmingDeleteId === habit.id ? (
-                // Inline confirmation
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleDelete(habit.id)}
-                    disabled={deleting}
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-50"
-                  >
-                    {deleting ? "..." : "Eliminar"}
-                  </button>
-                  <button
-                    onClick={() => setConfirmingDeleteId(null)}
-                    className="flex items-center justify-center size-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <X className="size-4" />
-                  </button>
+                    return <IconComp className="size-8 text-white" />;
+                  })()}
                 </div>
-              ) : (
-                // Normal actions
-                <>
-                  <Link
-                    href={`/habits/validate?id=${habit.id}`}
-                    className="flex items-center justify-center size-9 rounded-xl text-primary hover:text-primary hover:bg-primary/10 transition-colors"
-                    title="Validar hábito con IA"
-                  >
-                    <Camera className="size-4" />
-                  </Link>
-                  <Link
-                    href={`/habits/${habit.id}/edit`}
-                    className="flex items-center justify-center size-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <Pencil className="size-4" />
-                  </Link>
-                  <button
-                    onClick={() => setConfirmingDeleteId(habit.id)}
-                    className="flex items-center justify-center size-9 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-500/10 transition-colors"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </>
-              )}
-            </ClayMotionBox>
-          ))}
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[18px] font-bold leading-tight truncate">{habit.name}</h3>
+                  <p className="text-white/74 text-[13px] truncate mt-1">
+                    {VALIDATION_TYPE_LABELS[habit.validation_type ?? "foto"]}
+                    {targetSummary ? ` · ${targetSummary}` : ""}
+                  </p>
+                  
+                  <div className="flex gap-[6px] mt-2">
+                    <span className={`px-[8px] py-[2px] rounded-full text-[10px] font-bold ${difficultyColor}`}>
+                      {difficultyLabel}
+                    </span>
+                    {habit.xp_base != null ? (
+                      <span className="px-[8px] py-[2px] rounded-full text-[10px] font-bold bg-[#9d55ff]/30 text-[#9d55ff]">
+                        {habit.xp_base} XP
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                {confirmingDeleteId === habit.id ? (
+                  <div className="flex flex-col gap-2 shrink-0" role="group" aria-label={`Confirmar eliminación de ${habit.name}`}>
+                    <button
+                      onClick={() => handleDelete(habit.id)}
+                      disabled={deleting}
+                      aria-label={`Confirmar eliminar ${habit.name}`}
+                      className="px-3 py-1 rounded-full text-xs font-bold bg-red-500 hover:bg-red-600 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                    >
+                      {deleting ? "..." : "Sí"}
+                    </button>
+                    <button
+                      onClick={() => setConfirmingDeleteId(null)}
+                      aria-label={`Cancelar eliminación de ${habit.name}`}
+                      className="px-3 py-1 rounded-full text-xs font-bold bg-white/20 hover:bg-white/30 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-[8px] shrink-0">
+                    {habit.validation_type && (
+                      <Link
+                        href={`/habits/validate?id=${habit.id}`}
+                        aria-label={`Validar ${habit.name}`}
+                        className="w-[40px] h-[40px] rounded-full bg-[var(--purple)]/20 text-[var(--purple2)] grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-[var(--purple)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                      >
+                        <Camera className="size-4" aria-hidden="true" />
+                      </Link>
+                    )}
+                    <Link
+                      href={`/habits/edit?id=${habit.id}`}
+                      aria-label={`Editar ${habit.name}`}
+                      className="w-[40px] h-[40px] rounded-full bg-white/18 text-white grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                    >
+                      <Pencil className="size-4" aria-hidden="true" />
+                    </Link>
+                    <button
+                      onClick={() => setConfirmingDeleteId(habit.id)}
+                      aria-label={`Eliminar ${habit.name}`}
+                      className="w-[40px] h-[40px] rounded-full bg-red-500/20 text-red-200 grid place-items-center cursor-pointer transition-transform active:scale-95 hover:bg-red-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                    >
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
-

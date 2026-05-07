@@ -11,52 +11,107 @@ from datetime import date as date_type
 from app.extensions import db
 from app.models.checkin import CheckIn
 from app.models.user_habit import UserHabit
-from app.services.habit_service import serialize_user_habit, list_active_user_habits
-from app.services.xp_service import award_xp, revoke_xp
+from app.services.habit_service import list_active_user_habits, serialize_user_habit
+from app.services.xp_service import award_xp, award_habit_xp, revoke_xp
+
+def is_eligible_today(user_habit: UserHabit, target_date: date_type) -> bool:
+    """Determine if a habit is eligible to be completed on a given date based on its frequency."""
+    freq = user_habit.frecuencia or "daily"
+    if freq == "daily":
+        return True
+    
+    if freq == "weekly":
+        # Weekly habits are eligible as long as they haven't been completed this week,
+        # OR if they were completed exactly on target_date (so we can uncheck them).
+        iso_year, iso_week, _ = target_date.isocalendar()
+        start_of_week = date_type.fromisocalendar(iso_year, iso_week, 1)
+        end_of_week = date_type.fromisocalendar(iso_year, iso_week, 7)
+        # Check if completed this week
+        weekly_checkin = CheckIn.query.filter(
+            CheckIn.habitousuario_id == user_habit.id,
+            CheckIn.completado == True,
+            CheckIn.fecha >= start_of_week,
+            CheckIn.fecha <= end_of_week
+        ).first()
+        
+        if weekly_checkin:
+            return weekly_checkin.fecha == target_date
+        return True
+
+    if freq == "custom":
+        if not user_habit.schedule_days:
+            return False
+        enabled_weekdays = {day.weekday for day in user_habit.schedule_days}
+        return target_date.weekday() in enabled_weekdays
+
+    return True
 
 
-def toggle_checkin(user_id: int, habit_id: int, target_date: date_type | None = None) -> dict:
-    """Toggle a check-in for a habit on a given date.
+def _is_validation_driven(user_habit: UserHabit) -> bool:
+    validation_type = user_habit.tipo_validacion or user_habit.habit.tipo_validacion
+    if validation_type == "check" and not user_habit.deadline_time:
+        return False
+    return validation_type in {"foto", "texto", "tiempo", "photo", "text_ai", "time", "check"}
 
-    Here habit_id is the UserHabit.id (assigned habit).
-    If no check-in exists, create one (completed=True).
-    If one exists, delete it (un-check).
-    """
+
+def toggle_checkin(
+    user_id: int,
+    habit_id: int,
+    target_date: date_type | None = None,
+    *,
+    commit: bool = True,
+) -> dict:
+    """Toggle a check-in for a habit on a given date."""
     if target_date is None:
         target_date = date_type.today()
 
-    # Verify habit belongs to user
     user_habit = UserHabit.query.filter_by(
-        id=habit_id, usuario_id=user_id, activo=True
+        id=habit_id,
+        usuario_id=user_id,
+        activo=True,
     ).first()
     if user_habit is None:
-        raise ValueError("Habit not found.")
+        raise LookupError("Habit not found.")
+    
+    if not is_eligible_today(user_habit, target_date):
+        raise ValueError("Este hábito no está programado para hoy.")
 
-    existing = CheckIn.query.filter_by(
-        habitousuario_id=user_habit.id, fecha=target_date
-    ).first()
+    if _is_validation_driven(user_habit):
+        raise ValueError("This habit requires validation before progress can be granted.")
 
-    if existing:
-        xp_to_revoke = existing.xp_ganado
-        db.session.delete(existing)
-        db.session.commit()
-        if xp_to_revoke > 0:
-            revoke_xp(user_id, xp_to_revoke, "uncheck")
-        return {"checked": False, "habit_id": habit_id, "date": target_date.isoformat()}
-    else:
-        xp_base = user_habit.habit.xp_base if user_habit.habit else 10
+    try:
+        existing = CheckIn.query.filter_by(
+            habitousuario_id=user_habit.id,
+            fecha=target_date,
+        ).first()
+
+        if existing:
+            xp_to_revoke = existing.xp_ganado
+            db.session.delete(existing)
+            if xp_to_revoke > 0:
+                revoke_xp(user_id, xp_to_revoke, "checkin_undo", commit=False)
+            if commit:
+                db.session.commit()
+            else:
+                db.session.flush()
+            return {"checked": False, "habit_id": habit_id, "date": target_date.isoformat()}
+
+        awarded_xp = award_habit_xp(user_id, user_habit, target_date, reason="checkin", commit=False)
         checkin = CheckIn(
             habitousuario_id=user_habit.id,
             fecha=target_date,
             completado=True,
-            xp_ganado=xp_base,
+            xp_ganado=awarded_xp,
         )
         db.session.add(checkin)
-        db.session.commit()
-        
-        award_xp(user_id, xp_base, "checkin")
-        
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return {"checked": True, "habit_id": habit_id, "date": target_date.isoformat()}
+    except Exception:
+        db.session.rollback()
+        raise
 
 
 def get_today_habits(user_id: int, target_date: date_type | None = None) -> list[dict]:
@@ -65,22 +120,23 @@ def get_today_habits(user_id: int, target_date: date_type | None = None) -> list
         target_date = date_type.today()
 
     user_habits = list_active_user_habits(user_id)
-
-    # Get all check-ins for today for this user's habits
     user_habit_ids = [uh.id for uh in user_habits]
     if user_habit_ids:
         checkins = CheckIn.query.filter(
             CheckIn.habitousuario_id.in_(user_habit_ids),
             CheckIn.fecha == target_date,
         ).all()
-        checked_ids = {c.habitousuario_id for c in checkins}
+        checked_ids = {checkin.habitousuario_id for checkin in checkins}
     else:
         checked_ids = set()
 
     result = []
-    for uh in user_habits:
-        habit_dict = serialize_user_habit(uh)
-        habit_dict["checked_today"] = uh.id in checked_ids
+    for user_habit in user_habits:
+        if not is_eligible_today(user_habit, target_date):
+            continue
+            
+        habit_dict = serialize_user_habit(user_habit)
+        habit_dict["checked_today"] = user_habit.id in checked_ids
         result.append(habit_dict)
 
     return result

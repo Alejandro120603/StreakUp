@@ -1,71 +1,45 @@
--- =====================================================
--- USERS SEED
--- =====================================================
-
-INSERT OR IGNORE INTO users (username, email, password_hash, role, total_xp)
-VALUES 
-(
-    'Daniel',
-    'daniel@correo.com',
-    'scrypt:32768:8:1$WikUmFaQkTvl4lH7$cd5b95153c1b0a72ec8d9e39dd4bfb7654e6b12552d34c7637157d2d6f7cc675db5644ce36416e5711cde5801440110a2d4a83236628fa53f4a3154c80910bb8',
-    'user',
-    0
-),
-(
-    'Gustavo',
-    'gustavo@correo.com',
-    'scrypt:32768:8:1$TEHtUakfY18WCOcp$807220279ffea8610447d0bf83a1f8bb112f49ec49bd989b203e5fb21c51213a76d7938d48c1f826bb985e32a81b823a2b5546eb2d1ed5f1a3a34463c3717d80',
-    'user',
-    0
-),
-(
-    'Adrian',
-    'adrian@correo.com',
-    'scrypt:32768:8:1$cWJQ9BTuaFCv82Sy$b90fbb8797c36594e1ff0bf71d789e4757757db8910b1aead4cb02acd01311d98f7e4771d1bebb1a3e2851bbfe6a67741c24b6b52587da6135dbc5c6b039c875',
-    'user',
-    0
-),
-
-(
-    'Prueba',
-    'prueba@correo.com',
-    'scrypt:32768:8:1$ifWQRcoPaFDoct0u$4a8695472ce8835fd478499e2633f469cdcaaf8609fa68afd2ae294379928845e0c66247c17b32b4d85844a61c63757fc2abac3bcfee0a817ffbc87867f9058d',
-    'user',
-    0
-);
-
 -- =========================================
--- CATEGORIAS
--- =========================================
-INSERT INTO categorias (nombre, descripcion) VALUES
-('Salud y Bienestar', 'Hábitos físicos y mentales'),
-('Productividad', 'Enfoque y rendimiento'),
-('Orden', 'Organización personal');
-
-
--- =========================================
--- HABITOS
+-- STREAKUP - SEED.SQL (LOCAL SQLITE)
+-- Convenience seed for local SQLite resets only.
 -- =========================================
 
--- SALUD Y BIENESTAR
-INSERT INTO habitos (categoria_id, nombre, descripcion, dificultad, xp_base) VALUES
-(1, 'Beber 2L de agua', 'Mantener hidratación diaria', 'Fácil', 10),
-(1, 'Ejercicio 30 min', 'Actividad física diaria', 'Media', 20),
-(1, 'Comida saludable', 'Alimentación balanceada', 'Media', 15),
-(1, 'Meditar 5-10 min', 'Relajación mental', 'Fácil', 10),
-(1, 'Día sin quejas', 'Control emocional', 'Difícil', 25);
+PRAGMA foreign_keys = ON;
 
+BEGIN TRANSACTION;
 
--- PRODUCTIVIDAD
-INSERT INTO habitos (categoria_id, nombre, descripcion, dificultad, xp_base) VALUES
-(2, 'Trabajo profundo 60 min', 'Sesión sin distracciones', 'Difícil', 30),
-(2, 'Completar tarea clave', 'Tarea importante del día', 'Media', 20),
-(2, 'Empezar antes de las 9am', 'Disciplina matutina', 'Media', 15),
-(2, 'Leer 20 min', 'Lectura diaria', 'Fácil', 10),
-(2, 'Practicar idioma', 'Aprendizaje lingüístico', 'Media', 15);
+INSERT OR IGNORE INTO categorias (id, nombre, descripcion) VALUES
+    (1, 'Salud y Bienestar', 'Hábitos físicos y mentales'),
+    (2, 'Productividad', 'Enfoque y rendimiento'),
+    (3, 'Aprendizaje', 'Lectura, idiomas y estudio');
 
+INSERT OR IGNORE INTO habitos (
+    id,
+    categoria_id,
+    nombre,
+    descripcion,
+    dificultad,
+    xp_base,
+    meta_type,
+    xp_rate,
+    max_xp_per_day,
+    activo,
+    tipo_validacion,
+    frecuencia,
+    cantidad_objetivo,
+    unidad_objetivo,
+    duracion_objetivo_minutos
+) VALUES
+    (1, 1, 'Beber 2L de agua', 'Mantener hidratación diaria', 'facil', 10, 'quantity_liters', 0, 20, 1, 'photo', 'daily', 2, 'litros', NULL),
+    (2, 1, 'Ejercicio 30 min', 'Actividad física diaria', 'media', 0, 'minutes', 1, 60, 1, 'time', 'daily', NULL, NULL, 30),
+    (3, 1, 'Comida saludable', 'Alimentación balanceada', 'media', 25, 'boolean', 0, 25, 1, 'photo', 'daily', NULL, NULL, NULL),
+    (4, 1, 'Meditar 5-10 min', 'Relajación mental', 'facil', 10, 'minutes', 1, 25, 1, 'time', 'daily', NULL, NULL, 10),
+    (5, 2, 'Día sin quejas', 'Mantener una mentalidad positiva', 'facil', 15, 'boolean', 0, 15, 1, 'text_ai', 'daily', NULL, NULL, NULL),
+    (6, 2, 'Trabajo profundo 60 min', 'Sesión sin distracciones', 'dificil', 0, 'minutes', 1, 60, 1, 'time', 'daily', NULL, NULL, 60),
+    (7, 2, 'Completar tarea clave', 'Tarea importante del día', 'media', 30, 'boolean', 0, 30, 1, 'text_ai', 'daily', NULL, NULL, NULL),
+    (8, 2, 'Empezar antes de las 9am', 'Disciplina matutina', 'media', 20, 'boolean', 0, 20, 1, 'check', 'daily', NULL, NULL, NULL),
+    (9, 3, 'Leer 20 min', 'Lectura diaria', 'facil', 0, 'minutes', 1, 30, 1, 'time', 'daily', NULL, NULL, 20),
+    (10, 3, 'Practicar idioma', 'Aprendizaje lingüístico', 'media', 25, 'boolean', 0, 25, 1, 'text_ai', 'daily', NULL, NULL, NULL),
+    (11, 3, 'Tender la cama', 'Ordenar el espacio al comenzar el día', 'facil', 10, 'boolean', 0, 10, 1, 'photo', 'daily', NULL, NULL, NULL),
+    (12, 3, 'Dormir antes de medianoche', 'Rutina de descanso constante', 'media', 20, 'boolean', 0, 20, 1, 'check', 'daily', NULL, NULL, NULL);
 
--- ORDEN
-INSERT INTO habitos (categoria_id, nombre, descripcion, dificultad, xp_base) VALUES
-(3, 'Tender la cama', 'Orden básico diario', 'Fácil', 5),
-(3, 'Dormir', 'Orden básico diario', 'Fácil', 5);
+COMMIT;

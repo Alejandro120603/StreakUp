@@ -1,12 +1,13 @@
 "use client";
 
-import { motion, HTMLMotionProps } from "framer-motion";
+import type { PropsWithChildren } from "react";
+import { motion, type HTMLMotionProps } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-interface ClayMotionBoxProps extends HTMLMotionProps<"div"> {
+type ClayMotionBoxProps = PropsWithChildren<HTMLMotionProps<"div"> & {
   variant?: "primary" | "frozen" | "vibrant-blue" | "vibrant-orange" | "vibrant-purple";
   active?: boolean;
-}
+}>;
 
 export function ClayMotionBox({
   className,

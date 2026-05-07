@@ -143,3 +143,52 @@
     font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   }
 }
+
+:root {
+  --bg1:#1d0b86;
+  --bg2:#4f22d9;
+  --bg3:#8b3fff;
+  --purple:#6b5cff;
+  --purple2:#9d55ff;
+  --yellow:#ffe536;
+  --orange:#ff8b18;
+  --orange2:#ff4d14;
+  --text:#ffffff;
+  --muted:rgba(255,255,255,.74);
+  --card:rgba(255,255,255,.14);
+  --card2:rgba(255,255,255,.20);
+  --line:rgba(255,255,255,.20);
+  --shadow:0 22px 55px rgba(18,5,72,.32);
+}
+.theme-ice {--bg1:#05245e;--bg2:#1276ff;--bg3:#49dcff;--purple:#24cfff;--purple2:#97f3ff;--yellow:#d8fbff;--orange:#1eb9ff;--orange2:#0878d8;}
+.theme-night {--bg1:#070715;--bg2:#17113a;--bg3:#352091;--purple:#7367ff;--purple2:#9b8cff;--yellow:#cfc7ff;--orange:#776bff;--orange2:#4d3eff;}
+.theme-candy {--bg1:#3b0b7a;--bg2:#bc27ff;--bg3:#ff4aa8;--purple:#ff66bd;--purple2:#ff9ed7;--yellow:#ffe44d;--orange:#ff9a20;--orange2:#ff3f73;}
+
+@keyframes enter {from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+@keyframes float {50%{transform:translateY(-8px)}}
+@keyframes mascotFloat {0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-12px) rotate(1deg)}}
+@keyframes mascotGlow {0%,100%{opacity:.65;transform:scale(.95)}50%{opacity:1;transform:scale(1.12)}}
+@keyframes twinkle {0%,100%{opacity:.45;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
+@keyframes fireFlicker {0%,100%{filter:drop-shadow(0 0 10px rgba(255,120,20,.8))}50%{filter:drop-shadow(0 0 18px rgba(255,220,40,1))}}
+@keyframes iceMelt {0%,100%{opacity:1}65%{opacity:.82}}
+@keyframes candleBurn {0%,100%{filter:drop-shadow(0 0 8px rgba(255,210,80,.8))}50%{filter:drop-shadow(0 0 16px rgba(255,150,30,1))}}
+@keyframes clockFlip {0%,100%{filter:drop-shadow(0 0 8px rgba(217,119,6,.8))}50%{filter:drop-shadow(0 0 16px rgba(217,119,6,1))}}
+@keyframes grow {from{height:0}}
+@keyframes bigIconPulse {0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+@keyframes hourglassFloat {0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes sandTop {0%{height:70%}100%{height:8%}}
+@keyframes sandBottom {0%{height:18%}100%{height:72%}}
+
+/* Accessibility: suppress default outline only when focus-visible is used instead */
+:focus:not(:focus-visible) { outline: none; }
+:focus-visible { outline: 2px solid rgba(255,255,255,0.8); outline-offset: 2px; }
+
+/* Screen reader only utility */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
+.focus\:not-sr-only:focus { position: static; width: auto; height: auto; padding: revert; margin: revert; overflow: visible; clip: auto; white-space: normal; }
+
+/* Safe-area support for main content area (Android/iOS notch) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+}
+@keyframes sandStream {0%,100%{opacity:.45;transform:translateX(-50%) scaleY(.8)}50%{opacity:1;transform:translateX(-50%) scaleY(1.15)}}

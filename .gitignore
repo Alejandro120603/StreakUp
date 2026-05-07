@@ -80,7 +80,7 @@ dist/
 # =========================
 # Codex output (IA artifacts)
 # =========================
-Codex/output/
+codex/output/
 
 # =========================
 # Node.js
@@ -126,3 +126,9 @@ ios/DerivedData/
 
 # .gitignore
 .antigravity/skills/
+
+#. documentacion
+documentation.md
+technical-writer.md
+
+requerimientos/

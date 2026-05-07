@@ -5,7 +5,7 @@ Responsibility:
 - Compute user statistics: streak, today's progress, completion rate.
 """
 
-from datetime import date as date_type, timedelta
+from datetime import date as date_type, datetime, timedelta, timezone
 
 from sqlalchemy import func
 
@@ -13,7 +13,20 @@ from app.extensions import db
 from app.models.checkin import CheckIn
 from app.models.user import User
 from app.models.validation_log import ValidationLog
+from app.services.checkin_service import is_eligible_today
 from app.services.habit_service import list_active_user_habits, _get_presentation, _HABIT_ICONS
+from app.services.motivation_service import build_summary_feedback
+from app.services.streak_service import compute_current_streak, compute_longest_streak
+
+_LOCAL_TIMEZONE = datetime.now().astimezone().tzinfo or timezone.utc
+
+
+def _to_local_date(value: datetime | None) -> date_type | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(_LOCAL_TIMEZONE).date()
 
 
 def _user_habit_ids(user_id: int) -> list[int]:
@@ -35,41 +48,56 @@ def get_summary(user_id: int) -> dict:
     """Return a stats summary for the user."""
     today = date_type.today()
 
-    uh_ids = _user_habit_ids(user_id)
-    today_total = len(uh_ids)
+    user_habits = list_active_user_habits(user_id)
+    uh_ids = [uh.id for uh in user_habits]
+    
+    # Calculate today's eligible habits
+    eligible_today_uhs = [uh for uh in user_habits if is_eligible_today(uh, today)]
+    eligible_today_ids = [uh.id for uh in eligible_today_uhs]
+    today_total = len(eligible_today_ids)
 
-    today_completed = min(_count_checkins_for_date(uh_ids, today), today_total)
+    today_completed = min(_count_checkins_for_date(eligible_today_ids, today), today_total)
 
     # Completion rate (last 7 days)
     week_checkins = 0
     for i in range(7):
         d = today - timedelta(days=i)
         week_checkins += _count_checkins_for_date(uh_ids, d)
-    week_possible = today_total * 7
-    completion_rate = round((week_checkins / week_possible * 100)) if week_possible > 0 else 0
+        
+    week_possible = 0
+    for uh in user_habits:
+        freq = uh.frecuencia or "daily"
+        if freq == "custom" and uh.schedule_days:
+            week_possible += len(uh.schedule_days)
+        elif freq == "weekly":
+            week_possible += 1
+        else:
+            week_possible += 7
+            
+    completion_rate = min(100, round((week_checkins / week_possible * 100))) if week_possible > 0 else 0
 
     # Current streak
-    streak = _compute_current_streak(uh_ids, today)
+    streak = compute_current_streak(uh_ids, today)
 
     # XP and level from user record
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     total_xp = user.total_xp if user else 0
     level = user.level if user else 1
 
     # Validations done today
     validations_today = 0
     if uh_ids:
-        validations_today = (
-            ValidationLog.query
-            .filter(
-                ValidationLog.habitousuario_id.in_(uh_ids),
-                ValidationLog.validado.is_(True),
-                func.date(ValidationLog.fecha) == today.isoformat(),
-            )
-            .count()
+        approved_validations = ValidationLog.query.filter(
+            ValidationLog.habitousuario_id.in_(uh_ids),
+            ValidationLog.status == "approved",
+        ).all()
+        validations_today = sum(
+            1
+            for validation in approved_validations
+            if _to_local_date(validation.fecha) == today
         )
 
-    return {
+    summary = {
         "streak": streak,
         "today_completed": today_completed,
         "today_total": today_total,
@@ -78,11 +106,14 @@ def get_summary(user_id: int) -> dict:
         "level": level,
         "validations_today": validations_today,
     }
+    summary["feedback"] = build_summary_feedback(summary)
+    return summary
 
 
 def get_detailed_stats(user_id: int) -> dict:
     """Return detailed statistics for the stats dashboard."""
     today = date_type.today()
+    user = db.session.get(User, user_id)
 
     user_habits = list_active_user_habits(user_id)
     uh_ids = [uh.id for uh in user_habits]
@@ -94,11 +125,12 @@ def get_detailed_stats(user_id: int) -> dict:
     for i in range(6, -1, -1):
         d = today - timedelta(days=i)
         count = _count_checkins_for_date(uh_ids, d)
+        eligible_for_day = sum(1 for uh in user_habits if is_eligible_today(uh, d))
         weekly_history.append({
             "date": d.isoformat(),
             "label": day_names_es[d.weekday()],
             "completed": count,
-            "total": total_habits,
+            "total": eligible_for_day,
         })
 
     # --- Per-habit stats (last 7 days) ---
@@ -112,13 +144,20 @@ def get_detailed_stats(user_id: int) -> dict:
             CheckIn.fecha >= week_ago,
             CheckIn.fecha <= today,
         ).count()
+        freq = uh.frecuencia or "daily"
+        total_opportunities = 7
+        if freq == "custom" and uh.schedule_days:
+            total_opportunities = len(uh.schedule_days)
+        elif freq == "weekly":
+            total_opportunities = 1
+
         per_habit.append({
             "id": uh.id,
             "name": catalog.nombre,
             "icon": _HABIT_ICONS.get(catalog.id, presentation["icon"]),
             "completed": completed_days,
-            "total": 7,
-            "rate": round(completed_days / 7 * 100) if completed_days > 0 else 0,
+            "total": total_opportunities,
+            "rate": min(100, round(completed_days / total_opportunities * 100)) if total_opportunities > 0 else 0,
         })
 
     # --- 30-day streak calendar ---
@@ -159,8 +198,8 @@ def get_detailed_stats(user_id: int) -> dict:
         })
 
     # --- Records ---
-    current_streak = _compute_current_streak(uh_ids, today)
-    longest_streak = _compute_longest_streak(uh_ids)
+    current_streak = compute_current_streak(uh_ids, today)
+    longest_streak = compute_longest_streak(uh_ids)
 
     # Best day
     if uh_ids:
@@ -182,8 +221,18 @@ def get_detailed_stats(user_id: int) -> dict:
     for i in range(7):
         d = today - timedelta(days=i)
         week_checkins += _count_checkins_for_date(uh_ids, d)
-    week_possible = total_habits * 7
-    completion_rate = round(week_checkins / week_possible * 100) if week_possible > 0 else 0
+        
+    week_possible = 0
+    for uh in user_habits:
+        freq = uh.frecuencia or "daily"
+        if freq == "custom" and uh.schedule_days:
+            week_possible += len(uh.schedule_days)
+        elif freq == "weekly":
+            week_possible += 1
+        else:
+            week_possible += 7
+            
+    completion_rate = min(100, round(week_checkins / week_possible * 100)) if week_possible > 0 else 0
 
     # Active days
     if uh_ids:
@@ -202,6 +251,8 @@ def get_detailed_stats(user_id: int) -> dict:
             "completion_rate": completion_rate,
             "total_completed": total_checkins,
             "total_habits": total_habits,
+            "total_xp": user.total_xp if user else 0,
+            "level": user.level if user else 1,
         },
         "weekly_history": weekly_history,
         "per_habit": per_habit,
@@ -214,55 +265,6 @@ def get_detailed_stats(user_id: int) -> dict:
         },
         "validations": _get_validation_stats(uh_ids),
     }
-
-
-def _compute_current_streak(uh_ids: list[int], today: date_type) -> int:
-    """Compute consecutive days with at least 1 check-in."""
-    if not uh_ids:
-        return 0
-
-    streak = 0
-    check_date = today
-    while True:
-        day_checkins = _count_checkins_for_date(uh_ids, check_date)
-        if day_checkins > 0:
-            streak += 1
-            check_date -= timedelta(days=1)
-        else:
-            if check_date == today and streak == 0:
-                check_date -= timedelta(days=1)
-                continue
-            break
-    return streak
-
-
-def _compute_longest_streak(uh_ids: list[int]) -> int:
-    """Compute the longest streak ever for a user."""
-    if not uh_ids:
-        return 0
-
-    dates = (
-        db.session.query(CheckIn.fecha)
-        .filter(CheckIn.habitousuario_id.in_(uh_ids))
-        .distinct()
-        .order_by(CheckIn.fecha)
-        .all()
-    )
-    if not dates:
-        return 0
-
-    longest = 1
-    current = 1
-    sorted_dates = [d[0] for d in dates]
-    for i in range(1, len(sorted_dates)):
-        if sorted_dates[i] - sorted_dates[i - 1] == timedelta(days=1):
-            current += 1
-            longest = max(longest, current)
-        else:
-            current = 1
-    return longest
-
-
 def _get_validation_stats(uh_ids: list[int]) -> dict:
     """Return validation counts and success rate for a user's habits."""
     if not uh_ids:
@@ -274,7 +276,7 @@ def _get_validation_stats(uh_ids: list[int]) -> dict:
 
     total_successful = ValidationLog.query.filter(
         ValidationLog.habitousuario_id.in_(uh_ids),
-        ValidationLog.validado.is_(True),
+        ValidationLog.status == "approved",
     ).count()
 
     success_rate = round(total_successful / total_attempts * 100) if total_attempts > 0 else 0

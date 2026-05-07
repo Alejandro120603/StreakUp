@@ -1,19 +1,27 @@
 "use client";
 
-import { useState, useEffect, useCallback, memo } from "react";
+import Link from "next/link";
+import { useState, useEffect, memo } from "react";
 import {
   Flame,
   TrendingUp,
   Trophy,
-  Target,
   Calendar,
   Zap,
   BarChart3,
+  Clock3,
+  CheckCircle2,
+  XCircle,
+  Hourglass,
   icons,
 } from "lucide-react";
-import { shouldUseOfflineFallback } from "@/services/api/client";
+import { fetchHabitHistory } from "@/services/history/historyService";
 import { fetchDetailedStats } from "@/services/stats/statsService";
-import { ClayMotionBox } from "@/components/ui/clay-motion-box";
+import { getStatsViewState } from "@/services/stats/statsViewState";
+import { getSession } from "@/services/auth/authService";
+import { getPendingOpsCount } from "@/services/sync/syncQueue";
+import { StatCard } from "@/components/ui/StatCard";
+import type { HabitHistoryEvent, HabitHistoryStatus } from "@/types/history";
 
 /* ── Types ────────────────────────────────────── */
 
@@ -69,7 +77,12 @@ const CompletionRing = memo(function CompletionRing({ rate }: { rate: number }) 
 
   return (
     <div className="relative size-36 mx-auto">
-      <svg className="w-full h-full -rotate-90" viewBox="0 0 128 128">
+      <svg
+        className="w-full h-full -rotate-90"
+        viewBox="0 0 128 128"
+        role="img"
+        aria-label={`Tasa de completado: ${rate}%`}
+      >
         <circle
           cx="64"
           cy="64"
@@ -77,7 +90,7 @@ const CompletionRing = memo(function CompletionRing({ rate }: { rate: number }) 
           fill="none"
           stroke="currentColor"
           strokeWidth="8"
-          className="text-border"
+          className="text-white/10"
         />
         <circle
           cx="64"
@@ -89,18 +102,18 @@ const CompletionRing = memo(function CompletionRing({ rate }: { rate: number }) 
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          className="transition-all duration-1000 ease-out"
+          className="transition-all duration-1000 ease-out drop-shadow-[0_0_12px_rgba(36,207,255,0.6)]"
         />
         <defs>
           <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#5D5FEF" />
-            <stop offset="100%" stopColor="#A855F7" />
+            <stop offset="0%" stopColor="var(--purple)" />
+            <stop offset="100%" stopColor="var(--purple2)" />
           </linearGradient>
         </defs>
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold text-foreground">{rate}%</span>
-        <span className="text-[10px] text-muted-foreground">completado</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center" aria-hidden="true">
+        <span className="text-[32px] font-bold text-white leading-none">{rate}%</span>
+        <span className="text-[11px] text-white/74 uppercase font-bold tracking-wider mt-1">Completado</span>
       </div>
     </div>
   );
@@ -112,32 +125,29 @@ const WeeklyChart = memo(function WeeklyChart({ data }: { data: WeekDay[] }) {
   const maxVal = Math.max(...data.map((d) => d.total), 1);
 
   return (
-    <div className="flex items-end justify-between gap-2 h-32">
+    <div className="flex items-end justify-between gap-2 h-[128px]">
       {data.map((day) => {
         const pct = maxVal > 0 ? (day.completed / maxVal) * 100 : 0;
-        const isToday =
-          day.date === new Date().toISOString().split("T")[0];
+        const isToday = day.date === new Date().toISOString().split("T")[0];
+        
         return (
-          <div
-            key={day.date}
-            className="flex-1 flex flex-col items-center gap-1"
-          >
-            <span className="text-[10px] text-muted-foreground font-medium">
+          <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+            <span className="text-[10px] text-white/55 font-bold">
               {day.completed}
             </span>
-            <div className="w-full h-24 bg-secondary rounded-lg relative overflow-hidden">
+            <div className="w-full h-24 bg-white/10 rounded-lg relative overflow-hidden shadow-inner border border-white/5">
               <div
                 className={`absolute bottom-0 left-0 right-0 rounded-lg transition-all duration-700 ease-out ${
                   isToday
-                    ? "bg-gradient-to-t from-primary to-[#8B5CF6]"
-                    : "bg-gradient-to-t from-primary/60 to-[#8B5CF6]/40"
+                    ? "bg-gradient-to-t from-[var(--purple)] to-[var(--purple2)] shadow-[0_0_12px_rgba(157,85,255,0.6)]"
+                    : "bg-gradient-to-t from-[var(--purple)]/50 to-[var(--purple2)]/50"
                 }`}
-                style={{ height: `${Math.max(pct, 4)}%` }}
+                style={{ height: `${Math.max(pct, 8)}%` }}
               />
             </div>
             <span
-              className={`text-[10px] font-medium ${
-                isToday ? "text-primary" : "text-muted-foreground"
+              className={`text-[10px] font-bold ${
+                isToday ? "text-[var(--yellow)] drop-shadow-[0_0_5px_rgba(255,229,54,0.6)]" : "text-white/55"
               }`}
             >
               {day.label}
@@ -153,10 +163,10 @@ const WeeklyChart = memo(function WeeklyChart({ data }: { data: WeekDay[] }) {
 
 const StreakCalendar = memo(function StreakCalendar({ data }: { data: CalendarDay[] }) {
   const intensityColors = [
-    "bg-secondary",
-    "bg-primary/30",
-    "bg-primary/60",
-    "bg-primary",
+    "bg-white/10 border border-white/5",
+    "bg-[var(--purple)]/30 border border-[var(--purple)]/20",
+    "bg-[var(--purple)]/60 border border-[var(--purple)]/40 shadow-[0_0_8px_rgba(157,85,255,0.4)]",
+    "bg-[var(--purple)] border border-[var(--purple2)] shadow-[0_0_12px_rgba(157,85,255,0.8)]",
   ];
 
   return (
@@ -165,7 +175,7 @@ const StreakCalendar = memo(function StreakCalendar({ data }: { data: CalendarDa
         <div
           key={day.date}
           title={`${day.date}: ${day.count} completados`}
-          className={`aspect-square rounded-[4px] ${
+          className={`aspect-square rounded-[6px] ${
             intensityColors[day.intensity]
           } transition-colors`}
         />
@@ -174,268 +184,326 @@ const StreakCalendar = memo(function StreakCalendar({ data }: { data: CalendarDa
   );
 });
 
-/* ── Demo Data (datos ficticios) ─────────────── */
+const HISTORY_STATUS_LABELS: Record<HabitHistoryStatus, string> = {
+  completed: "Completado",
+  approved: "Aprobado",
+  rejected: "Rechazado",
+  pending: "Pendiente",
+};
 
-function generateDemoData(): StatsData {
-  const today = new Date();
-  const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-  const weeklyCompleted = [3, 4, 2, 5, 4, 3, 1];
-
-  const weekly_history: WeekDay[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    weekly_history.push({
-      date: d.toISOString().split("T")[0],
-      label: dayNames[d.getDay()],
-      completed: weeklyCompleted[6 - i],
-      total: 5,
-    });
+function HistoryStatusIcon({ status }: { status: HabitHistoryStatus }) {
+  if (status === "rejected") {
+    return <XCircle className="size-4 text-red-300" />;
   }
-
-  const per_habit: HabitStat[] = [
-    { id: 1, name: "Ejercicio", icon: "Dumbbell", completed: 6, total: 7, rate: 86 },
-    { id: 2, name: "Leer 30 min", icon: "BookOpen", completed: 5, total: 7, rate: 71 },
-    { id: 3, name: "Meditar", icon: "Activity", completed: 4, total: 7, rate: 57 },
-    { id: 4, name: "Beber agua", icon: "Droplet", completed: 7, total: 7, rate: 100 },
-    { id: 5, name: "Estudiar", icon: "Library", completed: 3, total: 7, rate: 43 },
-  ];
-
-  const calendar: CalendarDay[] = [];
-  const intensityPattern = [0,1,2,3,3,2,1,0,1,3,3,2,0,0,1,2,3,3,2,1,0,1,2,3,3,2,1,1,2,3];
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const intensity = intensityPattern[29 - i];
-    calendar.push({
-      date: d.toISOString().split("T")[0],
-      count: intensity * 2,
-      intensity,
-    });
+  if (status === "pending") {
+    return <Hourglass className="size-4 text-yellow-200" />;
   }
-
-  return {
-    summary: {
-      streak: 12,
-      completion_rate: 73,
-      total_completed: 156,
-      total_habits: 5,
-    },
-    weekly_history,
-    per_habit,
-    calendar,
-    records: {
-      longest_streak: 21,
-      best_day: 5,
-      current_streak: 12,
-    },
-  };
+  return <CheckCircle2 className="size-4 text-emerald-300" />;
 }
 
-const DEMO_DATA = generateDemoData();
+function formatHistoryDate(value: string | null): string {
+  if (!value) {
+    return "Sin fecha";
+  }
+  const date = new Date(`${value}T00:00:00`);
+  return new Intl.DateTimeFormat("es", {
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+const RecentHistory = memo(function RecentHistory({ events }: { events: HabitHistoryEvent[] }) {
+  if (events.length === 0) {
+    return (
+      <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 text-center">
+        <p className="text-[14px] text-white/74">Aún no hay eventos de historial.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[16px]">
+      <div className="flex items-center gap-[8px]">
+        <Clock3 className="size-5 text-[var(--yellow)] drop-shadow-[0_0_8px_rgba(255,229,54,0.5)]" />
+        <h3 className="text-[18px] font-bold">Historial reciente</h3>
+      </div>
+      <div className="space-y-[10px]">
+        {events.map((event) => (
+          <div key={event.id} className="rounded-[18px] bg-white/10 border border-white/10 p-[14px] space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[15px] font-bold truncate">{event.habit_name ?? "Hábito"}</p>
+                <p className="text-[12px] text-white/55">
+                  {event.category_name ?? "Sin categoría"} · {formatHistoryDate(event.event_date)}
+                </p>
+              </div>
+              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-white/12 px-2.5 py-1 text-[11px] font-bold text-white/84">
+                <HistoryStatusIcon status={event.status} />
+                {HISTORY_STATUS_LABELS[event.status]}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              {event.validation_type ? (
+                <span className="rounded-full bg-[var(--purple)]/20 text-white px-2.5 py-1">
+                  {event.validation_type}
+                </span>
+              ) : null}
+              <span className="rounded-full bg-[var(--yellow)]/15 text-[var(--yellow)] px-2.5 py-1 font-bold">
+                {event.xp_awarded} XP
+              </span>
+            </div>
+            {event.reason ? (
+              <p className="text-[12px] text-white/65 line-clamp-2">{event.reason}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
 
 /* ── Main Page ────────────────────────────────── */
 
 export default function StatsPage() {
   const [stats, setStats] = useState<StatsData | null>(null);
+  const [historyEvents, setHistoryEvents] = useState<HabitHistoryEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingDemo, setUsingDemo] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [offlinePendingCount, setOfflinePendingCount] = useState(0);
 
-  const fetchStats = useCallback(async () => {
+  async function fetchStats() {
     try {
       const data = await fetchDetailedStats();
-
-      if (data.summary.total_habits > 0) {
-        setStats(data);
-        setUsingDemo(false);
-      } else {
-        setStats(DEMO_DATA);
-        setUsingDemo(true);
+      setStats(data);
+      setErrorMessage(null);
+      try {
+        const history = await fetchHabitHistory({ limit: 20 });
+        setHistoryEvents(history.items);
+      } catch {
+        setHistoryEvents([]);
       }
     } catch (error) {
-      if (shouldUseOfflineFallback(error)) {
-        setStats(DEMO_DATA);
-        setUsingDemo(true);
-      } else {
-        setStats(null);
-        setUsingDemo(false);
-      }
+      setStats(null);
+      setHistoryEvents([]);
+      setErrorMessage(
+        error instanceof Error && error.message.trim()
+          ? error.message
+          : "No se pudieron cargar tus estadísticas reales. Intenta de nuevo en unos momentos.",
+      );
+      const session = getSession();
+      const userId = Number(session?.user.id ?? 0);
+      setOfflinePendingCount(userId > 0 ? getPendingOpsCount(userId) : 0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }
 
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    void fetchStats();
+  }, []);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  const summary = stats?.summary ?? DEMO_DATA.summary;
-  const weekly = stats?.weekly_history ?? DEMO_DATA.weekly_history;
-  const perHabit = stats?.per_habit ?? DEMO_DATA.per_habit;
-  const calendar = stats?.calendar ?? DEMO_DATA.calendar;
-  const records = stats?.records ?? DEMO_DATA.records;
+  const viewState = getStatsViewState(stats, errorMessage);
+
+  if (viewState.kind === "empty" || viewState.kind === "error") {
+    return (
+      <div className="space-y-[24px]">
+        <div>
+          <h2 className="text-[30px] leading-[1.05] font-bold">Estadísticas</h2>
+          <p className="text-white/74 text-[15px]">Tu progreso en detalle</p>
+        </div>
+
+        <div className="p-[24px] rounded-[24px] bg-white/10 border border-white/20 text-center space-y-4">
+          <div className="space-y-2">
+            <h2 className="text-[18px] font-bold text-white">{viewState.title}</h2>
+            <p className="text-[14px] text-white/74">{viewState.message}</p>
+            {offlinePendingCount > 0 ? (
+              <p className="text-[13px] text-yellow-300 font-medium">
+                ⏳ {offlinePendingCount} cambio{offlinePendingCount === 1 ? "" : "s"} pendiente{offlinePendingCount === 1 ? "" : "s"} de sincronización
+              </p>
+            ) : null}
+          </div>
+
+          {viewState.kind === "empty" ? (
+            <Link
+              href="/habits/new"
+              className="inline-flex h-[48px] items-center justify-center rounded-[20px] bg-[var(--purple)] px-[20px] text-[15px] font-bold text-white transition-transform active:scale-95"
+            >
+              Agregar hábito del catálogo
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                void fetchStats();
+              }}
+              className="inline-flex h-[48px] items-center justify-center rounded-[20px] bg-[var(--purple)] px-[20px] text-[15px] font-bold text-white transition-transform active:scale-95"
+            >
+              Reintentar
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return null;
+  }
+
+  const summary = stats.summary;
+  const weekly = stats.weekly_history;
+  const perHabit = stats.per_habit;
+  const calendar = stats.calendar;
+  const records = stats.records;
 
   return (
-    <div className="py-6 space-y-6 max-w-lg mx-auto px-4 @container">
+    <div className="space-y-[24px]">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Estadísticas</h1>
-        <p className="text-sm text-muted-foreground">Tu progreso en detalle</p>
+        <h2 className="text-[30px] leading-[1.05] font-bold">Estadísticas</h2>
+        <p className="text-white/74 text-[15px]">Tu progreso en detalle</p>
       </div>
-
-      {/* Demo data indicator */}
-      {usingDemo ? (
-        <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs text-[#8B8BFF]">
-          📊 Mostrando datos ficticios de ejemplo. Crea hábitos y complétalos para ver tus estadísticas reales.
-        </div>
-      ) : null}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <ClayMotionBox className="p-3 text-center space-y-1 !rounded-2xl">
-          <Flame className="size-5 text-orange-400 mx-auto" />
-          <p className="text-xs text-muted-foreground">Racha</p>
-          <p className="text-lg font-bold text-foreground">
-            {summary.streak} <span className="text-xs font-normal text-muted-foreground">días</span>
-          </p>
-        </ClayMotionBox>
-        <ClayMotionBox className="p-3 text-center space-y-1 !rounded-2xl">
-          <TrendingUp className="size-5 text-primary mx-auto" />
-          <p className="text-xs text-muted-foreground">Tasa</p>
-          <p className="text-lg font-bold text-foreground">
-            {summary.completion_rate}<span className="text-xs font-normal text-muted-foreground">%</span>
-          </p>
-        </ClayMotionBox>
-        <ClayMotionBox className="p-3 text-center space-y-1 !rounded-2xl">
-          <Target className="size-5 text-green-400 mx-auto" />
-          <p className="text-xs text-muted-foreground">Total</p>
-          <p className="text-lg font-bold text-foreground">{summary.total_completed}</p>
-        </ClayMotionBox>
+      <div className="grid grid-cols-2 gap-[14px]">
+        <StatCard emoji="🔥" label="Racha" value={`${summary.streak} días`} />
+        <StatCard emoji="🎯" label="Tasa" value={`${summary.completion_rate}%`} />
       </div>
 
-      {/* Completion Ring + Weekly Chart side by side on larger screens */}
-      <div className="grid grid-cols-1 @md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-[14px]">
+        <StatCard emoji="🚀" label="Total Hábitos" value={summary.total_habits} />
+        <StatCard emoji="✨" label="Total Check-ins" value={summary.total_completed} />
+      </div>
+
+      {/* Completion Ring + Weekly Chart */}
+      <div className="space-y-[14px]">
         {/* Weekly Bar Chart */}
-        <ClayMotionBox className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="size-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold text-foreground">
-              Actividad semanal
-            </h2>
+        <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[16px]">
+          <div className="flex items-center gap-[8px]">
+            <BarChart3 className="size-5 text-[var(--yellow)] drop-shadow-[0_0_8px_rgba(255,229,54,0.5)]" />
+            <h3 className="text-[18px] font-bold">Actividad semanal</h3>
           </div>
           <WeeklyChart data={weekly} />
-        </ClayMotionBox>
+        </div>
 
         {/* Completion Ring */}
-        <ClayMotionBox className="p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground text-center">
-            Tasa de completado
-          </h2>
+        <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[16px]">
+          <h3 className="text-[18px] font-bold text-center">Tasa de completado</h3>
           <CompletionRing rate={summary.completion_rate} />
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-[13px] text-white/74 text-center font-medium">
             Últimos 7 días
           </p>
-        </ClayMotionBox>
+        </div>
       </div>
 
       {/* Per-habit Breakdown */}
       {perHabit.length > 0 ? (
-        <ClayMotionBox className="p-4 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground">
-            Desglose por hábito
-          </h2>
-          <div className="space-y-3">
+        <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[20px]">
+          <h3 className="text-[18px] font-bold">Desglose por hábito</h3>
+          <div className="space-y-[16px]">
             {perHabit.map((h) => {
               const IconComp = icons[h.icon as keyof typeof icons] || icons.Circle;
               return (
-              <div key={h.id} className="space-y-1.5">
+              <div key={h.id} className="space-y-[8px]">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base text-primary"><IconComp className="size-5" /></span>
-                    <span className="text-sm text-foreground font-medium">
+                  <div className="flex items-center gap-[10px]">
+                    <span className="w-[36px] h-[36px] rounded-[12px] bg-white/18 grid place-items-center text-white">
+                      <IconComp className="size-5" />
+                    </span>
+                    <span className="text-[15px] font-bold">
                       {h.name}
                     </span>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {h.completed}/{h.total} días
+                  <span className="text-[13px] text-white/74 font-bold">
+                    {h.completed}/{h.total} d
                   </span>
                 </div>
-                <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                <div className="h-[10px] rounded-full bg-white/10 overflow-hidden shadow-inner border border-white/5">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-primary to-[#A855F7] transition-all duration-700 ease-out"
+                    className="h-full rounded-full bg-gradient-to-r from-[var(--purple)] to-[var(--purple2)] transition-all duration-700 ease-out shadow-[0_0_12px_rgba(157,85,255,0.6)]"
                     style={{ width: `${h.rate}%` }}
                   />
                 </div>
               </div>
             )})}
           </div>
-        </ClayMotionBox>
+        </div>
       ) : null}
 
       {/* 30-day Calendar */}
-      <ClayMotionBox className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="size-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">
-            Últimos 30 días
-          </h2>
+      <div className="p-[20px] rounded-[24px] bg-white/13 border border-white/20 space-y-[16px]">
+        <div className="flex items-center gap-[8px]">
+          <Calendar className="size-5 text-[var(--yellow)] drop-shadow-[0_0_8px_rgba(255,229,54,0.5)]" />
+          <h3 className="text-[18px] font-bold">Últimos 30 días</h3>
         </div>
         <StreakCalendar data={calendar} />
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <span className="text-[9px] text-muted-foreground">Menos</span>
-          <div className="flex gap-1">
-            <div className="size-3 rounded-[2px] bg-secondary" />
-            <div className="size-3 rounded-[2px] bg-primary/30" />
-            <div className="size-3 rounded-[2px] bg-primary/60" />
-            <div className="size-3 rounded-[2px] bg-primary" />
+        <div className="flex items-center justify-end gap-[6px] pt-2">
+          <span className="text-[11px] text-white/55 font-bold">Menos</span>
+          <div className="flex gap-[4px]">
+            <div className="size-[14px] rounded-[4px] bg-white/10 border border-white/5" />
+            <div className="size-[14px] rounded-[4px] bg-[var(--purple)]/30 border border-[var(--purple)]/20" />
+            <div className="size-[14px] rounded-[4px] bg-[var(--purple)]/60 border border-[var(--purple)]/40" />
+            <div className="size-[14px] rounded-[4px] bg-[var(--purple)] border border-[var(--purple2)] shadow-[0_0_8px_rgba(157,85,255,0.8)]" />
           </div>
-          <span className="text-[9px] text-muted-foreground">Más</span>
+          <span className="text-[11px] text-white/55 font-bold">Más</span>
         </div>
-      </ClayMotionBox>
+      </div>
+
+      <RecentHistory events={historyEvents} />
 
       {/* Records */}
-      <ClayMotionBox className="p-0 overflow-hidden divide-y divide-border">
-        <div className="flex items-center gap-2 px-4 py-4">
-          <Trophy className="size-4 text-yellow-400" />
-          <h2 className="text-sm font-semibold text-foreground">Récords personales</h2>
+      <div className="p-0 overflow-hidden rounded-[24px] bg-white/13 border border-white/20 divide-y divide-white/10">
+        <div className="flex items-center gap-[8px] p-[20px] bg-white/5">
+          <Trophy className="size-5 text-[var(--yellow)] drop-shadow-[0_0_8px_rgba(255,229,54,0.5)]" />
+          <h3 className="text-[18px] font-bold">Récords personales</h3>
         </div>
-        <div className="flex items-center gap-3 px-4 py-4">
-          <Flame className="size-5 text-orange-400" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Racha más larga</p>
-            <p className="text-xs text-muted-foreground">Tu mejor marca</p>
+        
+        <div className="flex items-center gap-[14px] p-[20px]">
+          <div className="w-[46px] h-[46px] rounded-[14px] bg-orange-500/20 text-orange-400 grid place-items-center">
+            <Flame className="size-6 drop-shadow-[0_0_8px_rgba(255,150,0,0.5)]" />
           </div>
-          <span className="text-lg font-bold text-foreground">
-            {records.longest_streak} <span className="text-xs font-normal text-muted-foreground">días</span>
+          <div className="flex-1">
+            <p className="text-[16px] font-bold leading-tight">Racha más larga</p>
+            <p className="text-[13px] text-white/74">Tu mejor marca</p>
+          </div>
+          <span className="text-[24px] font-black tracking-tight">
+            {records.longest_streak} <span className="text-[14px] font-normal text-white/74">días</span>
           </span>
         </div>
-        <div className="flex items-center gap-3 px-4 py-4">
-          <Zap className="size-5 text-primary" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Mejor día</p>
-            <p className="text-xs text-muted-foreground">Más hábitos en un día</p>
+
+        <div className="flex items-center gap-[14px] p-[20px]">
+          <div className="w-[46px] h-[46px] rounded-[14px] bg-[var(--purple)]/20 text-[var(--purple2)] grid place-items-center">
+            <Zap className="size-6 drop-shadow-[0_0_8px_rgba(157,85,255,0.5)]" />
           </div>
-          <span className="text-lg font-bold text-foreground">{records.best_day}</span>
+          <div className="flex-1">
+            <p className="text-[16px] font-bold leading-tight">Mejor día</p>
+            <p className="text-[13px] text-white/74">Más hábitos en un día</p>
+          </div>
+          <span className="text-[24px] font-black tracking-tight">{records.best_day}</span>
         </div>
-        <div className="flex items-center gap-3 px-4 py-4">
-          <TrendingUp className="size-5 text-green-400" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Racha actual</p>
-            <p className="text-xs text-muted-foreground">Días consecutivos</p>
+
+        <div className="flex items-center gap-[14px] p-[20px]">
+          <div className="w-[46px] h-[46px] rounded-[14px] bg-[#36d98f]/20 text-[#36d98f] grid place-items-center">
+            <TrendingUp className="size-6 drop-shadow-[0_0_8px_rgba(54,217,143,0.5)]" />
           </div>
-          <span className="text-lg font-bold text-foreground">
-            {records.current_streak} <span className="text-xs font-normal text-muted-foreground">días</span>
+          <div className="flex-1">
+            <p className="text-[16px] font-bold leading-tight">Racha actual</p>
+            <p className="text-[13px] text-white/74">Días consecutivos</p>
+          </div>
+          <span className="text-[24px] font-black tracking-tight">
+            {records.current_streak} <span className="text-[14px] font-normal text-white/74">días</span>
           </span>
         </div>
-      </ClayMotionBox>
+      </div>
     </div>
   );
 }

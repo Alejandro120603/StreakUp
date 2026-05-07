@@ -7,6 +7,7 @@ export async function fetchStatsSummary(): Promise<StatsSummary> {
   try {
     return await apiGet<StatsSummary>(API_ENDPOINTS.stats.summary);
   } catch (error) {
+    // Connected mode must not invent stats that disagree with the backend.
     if (shouldUseOfflineFallback(error)) {
       return getLocalStats();
     }

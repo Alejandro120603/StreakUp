@@ -17,24 +17,35 @@ class User(db.Model):
     """User entity with secure password storage."""
 
     __tablename__ = "users"
+    __table_args__ = (
+        db.CheckConstraint("total_xp >= 0", name="ck_users_total_xp_nonnegative"),
+        db.CheckConstraint("level >= 1", name="ck_users_level_positive"),
+        db.CheckConstraint("xp_in_level >= 0", name="ck_users_xp_in_level_nonnegative"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False, index=True)
-    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default="user")
+    role = db.Column(
+        db.String(20), nullable=False, default="user", server_default=db.text("'user'")
+    )
     created_at = db.Column(
-        db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=db.text("CURRENT_TIMESTAMP"),
     )
     updated_at = db.Column(
         db.DateTime,
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+        server_default=db.text("CURRENT_TIMESTAMP"),
     )
-    total_xp = db.Column(db.Integer, nullable=False, default=0)
-    level = db.Column(db.Integer, nullable=False, default=1)
-    xp_in_level = db.Column(db.Integer, nullable=False, default=0)
+    total_xp = db.Column(db.Integer, nullable=False, default=0, server_default=db.text("0"))
+    level = db.Column(db.Integer, nullable=False, default=1, server_default=db.text("1"))
+    xp_in_level = db.Column(db.Integer, nullable=False, default=0, server_default=db.text("0"))
 
     @property
     def xp_progress_pct(self) -> float:

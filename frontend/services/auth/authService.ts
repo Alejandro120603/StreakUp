@@ -1,9 +1,14 @@
+import { apiPost, API_ENDPOINTS, isAppErrorCode } from "@/services/api/client";
 import {
-  apiPost,
-  API_ENDPOINTS,
-  shouldUseOfflineFallback,
-} from "@/services/api/client";
-import type { AuthSession } from "@/types/auth";
+  clearStoredSession,
+  getStoredSession,
+  getStoredAccessToken,
+  hasStoredSession,
+  persistSession,
+  updateStoredUser,
+} from "@/services/auth/session";
+import { DB_KEYS, dbWrite } from "@/services/storage/offlineDb";
+import type { AuthSession, AuthUser } from "@/types/auth";
 
 const OFFLINE_LOGIN_ERROR = "No hay conexión. Usa una sesión guardada previamente.";
 const OFFLINE_REGISTER_ERROR = "No hay conexión. El registro requiere internet.";
@@ -42,8 +47,6 @@ export interface RegisterResponse {
   };
 }
 
-
-
 /**
  * Authenticate a user and receive JWT tokens.
  */
@@ -53,7 +56,7 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
       headers: { Authorization: "" },
     });
   } catch (error) {
-    if (shouldUseOfflineFallback(error)) {
+    if (isAppErrorCode(error, "network_unavailable") || isAppErrorCode(error, "backend_unavailable")) {
       throw new Error(OFFLINE_LOGIN_ERROR);
     }
     throw error;
@@ -69,7 +72,7 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
       headers: { Authorization: "" },
     });
   } catch (error) {
-    if (shouldUseOfflineFallback(error)) {
+    if (isAppErrorCode(error, "network_unavailable") || isAppErrorCode(error, "backend_unavailable")) {
       throw new Error(OFFLINE_REGISTER_ERROR);
     }
     throw error;
@@ -77,60 +80,86 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
 }
 
 /**
- * Save auth session to localStorage.
+ * Save auth session to browser storage and keep request-time auth in sync.
  */
 export function saveSession(data: LoginResponse): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem("access_token", data.access_token);
-  if (data.refresh_token) {
-    window.localStorage.setItem("refresh_token", data.refresh_token);
-  } else {
-    window.localStorage.removeItem("refresh_token");
-  }
-  window.localStorage.setItem("user", JSON.stringify(data.user));
+  persistSession({
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    user: data.user,
+  });
 }
 
 /**
- * Get current session from localStorage.
+ * Get current session from browser storage.
  */
 export function getSession(): AuthSession | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const token = window.localStorage.getItem("access_token");
-  const userJson = window.localStorage.getItem("user");
-
-  if (!token || !userJson) return null;
-
-  try {
-    const user = JSON.parse(userJson);
-    return {
-      accessToken: token,
-      refreshToken: window.localStorage.getItem("refresh_token") ?? undefined,
-      user,
-    };
-  } catch {
-    return null;
-  }
+  return getStoredSession();
 }
 
 /**
- * Clear auth session from localStorage.
+ * Clear auth session from browser storage.
  */
 export function clearSession(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
+  clearStoredSession();
+}
 
-  window.localStorage.removeItem("access_token");
-  window.localStorage.removeItem("refresh_token");
-  window.localStorage.removeItem("user");
+export function updateSessionUser(user: AuthUser): void {
+  updateStoredUser(user);
 }
 
 export function hasSavedSession(): boolean {
-  return getSession() !== null;
+  return hasStoredSession();
+}
+
+/**
+ * Full logout: revokes the server-side token, clears credentials, and wipes
+ * all local offline caches and pending sync operations.
+ */
+export async function logoutAndClear(): Promise<void> {
+  const token = getStoredAccessToken();
+  if (token) {
+    try {
+      await apiPost(API_ENDPOINTS.auth.logout);
+    } catch {
+      // Best-effort server revocation — always clear local state regardless.
+    }
+  }
+
+  clearStoredSession();
+
+  // Wipe offline caches so the next user starts with a clean slate.
+  for (const key of Object.values(DB_KEYS)) {
+    try {
+      dbWrite(key, []);
+    } catch {
+      // Quota errors are ignored during logout cleanup.
+    }
+  }
+}
+
+/**
+ * Exchange a stored refresh token for a fresh access token.
+ * Clears the session if the refresh token is missing or rejected.
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  const { getCredentialStore } = await import("@/services/auth/credentialProvider");
+  const refreshToken = getCredentialStore().get("refresh_token");
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  try {
+    const result = await apiPost<{ access_token: string }>(
+      API_ENDPOINTS.auth.refresh,
+      JSON.stringify({ refresh_token: refreshToken }),
+      { headers: { Authorization: "" } },
+    );
+    getCredentialStore().set("access_token", result.access_token);
+    return result.access_token;
+  } catch {
+    clearStoredSession();
+    return null;
+  }
 }

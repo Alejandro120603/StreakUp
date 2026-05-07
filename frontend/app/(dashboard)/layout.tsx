@@ -1,72 +1,58 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Home, ListChecks, BarChart3, UserCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { hasSavedSession } from "@/services/auth/authService";
-
-const NAV_ITEMS = [
-  { href: "/", icon: Home, label: "Inicio" },
-  { href: "/habits", icon: ListChecks, label: "Hábitos" },
-  { href: "/stats", icon: BarChart3, label: "Stats" },
-  { href: "/profile", icon: UserCircle, label: "Perfil" },
-];
+import { NetworkStatusBanner } from "@/components/feedback/NetworkStatusBanner";
+import { AchievementToast } from "@/components/feedback/AchievementToast";
+import { BottomNav } from "@/components/layout/BottomNav";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
-  const [authed, setAuthed] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
+    // Middleware is the primary guard on the web. This client check keeps
+    // offline/mobile shells honest when request-time protection is unavailable.
     if (!hasSavedSession()) {
       router.replace("/login");
     } else {
-      setAuthed(true);
+      setSessionReady(true);
     }
   }, [router]);
 
-  if (!authed) {
+  if (!sessionReady) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="size-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Main content */}
-      <main className="flex-1 pb-20">
+    <>
+      {/* Skip to main content — keyboard and AT users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-[#1c0f3d]"
+      >
+        Saltar al contenido principal
+      </a>
+
+      {/* Red online/offline indicator — visible on all pages */}
+      <NetworkStatusBanner />
+
+      {/* Achievement unlock toast — shown whenever any page triggers it */}
+      <AchievementToast />
+
+      {/* Main content - handles the scrolling area like the .screen class in HTML */}
+      <main id="main-content" tabIndex={-1} aria-label="Contenido principal" className="absolute inset-0 overflow-y-auto overflow-x-hidden pt-7 px-[22px] pb-[100px] z-10 animate-[enter_0.28s_ease_both]">
         {children}
       </main>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
-        <div className="max-w-lg mx-auto flex justify-around items-center h-16">
-          {NAV_ITEMS.map((item) => {
-            const isActive = item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-1 px-3 py-2 transition-colors ${
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <item.icon className="size-5" />
-                <span className="text-[10px] font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-    </div>
+      <BottomNav />
+    </>
   );
 }
-
