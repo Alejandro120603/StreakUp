@@ -10,42 +10,18 @@
       "page": "/",
       "matchers": [
         {
-          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/(\\/?index|\\/?index\\.json))?[\\/#\\?]?$",
-          "originalSource": "/"
-        },
-        {
-          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/habits(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
-          "originalSource": "/habits/:path*"
-        },
-        {
-          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/stats(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
-          "originalSource": "/stats/:path*"
-        },
-        {
-          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/profile(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
-          "originalSource": "/profile/:path*"
-        },
-        {
-          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/pomodoro(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
-          "originalSource": "/pomodoro/:path*"
-        },
-        {
-          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/login(\\.json)?[\\/#\\?]?$",
-          "originalSource": "/login"
-        },
-        {
-          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/register(\\.json)?[\\/#\\?]?$",
-          "originalSource": "/register"
+          "regexp": "^/.*$",
+          "originalSource": "/:path*"
         }
       ],
       "wasm": [],
       "assets": [],
       "env": {
-        "__NEXT_BUILD_ID": "7MbWKkLKWJbZb3QmFXDbN",
+        "__NEXT_BUILD_ID": "development",
         "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "JmQHN1AsMzBjj9ZhYZjUcyloXtX0vTP/bZWyx5m7Ujw=",
-        "__NEXT_PREVIEW_MODE_ID": "757eb19eac83a3b3e04465ce948fb4b0",
-        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "161fe126394bcfa196c81eacadfb0b465f959525d409b91a51aea40043ed482b",
-        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "ffed8ac45df41d20edeaffa77ff8b7527adf829402ebf240892990e6fadcecd5"
+        "__NEXT_PREVIEW_MODE_ID": "bfe882f3bb2012f1f7367bff03459b8a",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "3447e6816f3c1e9b2e9265c26826c94949425b825f0185052b0116f3e8a282da",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "896bbf205ef6434f1356fb290ae14d7f09ca1b6e83879798f6de964b4cfc7100"
       }
     }
   },

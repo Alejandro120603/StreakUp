@@ -7,6 +7,8 @@ import { hasSavedSession } from "@/services/auth/authService";
 import { NetworkStatusBanner } from "@/components/feedback/NetworkStatusBanner";
 import { AchievementToast } from "@/components/feedback/AchievementToast";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { fetchHabits } from "@/services/habits/habitService";
+import { loadReminderPreferences, rescheduleRemindersIfEnabled } from "@/services/reminders/reminderService";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -21,6 +23,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       setSessionReady(true);
     }
   }, [router]);
+
+  useEffect(() => {
+    if (!sessionReady) return;
+    const prefs = loadReminderPreferences();
+    if (!prefs.enabled) return;
+    fetchHabits()
+      .then((habits) => rescheduleRemindersIfEnabled(habits))
+      .catch(() => undefined);
+  }, [sessionReady]);
 
   if (!sessionReady) {
     return (

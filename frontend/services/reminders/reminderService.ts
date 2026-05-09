@@ -1,6 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications, Weekday } from "@capacitor/local-notifications";
 import type {
+  Channel,
   LocalNotificationSchema,
   PermissionStatus,
 } from "@capacitor/local-notifications";
@@ -33,6 +34,7 @@ interface LocalNotificationsAdapter {
   getPending: typeof LocalNotifications.getPending;
   cancel: typeof LocalNotifications.cancel;
   schedule: typeof LocalNotifications.schedule;
+  createChannel?: (channel: Channel) => Promise<void>;
 }
 
 interface ReminderServiceEnvironment {
@@ -254,6 +256,7 @@ function buildReminderNotifications(
 
   return getEffectiveReminderDays(preferences, habits).map((day) => ({
     id: getReminderNotificationId(day),
+    channelId: "streakup-reminders",
     title: "StreakUP",
     body: "Revisa tus hábitos de hoy y mantén tu racha.",
     schedule: {
@@ -271,6 +274,20 @@ function buildReminderNotifications(
       weekday: day,
     },
   }));
+}
+
+export async function initReminderChannel(env: ReminderServiceEnvironment = {}): Promise<void> {
+  const resolvedEnv = getEnvironment(env);
+  if (!resolvedEnv.isNativePlatform()) return;
+
+  await resolvedEnv.notifications.createChannel?.({
+    id: "streakup-reminders",
+    name: "Recordatorios de hábitos",
+    importance: 4,
+    sound: "default",
+    vibration: true,
+    visibility: 1,
+  });
 }
 
 export async function applyReminderSchedule(
@@ -323,4 +340,14 @@ export async function applyReminderSchedule(
     scheduledCount: notifications.length,
     permission,
   };
+}
+
+export async function rescheduleRemindersIfEnabled(
+  habits: Pick<Habit, "active" | "frequency" | "schedule_days">[],
+  env: ReminderServiceEnvironment = {},
+): Promise<void> {
+  const prefs = loadReminderPreferences(env);
+  if (!prefs.enabled) return;
+  await initReminderChannel(env);
+  await applyReminderSchedule(prefs, habits, env);
 }

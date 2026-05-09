@@ -113,6 +113,18 @@ def _first_completion_date(user_ids: list[int]) -> date_type | None:
     )
 
 
+def _individual_streak(user_id: int, today: date_type) -> int:
+    first_date = _first_completion_date([user_id])
+    count = 0
+    cursor = today
+    while first_date is not None and cursor >= first_date:
+        if not _completed_user_ids_for_date([user_id], cursor):
+            break
+        count += 1
+        cursor -= timedelta(days=1)
+    return count
+
+
 def _shared_streak(memberships: list[SharedStreakMembership], today: date_type) -> dict:
     user_ids = [membership.user_id for membership in memberships]
     member_count = len(user_ids)
@@ -153,6 +165,7 @@ def _member_payload(membership: SharedStreakMembership, today: date_type) -> dic
         "share_progress": bool(membership.share_progress),
         "joined_at": membership.joined_at.isoformat() if membership.joined_at else None,
         "today_completed": completed_today,
+        "individual_streak": _individual_streak(membership.user_id, today),
     }
 
 
@@ -229,7 +242,7 @@ def list_groups(user_id: int) -> list[dict]:
         .all()
     )
     return [
-        _group_payload(membership.group, include_members=False)
+        _group_payload(membership.group, include_members=True)
         for membership in memberships
         if membership.group.active
     ]

@@ -17,6 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Mascot } from "@/components/Mascot";
 import { StatCard } from "@/components/ui/StatCard";
 import { HabitRow } from "@/components/ui/HabitRow";
+import { QuoteCard } from "@/components/ui/QuoteCard";
+import { fetchRandomQuote } from "@/services/quotes/quotesService";
+import type { Quote } from "@/types/quotes";
 
 const EMPTY_STATS: StatsSummary = {
   streak: 0,
@@ -43,6 +46,8 @@ export default function DashboardHomePage() {
   const [error, setError] = useState("");
   const [updatingHabitId, setUpdatingHabitId] = useState<number | null>(null);
   const [pendingHabitIds, setPendingHabitIds] = useState<Set<number>>(new Set());
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(true);
 
   function refreshPendingIds(habits?: TodayHabit[]) {
     const session = getSession();
@@ -79,6 +84,13 @@ export default function DashboardHomePage() {
   useEffect(() => {
     void fetchData(true);
   }, [fetchData]);
+
+  useEffect(() => {
+    fetchRandomQuote().then((result) => {
+      setQuote(result);
+      setQuoteLoading(false);
+    });
+  }, []);
 
   async function handleToggleHabit(habitId: number) {
     setUpdatingHabitId(habitId);
@@ -164,6 +176,9 @@ export default function DashboardHomePage() {
           Start Your Streak!
         </Button>
       </div>
+
+      {/* Motivational Quote */}
+      <QuoteCard quote={quote} loading={quoteLoading} />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-[14px]">

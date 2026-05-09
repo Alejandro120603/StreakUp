@@ -47,6 +47,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     from app.routes.user_routes import user_bp
     from app.routes.social_routes import social_bp
     from app.routes.sync_routes import sync_bp
+    from app.routes.quotes_routes import quotes_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(habits_bp, url_prefix="/api")
@@ -58,6 +59,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     app.register_blueprint(user_bp, url_prefix="/api/users")
     app.register_blueprint(social_bp, url_prefix="/api/social")
     app.register_blueprint(sync_bp, url_prefix="/api/sync")
+    app.register_blueprint(quotes_bp, url_prefix="/api/quotes")
     app.register_blueprint(ops_bp)
 
     with app.app_context():

@@ -202,15 +202,40 @@ export default function SocialPage() {
               </div>
 
               {group.members?.length ? (
-                <div className="space-y-[8px]">
-                  {group.members.map((member) => (
-                    <div key={member.user_id} className="flex items-center justify-between rounded-[14px] bg-white/8 px-[12px] py-[10px]">
-                      <span className="text-[14px] font-bold">{member.username}</span>
-                      <span className={`text-[12px] font-bold ${member.today_completed ? "text-[#36d98f]" : "text-white/55"}`}>
-                        {member.today_completed ? "Completó hoy" : "Pendiente hoy"}
-                      </span>
-                    </div>
-                  ))}
+                <div className="space-y-[6px]">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/55">Clasificación</p>
+                  {[...group.members]
+                    .sort((a, b) => {
+                      if (b.today_completed !== a.today_completed) return b.today_completed ? 1 : -1;
+                      return b.individual_streak - a.individual_streak;
+                    })
+                    .map((member, index) => {
+                      const isLeader = index === 0;
+                      const rankColors = ["bg-[#FFD700]/15 border-[#FFD700]/30", "bg-white/10 border-white/15", "bg-[#CD7F32]/15 border-[#CD7F32]/25"];
+                      const rankColor = rankColors[index] ?? "bg-white/6 border-white/10";
+                      return (
+                        <div
+                          key={member.user_id}
+                          className={`flex items-center gap-[10px] rounded-[14px] border px-[12px] py-[10px] ${rankColor}`}
+                        >
+                          <span className="text-[12px] font-black text-white/50 w-[18px] shrink-0 text-center">
+                            #{index + 1}
+                          </span>
+                          <span className="flex-1 text-[14px] font-bold truncate">
+                            {isLeader ? "👑 " : ""}{member.username}
+                          </span>
+                          <div className="flex items-center gap-[8px] shrink-0">
+                            <span className="flex items-center gap-[3px] text-[12px] font-black text-orange-300">
+                              <Flame className="size-3" />
+                              {member.individual_streak}
+                            </span>
+                            <span className={`text-[11px] font-bold ${member.today_completed ? "text-[#36d98f]" : "text-white/40"}`}>
+                              {member.today_completed ? "✓" : "⏳"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               ) : null}
 

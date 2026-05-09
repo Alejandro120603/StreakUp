@@ -41,6 +41,7 @@ import {
   applyReminderSchedule,
   areNativeRemindersAvailable,
   getReminderPermissionStatus,
+  initReminderChannel,
   loadReminderPreferences,
   requestReminderPermission,
 } from "@/services/reminders/reminderService";
@@ -155,6 +156,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setMounted(true);
+    void initReminderChannel();
     setReminderPreferences(loadReminderPreferences());
     getReminderPermissionStatus()
       .then(setReminderPermission)

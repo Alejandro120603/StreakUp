@@ -127,8 +127,4 @@ ios/DerivedData/
 # .gitignore
 .antigravity/skills/
 
-#. documentacion
-documentation.md
-technical-writer.md
-
 requerimientos/

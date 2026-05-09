@@ -55,4 +55,7 @@ export const API_ENDPOINTS = {
     detail: (id: number) => `/api/social/groups/${id}`,
     membership: (id: number) => `/api/social/groups/${id}/membership`,
   },
+  quotes: {
+    random: "/api/quotes/random",
+  },
 } as const;

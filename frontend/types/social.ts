@@ -12,6 +12,7 @@ export interface SharedStreakMember {
   share_progress: boolean;
   joined_at: string | null;
   today_completed: boolean;
+  individual_streak: number;
 }
 
 export interface SharedStreakGroup {
